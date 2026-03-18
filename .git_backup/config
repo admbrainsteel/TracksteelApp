@@ -1,0 +1,12 @@
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = false
+	logallrefupdates = true
+	symlinks = false
+[remote "origin"]
+	url = https://admtracksteel:7383a8fc883c44a7f0e9f06cc26233d47f903565@git.reifonas.cloud/admtracksteel/tracksteelapp.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[user]
+	email = m.reifonas@gmail.com
+	name = Marcos Reifonas

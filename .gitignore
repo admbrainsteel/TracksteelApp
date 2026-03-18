@@ -1,0 +1,48 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor e IDEs
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Ferramentas Low-Code (Lovable/Trae)
+.trae/
+
+# Deploy platforms não utilizadas
+.vercel/
+.netlify/
+
+# Scripts locais de desenvolvimento
+scripts/auto-sync.ps1
+scripts/auto-synchome.ps1
+
+# Variáveis de ambiente sensíveis
+.env
+.env.local
+.env.production.local
+.env.development.local
+
+# Arquivos de build Docker locais
+.dockerignore.local
+
+# Arquivos temporários
+*.tmp
+*.temp

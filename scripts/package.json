@@ -1,0 +1,21 @@
+{
+  "name": "database-scripts",
+  "version": "1.0.0",
+  "description": "Scripts administrativos para operações no banco de dados",
+  "main": "index.js",
+  "scripts": {
+    "update-b101-fase9": "node update_apontamentos_b101_fase9.js",
+    "install": "npm install"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0"
+  },
+  "keywords": [
+    "supabase",
+    "database",
+    "scripts",
+    "admin"
+  ],
+  "author": "Sistema de Produção",
+  "license": "ISC"
+}

@@ -1,0 +1,30 @@
+# Dependências locais (serão reinstaladas no container)
+node_modules
+
+# Build local
+dist
+
+# Controle de versão
+.git
+.gitignore
+
+# IDEs e ferramentas
+.vscode
+.idea
+.trae
+.vercel
+
+# Variáveis de ambiente locais (injetadas pelo Coolify)
+.env
+.env.local
+.env.*.local
+
+# Documentação e scripts desnecessários no container
+README.md
+scripts/
+*.md
+
+# Arquivos temporários
+*.log
+*.tmp
+*.temp
