@@ -12,7 +12,7 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
   }
-  public: {
+  TS_ERP: {
     Tables: {
       api_keys: {
         Row: {
@@ -287,42 +287,42 @@ export type Database = {
       atribuicoes: {
         Row: {
           attribution: string
-          client: Database["public"]["Enums"]["client_type"]
+          client: Database["TS_ERP"]["Enums"]["client_type"]
           created_at: string
           created_by: string
-          duration: Database["public"]["Enums"]["duration_type"]
-          frequency: Database["public"]["Enums"]["frequency_type"]
+          duration: Database["TS_ERP"]["Enums"]["duration_type"]
+          frequency: Database["TS_ERP"]["Enums"]["frequency_type"]
           id: string
-          importance: Database["public"]["Enums"]["importance_type"]
-          method: Database["public"]["Enums"]["method_type"]
+          importance: Database["TS_ERP"]["Enums"]["importance_type"]
+          method: Database["TS_ERP"]["Enums"]["method_type"]
           updated_at: string
           user_abbrev: string
           user_id: string
         }
         Insert: {
           attribution: string
-          client: Database["public"]["Enums"]["client_type"]
+          client: Database["TS_ERP"]["Enums"]["client_type"]
           created_at?: string
           created_by: string
-          duration: Database["public"]["Enums"]["duration_type"]
-          frequency: Database["public"]["Enums"]["frequency_type"]
+          duration: Database["TS_ERP"]["Enums"]["duration_type"]
+          frequency: Database["TS_ERP"]["Enums"]["frequency_type"]
           id?: string
-          importance: Database["public"]["Enums"]["importance_type"]
-          method: Database["public"]["Enums"]["method_type"]
+          importance: Database["TS_ERP"]["Enums"]["importance_type"]
+          method: Database["TS_ERP"]["Enums"]["method_type"]
           updated_at?: string
           user_abbrev?: string
           user_id: string
         }
         Update: {
           attribution?: string
-          client?: Database["public"]["Enums"]["client_type"]
+          client?: Database["TS_ERP"]["Enums"]["client_type"]
           created_at?: string
           created_by?: string
-          duration?: Database["public"]["Enums"]["duration_type"]
-          frequency?: Database["public"]["Enums"]["frequency_type"]
+          duration?: Database["TS_ERP"]["Enums"]["duration_type"]
+          frequency?: Database["TS_ERP"]["Enums"]["frequency_type"]
           id?: string
-          importance?: Database["public"]["Enums"]["importance_type"]
-          method?: Database["public"]["Enums"]["method_type"]
+          importance?: Database["TS_ERP"]["Enums"]["importance_type"]
+          method?: Database["TS_ERP"]["Enums"]["method_type"]
           updated_at?: string
           user_abbrev?: string
           user_id?: string
@@ -2448,7 +2448,7 @@ export type Database = {
           privilege_id: string | null
           profile_image_url: string | null
           requested_at: string | null
-          status: Database["public"]["Enums"]["user_status"] | null
+          status: Database["TS_ERP"]["Enums"]["user_status"] | null
           updated_at: string
         }
         Insert: {
@@ -2461,7 +2461,7 @@ export type Database = {
           privilege_id?: string | null
           profile_image_url?: string | null
           requested_at?: string | null
-          status?: Database["public"]["Enums"]["user_status"] | null
+          status?: Database["TS_ERP"]["Enums"]["user_status"] | null
           updated_at?: string
         }
         Update: {
@@ -2474,7 +2474,7 @@ export type Database = {
           privilege_id?: string | null
           profile_image_url?: string | null
           requested_at?: string | null
-          status?: Database["public"]["Enums"]["user_status"] | null
+          status?: Database["TS_ERP"]["Enums"]["user_status"] | null
           updated_at?: string
         }
         Relationships: [
@@ -3046,9 +3046,9 @@ export type Database = {
           id: string
           is_completed: boolean | null
           of_number: string
-          priority: Database["public"]["Enums"]["task_priority"] | null
+          priority: Database["TS_ERP"]["Enums"]["task_priority"] | null
           revision: number | null
-          status: Database["public"]["Enums"]["task_status"] | null
+          status: Database["TS_ERP"]["Enums"]["task_status"] | null
           task_ref: string
           title: string
           updated_at: string | null
@@ -3067,9 +3067,9 @@ export type Database = {
           id?: string
           is_completed?: boolean | null
           of_number: string
-          priority?: Database["public"]["Enums"]["task_priority"] | null
+          priority?: Database["TS_ERP"]["Enums"]["task_priority"] | null
           revision?: number | null
-          status?: Database["public"]["Enums"]["task_status"] | null
+          status?: Database["TS_ERP"]["Enums"]["task_status"] | null
           task_ref: string
           title: string
           updated_at?: string | null
@@ -3088,9 +3088,9 @@ export type Database = {
           id?: string
           is_completed?: boolean | null
           of_number?: string
-          priority?: Database["public"]["Enums"]["task_priority"] | null
+          priority?: Database["TS_ERP"]["Enums"]["task_priority"] | null
           revision?: number | null
-          status?: Database["public"]["Enums"]["task_status"] | null
+          status?: Database["TS_ERP"]["Enums"]["task_status"] | null
           task_ref?: string
           title?: string
           updated_at?: string | null
@@ -3196,21 +3196,21 @@ export type Database = {
       user_interface_permissions: {
         Row: {
           created_at: string
-          permission: Database["public"]["Enums"]["permission_level"]
+          permission: Database["TS_ERP"]["Enums"]["permission_level"]
           resource_key: string
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
-          permission?: Database["public"]["Enums"]["permission_level"]
+          permission?: Database["TS_ERP"]["Enums"]["permission_level"]
           resource_key: string
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
-          permission?: Database["public"]["Enums"]["permission_level"]
+          permission?: Database["TS_ERP"]["Enums"]["permission_level"]
           resource_key?: string
           updated_at?: string
           user_id?: string
@@ -3229,19 +3229,19 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          role: Database["public"]["Enums"]["app_role"]
+          role: Database["TS_ERP"]["Enums"]["app_role"]
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
+          role?: Database["TS_ERP"]["Enums"]["app_role"]
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
+          role?: Database["TS_ERP"]["Enums"]["app_role"]
           user_id?: string
         }
         Relationships: []
@@ -3461,12 +3461,12 @@ export type Database = {
       }
       get_effective_permission_for_resource: {
         Args: { _resource_key: string; _user_id: string }
-        Returns: Database["public"]["Enums"]["permission_level"]
+        Returns: Database["TS_ERP"]["Enums"]["permission_level"]
       }
       get_effective_permissions_for_user: {
         Args: { _user_id: string }
         Returns: {
-          permission: Database["public"]["Enums"]["permission_level"]
+          permission: Database["TS_ERP"]["Enums"]["permission_level"]
           resource_key: string
         }[]
       }
@@ -3542,7 +3542,7 @@ export type Database = {
       }
       has_role: {
         Args: {
-          _role: Database["public"]["Enums"]["app_role"]
+          _role: Database["TS_ERP"]["Enums"]["app_role"]
           _user_id: string
         }
         Returns: boolean
@@ -3790,7 +3790,7 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  public: {
+  TS_ERP: {
     Enums: {
       app_role: ["admin", "user"],
       atribuicao_cliente: ["interno", "processo", "obra", "contrato", "geral"],
