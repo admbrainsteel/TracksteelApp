@@ -17,7 +17,8 @@ import {
   Settings,
   Shield,
   UserCog,
-  Cog
+  Cog,
+  Globe
 } from "lucide-react";
 import { MenuItem, MenuGroup } from './types';
 
@@ -70,6 +71,12 @@ export const menuGroups: MenuGroup[] = [
             key: "inconsistencias",
             title: "Ver Inconsistências",
             url: "/ferramentas/inconsistencias",
+          },
+          {
+            key: "webclone",
+            title: "WebClone AI",
+            url: "/ferramentas/webclone",
+            icon: Globe,
           }
         ]
       },

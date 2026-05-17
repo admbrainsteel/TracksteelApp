@@ -53,7 +53,8 @@ import {
   MapaInterativo,
   Atribuicoes,
   VerInconsistencias,
-  SolicitacaoCompras
+  SolicitacaoCompras,
+  WebClone
 } from './pages'
 
 import './index.css'
@@ -139,6 +140,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
                     <ProtectedRouteByResource resourceKey="ferramentas-inconsistencias">
                       <Layout>
                         <VerInconsistencias />
+                      </Layout>
+                    </ProtectedRouteByResource>
+                  } />
+                  <Route path="/ferramentas/webclone" element={
+                    <ProtectedRouteByResource resourceKey="ferramentas-webclone">
+                      <Layout>
+                        <WebClone />
                       </Layout>
                     </ProtectedRouteByResource>
                   } />
