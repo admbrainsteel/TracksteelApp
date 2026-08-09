@@ -4,6 +4,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useUserRole } from '@/hooks/useUserRole';
+import { logger } from '@/utils/logger';
 
 interface ProtectedRouteByResourceProps {
   children: React.ReactNode;
@@ -22,7 +23,7 @@ export const ProtectedRouteByResource: React.FC<ProtectedRouteByResourceProps> =
   try {
     permissionsData = useUserPermissions();
   } catch (error) {
-    console.error('Error in useUserPermissions:', error);
+    console.error('Erro em useUserPermissions:', error);
     // Fallback to basic data structure
     permissionsData = {
       hasAccess: () => isAdmin,
@@ -52,13 +53,13 @@ export const ProtectedRouteByResource: React.FC<ProtectedRouteByResourceProps> =
   if (isAdmin) {
     const resourcePermission = getResourcePermission(resourceKey);
     // Se admin tem negação explícita, negar acesso
-    if (resourcePermission === 'no_access') {
-      if (import.meta.env.DEV) {
-        console.log('❌ Admin access denied by explicit resource permission:', resourceKey);
+      if (resourcePermission === 'no_access') {
+        if (import.meta.env.DEV) {
+          logger.debug('Admin: acesso negado por permissão explícita de recurso', resourceKey as any);
+        }
+      } else {
+        return <>{children}</>;
       }
-    } else {
-      return <>{children}</>;
-    }
   }
 
   let finalAccess = false;
@@ -68,58 +69,37 @@ export const ProtectedRouteByResource: React.FC<ProtectedRouteByResourceProps> =
     const resourcePermission = getResourcePermission(resourceKey);
     
     if (import.meta.env.DEV) {
-      console.log('🔍 Checking access for resource:', {
+      logger.debug('Verificando acesso ao recurso', {
         resourceKey,
         user: user?.email,
         isAdmin,
         resourcePermission,
         userPermissions
-      });
+      } as any);
     }
 
     // 2. Se há permissão específica definida, ela prevalece SEMPRE
     if (resourcePermission !== 'no_access') {
       finalAccess = true;
       if (import.meta.env.DEV) {
-        console.log('✅ Access granted by specific resource permission:', resourcePermission);
+        logger.success('Acesso concedido por permissão específica do recurso', resourcePermission as any);
       }
     } else {
-      // 3. Se permissão específica é 'no_access', NEGAR acesso independente de outros privilégios
-      if (resourcePermission === 'no_access') {
-        finalAccess = false;
-        if (import.meta.env.DEV) {
-          console.log('❌ Access explicitly denied by resource permission');
-        }
-      } else {
-        // 4. Se não há permissão específica, verificar permissões funcionais como fallback
-        const hasGeneralAccess = hasAccess();
-        
-        // Para recursos de produção, permitir acesso para colaboradores como fallback
-        const isProductionResource = resourceKey.startsWith('producao');
-        const isCollaborator = userPermissions?.can_create_update_delete || userPermissions?.can_admin;
-        const hasProductionAccess = isProductionResource && (isAdmin || isCollaborator || userPermissions?.can_view_only);
-
-        finalAccess = hasGeneralAccess || hasProductionAccess;
-        
-        if (import.meta.env.DEV) {
-          console.log('🔄 Fallback to general permissions:', {
-            hasGeneralAccess,
-            isProductionResource,
-            hasProductionAccess,
-            finalAccess
-          });
-        }
+      // 3. Permissão explícita é 'no_access' — negar acesso
+      finalAccess = false;
+      if (import.meta.env.DEV) {
+        logger.debug('Acesso explicitamente negado pela permissão do recurso');
       }
     }
   } catch (error) {
-    console.error('Error checking access permissions:', error);
-    // For safety, deny access on error unless user is admin and no explicit denial
+    logger.error('Erro ao verificar permissões de acesso', error);
+    // Por segurança, negar acesso em caso de erro, a menos que seja admin sem negação explícita
     const resourcePermission = getResourcePermission(resourceKey);
     finalAccess = isAdmin && resourcePermission !== 'no_access';
   }
 
   if (!finalAccess) {
-    console.log(`❌ Access denied for resource: ${resourceKey}`);
+    logger.debug(`Acesso negado para recurso: ${resourceKey}`);
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center space-y-4">

@@ -4,6 +4,7 @@ import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { logger } from '@/utils/logger';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -47,13 +48,13 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
   // Se não há usuário, redirecionar para auth
   if (!user) {
-    console.log('🚫 ProtectedRoute: Usuário não autenticado, redirecionando para /auth');
+    logger.debug('ProtectedRoute: Usuário não autenticado, redirecionando para /auth');
     return <Navigate to="/auth" replace />;
   }
 
   // Se há erro ao carregar perfil, permitir acesso (para evitar loop)
   if (error) {
-    console.warn('⚠️ ProtectedRoute: Erro ao carregar perfil, permitindo acesso');
+    logger.warn('ProtectedRoute: Erro ao carregar perfil, permitindo acesso');
     return <>{children}</>;
   }
 
@@ -68,7 +69,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
   // SEGURANÇA: Verificar se o usuário tem status 'active'
   if (profile && profile.status !== 'active') {
-    console.log('🚫 ProtectedRoute: Usuário com status inválido:', profile.status);
+    logger.debug('ProtectedRoute: Usuário com status inválido', profile.status as any);
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="text-center space-y-4 p-8 max-w-md mx-auto">
@@ -95,6 +96,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
-  console.log('✅ ProtectedRoute: Usuário ativo autorizado, renderizando conteúdo');
+  logger.debug('ProtectedRoute: Usuário ativo autorizado, renderizando conteúdo');
   return <>{children}</>;
 };

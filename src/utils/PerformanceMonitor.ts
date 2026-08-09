@@ -3,6 +3,9 @@
  * Rastreia métricas de performance e operações do sistema
  */
 
+import React from 'react';
+import { OptimizedCache } from './OptimizedCache';
+
 export interface PerformanceMetrics {
   operation: string;
   duration_ms: number;
@@ -73,7 +76,7 @@ export class PerformanceMonitor {
     this.addMetrics(metrics);
     
     // Log para desenvolvimento
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       this.logMetrics(metrics);
     }
     
@@ -311,10 +314,6 @@ export const useSystemHealth = () => {
   
   return { health, loading, refetch: checkHealth };
 };
-
-// Importações necessárias
-import React from 'react';
-import { OptimizedCache } from './OptimizedCache';
 
 // Inicializar métricas persistidas ao carregar o módulo
 PerformanceMonitor.loadPersistedMetrics();

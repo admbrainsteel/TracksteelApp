@@ -1,11 +1,9 @@
 
 import React from 'react';
-import { SidebarProvider } from '@/components/ui/sidebar';
+import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/AppSidebar';
-import { Toaster } from '@/components/ui/sonner';
 import { ApontamentoAutomaticoListener } from '@/components/expedicao/ApontamentoAutomaticoListener';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { SidebarTrigger } from '@/components/ui/sidebar';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -29,7 +27,6 @@ export const Layout = ({ children }: LayoutProps) => {
             {children}
           </div>
         </main>
-        <Toaster />
         {/* Listener global para apontamento automático */}
         <ApontamentoAutomaticoListener />
       </div>

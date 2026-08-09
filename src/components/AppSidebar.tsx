@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo } from "react";
+import { logger } from "@/utils/logger";
 import { useLocation } from "react-router-dom";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu } from "@/components/ui/sidebar";
 import { useSidebar } from "@/components/ui/sidebar";
@@ -129,12 +130,12 @@ export function AppSidebar() {
     );
   }
 
-  console.log('🖥️ Rendering sidebar with:', { 
+  logger.debug('Renderizando sidebar', { 
     isAdmin, 
     hasBasicAccess: hasAccess(),
     canAccessTools: canAccessTools(),
     canInteractWithSpecialMenus: canInteractWithSpecialMenus()
-  });
+  } as any);
 
   return (
     <Sidebar>
@@ -142,7 +143,7 @@ export function AppSidebar() {
         {menuGroups.map(group => {
           // Filter admin groups for non-admin users
           if (!isAdmin && group.name === 'Administração') {
-            console.log('🚫 Hiding admin group for non-admin user');
+            logger.debug('Ocultando grupo admin para usuário não-admin');
             return null;
           }
 

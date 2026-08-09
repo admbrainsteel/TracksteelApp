@@ -1,6 +1,7 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { logger } from '@/utils/logger';
 
 interface AuthContextType {
   user: User | null;
@@ -111,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // RPC não encontrada — continua sem erro
       }
     } catch (error) {
-      console.error('Erro ao marcar usuário como online:', error);
+      logger.error('Erro ao marcar usuário como online:', error);
     }
   };
 
@@ -128,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // RPC não encontrada — continua sem erro
       }
     } catch (error) {
-      console.error('Erro ao marcar usuário como offline:', error);
+      logger.error('Erro ao marcar usuário como offline:', error);
     }
   };
 
@@ -150,12 +151,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (error) {
-        console.error('Erro ao registrar início de sessão:', error);
+        logger.error('Erro ao registrar início de sessão:', error);
       } else if (data) {
         localStorage.setItem('currentSessionId', data.id);
       }
     } catch (error) {
-      console.error('Erro inesperado ao registrar início de sessão:', error);
+      logger.error('Erro inesperado ao registrar início de sessão:', error);
     }
   };
 
@@ -173,7 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('currentSessionId');
       }
     } catch (error) {
-      console.error('Erro ao finalizar sessão:', error);
+      logger.error('Erro ao finalizar sessão:', error);
     }
   };
 
@@ -236,7 +237,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               setAuthInitialized(true);
             }
           } catch (sessionError) {
-            console.error('Erro ao verificar sessão:', sessionError);
+            logger.error('Erro ao verificar sessão:', sessionError);
             if (mounted) {
               setSession(null);
               setUser(null);
@@ -256,7 +257,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           subscription.unsubscribe();
         };
       } catch (error) {
-        console.error('Erro na inicialização da autenticação:', error);
+        logger.error('Erro na inicialização da autenticação:', error);
         if (mounted) {
           setLoading(false);
           setSession(null);
@@ -321,7 +322,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       return { error };
     } catch (error) {
-      console.error('Erro crítico no login:', error);
+      logger.error('Erro crítico no login:', error);
       return { error };
     }
   };
@@ -338,7 +339,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
       return { error };
     } catch (error) {
-      console.error('Erro crítico no signup:', error);
+      logger.error('Erro crítico no signup:', error);
       return { error };
     }
   };
@@ -356,7 +357,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await supabase.auth.signOut();
     } catch (error) {
-      console.error('Erro no signOut:', error);
+      logger.error('Erro no signOut:', error);
     }
   };
 
@@ -372,7 +373,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return { error };
     } catch (error) {
-      console.error('Erro crítico ao atualizar senha:', error);
+      logger.error('Erro crítico ao atualizar senha:', error);
       return { error };
     }
   };

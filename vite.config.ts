@@ -22,15 +22,19 @@ export default defineConfig(({ mode }) => ({
     // Otimizações para produção
     minify: 'esbuild',
     sourcemap: false,
+    cssCodeSplit: true,
     rollupOptions: {
       output: {
         manualChunks: {
-          // Separar vendor chunks
-          vendor: ['react', 'react-dom'],
-          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select'],
+          // Separar vendor chunks para melhor cache
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select', '@radix-ui/react-tabs', '@radix-ui/react-toast'],
           charts: ['recharts'],
           query: ['@tanstack/react-query'],
           supabase: ['@supabase/supabase-js'],
+          dateUtils: ['date-fns', 'date-fns-tz'],
+          pdf: ['jspdf', 'jspdf-autotable'],
+          icons: ['lucide-react'],
         },
       },
     },
@@ -38,6 +42,7 @@ export default defineConfig(({ mode }) => ({
   },
   // Otimizações para desenvolvimento
   optimizeDeps: {
-    include: ['react', 'react-dom', '@tanstack/react-query', '@supabase/supabase-js'],
+    include: ['react', 'react-dom', 'react-router-dom', '@tanstack/react-query', '@supabase/supabase-js'],
   },
 }));
+

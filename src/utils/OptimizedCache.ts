@@ -3,6 +3,8 @@
  * Implementa cache em memória e localStorage com TTL e versionamento
  */
 
+import React from 'react';
+
 interface CacheEntry {
   data: any;
   timestamp: number;
@@ -244,7 +246,7 @@ export class OptimizedCache {
    * Registra métricas de performance
    */
   private static trackPerformance(metrics: PerformanceMetrics): void {
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       console.log('🚀 Cache Performance:', metrics);
     }
     
@@ -356,8 +358,5 @@ export const useSmartCache = <T>(
     refetch
   };
 };
-
-// Importar React para o hook
-import React from 'react';
 
 export default OptimizedCache;
