@@ -7,7 +7,7 @@ export interface InconsistenciaItem {
   marca: string;
   tipo: string;
   descricao: string;
-  detalhes: any;
+  detalhes: Record<string, unknown>;
   acaoSugerida?: string;
 }
 
@@ -253,8 +253,9 @@ export const useAuditoriaInconsistencias = () => {
       });
 
       // Aplicar ordenação natural
-      Object.keys(inconsistencias).forEach(categoria => {
-        (inconsistencias as any)[categoria].sort((a: any, b: any) => naturalSort(a.marca, b.marca));
+      Object.keys(inconsistencias).forEach(key => {
+        const categoria = key as keyof typeof inconsistencias;
+        inconsistencias[categoria].sort((a: InconsistenciaItem, b: InconsistenciaItem) => naturalSort(a.marca, b.marca));
       });
 
       const resultado: ResultadoAuditoria = {

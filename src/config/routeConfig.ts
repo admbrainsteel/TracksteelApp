@@ -8,7 +8,7 @@ export type RouteGuard = 'public' | 'protected' | 'admin' | 'resource';
 
 export interface RouteDefinition {
   path: string;
-  component: () => Promise<{ default: ComponentType<any> }>;
+  component: () => Promise<{ default: ComponentType<unknown> }>;
   guard: RouteGuard;
   resourceKey?: string;
 }
