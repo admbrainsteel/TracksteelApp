@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Search, Eye, Download, FileText, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useOFsAtivas } from '@/hooks/useOFsAtivas';
-import { useAuditoriaInconsistencias } from '@/hooks/useAuditoriaInconsistencias';
+import { useAuditoriaInconsistencias, InconsistenciaItem } from '@/hooks/useAuditoriaInconsistencias';
 import { InconsistenciaDetalhesModal } from '@/components/auditoria/InconsistenciaDetalhesModal';
 import { generateProfessionalPDF } from '@/utils/pdfGenerator';
 import { toast } from '@/hooks/use-toast';
@@ -18,7 +18,7 @@ const VerInconsistencias = () => {
   const [selectedFase, setSelectedFase] = useState<string>('');
   const [selectedProcesso, setSelectedProcesso] = useState<string>('todas');
   const [fasesDaOF, setFasesDaOF] = useState<string[]>([]);
-  const [detalhesModal, setDetalhesModal] = useState<{ open: boolean; inconsistencia: any }>({
+  const [detalhesModal, setDetalhesModal] = useState<{ open: boolean; inconsistencia: InconsistenciaItem | null }>({
     open: false,
     inconsistencia: null
   });
@@ -113,7 +113,7 @@ const VerInconsistencias = () => {
 
   const getTotalInconsistencias = () => {
     if (!resultadoAuditoria) return 0;
-    return Object.values(resultadoAuditoria.inconsistencias).reduce((total, categoria: any) => total + categoria.length, 0);
+    return Object.values(resultadoAuditoria.inconsistencias).reduce((total, categoria: InconsistenciaItem[]) => total + categoria.length, 0);
   };
 
   return (
@@ -262,7 +262,7 @@ const VerInconsistencias = () => {
                   <CardTitle className="capitalize">
                     Inconsistências de {categoria}
                     <Badge variant="secondary" className="ml-2">
-                      {(inconsistencias as any[]).length}
+                      {(inconsistencias as InconsistenciaItem[]).length}
                     </Badge>
                   </CardTitle>
                 </CardHeader>
@@ -274,7 +274,7 @@ const VerInconsistencias = () => {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {(inconsistencias as any[]).map((item, index) => (
+                      {(inconsistencias as InconsistenciaItem[]).map((item, index) => (
                         <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
                           <div className="flex-1">
                             <div className="font-medium">{item.descricao}</div>

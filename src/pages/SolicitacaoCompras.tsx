@@ -5,7 +5,7 @@ import { StandardCard } from '@/components/layout/StandardCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Printer, Edit, Trash2, Eye, RefreshCw, Check, ShoppingCart } from 'lucide-react';
-import { useSolicitacoesCompra } from '@/hooks/useSolicitacoesCompra';
+import { useSolicitacoesCompra, SolicitacaoCompra, ItemSolicitacao } from '@/hooks/useSolicitacoesCompra';
 import { useUserFunction } from '@/hooks/useUserFunction';
 import { SolicitacaoComprasModal } from '@/components/solicitacao-compras/SolicitacaoComprasModal';
 import { SolicitacaoComprasPreviewModal } from '@/components/solicitacao-compras/SolicitacaoComprasPreviewModal';
@@ -25,7 +25,7 @@ const statusColors = {
 export default function SolicitacaoCompras() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [selectedSolicitacao, setSelectedSolicitacao] = useState(null);
+  const [selectedSolicitacao, setSelectedSolicitacao] = useState<SolicitacaoCompra | null>(null);
   const { isComprador } = useUserFunction();
   const { 
     solicitacoes, 
@@ -44,7 +44,7 @@ export default function SolicitacaoCompras() {
     isComprandoDireto
   } = useSolicitacoesCompra();
 
-  const handlePrint = (solicitacao: any) => {
+  const handlePrint = (solicitacao: SolicitacaoCompra) => {
     try {
       const printContent = `
         <!DOCTYPE html>
@@ -129,7 +129,7 @@ export default function SolicitacaoCompras() {
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white divide-y divide-gray-200">
-                                        ${solicitacao.itens.map((item: any, index: number) => `
+                                        ${solicitacao.itens.map((item: ItemSolicitacao, index: number) => `
                                             <tr${index % 2 === 1 ? ' class="hover:bg-gray-50"' : ''}>
                                                 <td class="px-4 py-3 text-xs font-medium text-gray-800 break-words">${item.material?.descricao || 'Material não encontrado'}</td>
                                                 <td class="px-4 py-3 whitespace-nowrap text-center text-gray-600 text-xs">${item.material?.unidade || 'UN'}</td>
@@ -180,7 +180,7 @@ export default function SolicitacaoCompras() {
     }
   };
 
-  const handleEdit = (solicitacao: any) => {
+  const handleEdit = (solicitacao: SolicitacaoCompra) => {
     if (!canEdit(solicitacao)) {
       alert('Você só pode editar suas próprias solicitações.');
       return;
@@ -189,12 +189,12 @@ export default function SolicitacaoCompras() {
     setIsModalOpen(true);
   };
 
-  const handlePreview = (solicitacao: any) => {
+  const handlePreview = (solicitacao: SolicitacaoCompra) => {
     setSelectedSolicitacao(solicitacao);
     setIsPreviewOpen(true);
   };
 
-  const handleDelete = (solicitacao: any) => {
+  const handleDelete = (solicitacao: SolicitacaoCompra) => {
     if (!canDelete(solicitacao)) {
       if (solicitacao.status !== 'Em planejamento') {
         alert('⚠️ PERMISSÃO NEGADA\n\nSolicitações com status diferente de "Em planejamento" só podem ser excluídas por compradores.');
@@ -209,25 +209,25 @@ export default function SolicitacaoCompras() {
     }
   };
 
-  const handleRevisar = (solicitacao: any) => {
+  const handleRevisar = (solicitacao: SolicitacaoCompra) => {
     if (window.confirm(`Tem certeza que deseja enviar a solicitação ${solicitacao.numero_sc} para revisão?`)) {
       revisar({ id: solicitacao.id, created_by: solicitacao.created_by });
     }
   };
 
-  const handleAceitar = (solicitacao: any) => {
+  const handleAceitar = (solicitacao: SolicitacaoCompra) => {
     if (window.confirm(`Tem certeza que deseja aceitar a solicitação ${solicitacao.numero_sc}?`)) {
       aceitar({ id: solicitacao.id, created_by: solicitacao.created_by });
     }
   };
 
-  const handleComprar = (solicitacao: any) => {
+  const handleComprar = (solicitacao: SolicitacaoCompra) => {
     if (window.confirm(`Tem certeza que deseja marcar a solicitação ${solicitacao.numero_sc} como comprada?`)) {
       comprar({ id: solicitacao.id, created_by: solicitacao.created_by });
     }
   };
 
-  const handleComprarDireto = (solicitacao: any) => {
+  const handleComprarDireto = (solicitacao: SolicitacaoCompra) => {
     if (window.confirm(`Você deseja passar o status dessa SC ${solicitacao.numero_sc} para "Comprado"?`)) {
       comprarDireto({ id: solicitacao.id, created_by: solicitacao.created_by });
     }

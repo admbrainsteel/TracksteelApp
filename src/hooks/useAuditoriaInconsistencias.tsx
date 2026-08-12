@@ -3,7 +3,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { naturalSort } from '@/utils/naturalSort';
 
-interface InconsistenciaItem {
+export interface InconsistenciaItem {
   marca: string;
   tipo: string;
   descricao: string;
@@ -11,7 +11,7 @@ interface InconsistenciaItem {
   acaoSugerida?: string;
 }
 
-interface ResultadoAuditoria {
+export interface ResultadoAuditoria {
   inconsistencias: {
     processos: InconsistenciaItem[];
     quantidades: InconsistenciaItem[];

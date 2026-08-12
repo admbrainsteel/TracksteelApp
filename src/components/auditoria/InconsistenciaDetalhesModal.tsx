@@ -6,11 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, Calendar, Hash, TrendingUp, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { InconsistenciaItem } from '@/hooks/useAuditoriaInconsistencias';
 
 interface InconsistenciaDetalhesModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  inconsistencia: any;
+  inconsistencia: InconsistenciaItem | null;
 }
 
 export const InconsistenciaDetalhesModal: React.FC<InconsistenciaDetalhesModalProps> = ({
