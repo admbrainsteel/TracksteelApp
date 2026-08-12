@@ -38,4 +38,3 @@ export { default as PrioridadesFabricacao } from './PrioridadesFabricacao';
 export { default as MapaInterativo } from './MapaInterativo';
 export { default as Atribuicoes } from './Atribuicoes';
 export { default as VerInconsistencias } from './VerInconsistencias';
-export { default as WebClone } from './WebClone';

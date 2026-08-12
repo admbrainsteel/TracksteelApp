@@ -78,12 +78,7 @@ export const routeConfig: RouteDefinition[] = [
     guard: 'resource',
     resourceKey: 'ferramentas-inconsistencias',
   },
-  {
-    path: '/ferramentas/webclone',
-    component: () => import('@/pages/WebClone'),
-    guard: 'resource',
-    resourceKey: 'ferramentas-webclone',
-  },
+
 
   // ── Estoque ──────────────────────────────────────────────
   {
