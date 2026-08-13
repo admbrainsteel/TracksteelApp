@@ -309,7 +309,9 @@ export const useSessionLogs = () => {
           .from('user_session_logs')
           .update({ updated_at: new Date().toISOString() })
           .eq('id', sessionId)
-          .catch(console.error);
+          .then(({ error }) => {
+            if (error) console.error('Heartbeat error:', error);
+          });
       }
     }, 30000); // Atualizar a cada 30 segundos
     return () => clearInterval(interval);
