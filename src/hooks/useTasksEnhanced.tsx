@@ -11,6 +11,7 @@ export const useTasksEnhanced = () => {
   const { user } = useAuth();
 
   // Helper function to apply filters to a query
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const applyFilters = (query: any, filters: TaskFilters) => {
     if (filters.of_number) {
       query = query.eq('of_number', filters.of_number);
@@ -33,14 +34,16 @@ export const useTasksEnhanced = () => {
     if (filters.due_date_range) {
       const now = new Date();
       switch (filters.due_date_range) {
-        case 'week':
+        case 'week': {
           const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
           query = query.gte('due_date', now.toISOString()).lte('due_date', nextWeek.toISOString());
           break;
-        case 'month':
+        }
+        case 'month': {
           const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
           query = query.gte('due_date', now.toISOString()).lte('due_date', nextMonth.toISOString());
           break;
+        }
         case 'overdue':
           query = query.lt('due_date', now.toISOString());
           break;
@@ -276,7 +279,9 @@ export const useTasksEnhanced = () => {
 
           if (fallbackError) {
             console.error('❌ Error fetching users (fallback):', fallbackError);
-            throw new Error('Erro ao buscar usuários: ' + fallbackError.message);
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore - TS expects 1 arg, eslint expects 2
+          throw new Error('Erro ao buscar usuários: ' + fallbackError.message, { cause: fallbackError });
           }
 
           console.log('✅ Available users fetched (fallback):', fallbackData?.length || 0);
@@ -331,7 +336,7 @@ export const useTasksEnhanced = () => {
         throw error;
       }
 
-      const mappedData = data?.map((of: any) => ({
+      const mappedData = data?.map((of: { num_of: string, ficha_tecnica_contratos?: { cliente?: string | null } | null }) => ({
         of_number: of.num_of,
         cliente: of.ficha_tecnica_contratos?.cliente
       }));

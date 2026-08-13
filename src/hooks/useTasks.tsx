@@ -4,9 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
 import { toast } from 'sonner';
 
-type Task = Database['public']['Tables']['tasks']['Row'];
-type TaskInsert = Database['public']['Tables']['tasks']['Insert'];
-type TaskUpdate = Database['public']['Tables']['tasks']['Update'];
+type Task = Database['TS_ERP']['Tables']['tasks']['Row'];
+type TaskInsert = Database['TS_ERP']['Tables']['tasks']['Insert'];
+type TaskUpdate = Database['TS_ERP']['Tables']['tasks']['Update'];
 
 export const useTasks = () => {
   const queryClient = useQueryClient();
@@ -197,7 +197,7 @@ export const useTasks = () => {
         throw error;
       }
 
-      const mappedData = data?.map((of: any) => ({
+      const mappedData = data?.map((of: { num_of: string, ficha_tecnica_contratos?: { cliente?: string | null } | null }) => ({
         of_number: of.num_of,
         cliente: of.ficha_tecnica_contratos?.cliente
       }));
@@ -224,6 +224,7 @@ export const useTasks = () => {
 
       try {
         // Use RPC function to bypass RLS restrictions for user listing
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { data, error } = await supabase.rpc('get_all_users_for_tasks' as any);
 
         if (error) {
@@ -259,7 +260,9 @@ export const useTasks = () => {
 
         if (fallbackError) {
           console.error('❌ Error fetching users (fallback):', fallbackError);
-          throw new Error('Erro ao buscar usuários: ' + fallbackError.message);
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore - TS expects 1 arg, eslint expects 2
+          throw new Error('Erro ao buscar usuários: ' + fallbackError.message, { cause: rpcError as Error });
         }
 
         console.log('✅ Available users fetched (fallback):', fallbackData?.length || 0);

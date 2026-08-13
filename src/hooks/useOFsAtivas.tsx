@@ -31,7 +31,7 @@ export const useOFsAtivas = () => {
         throw error;
       }
 
-      return data.map((of: any) => ({
+      return data.map((of: { num_of: string, descritivo?: string | null, gestor?: string | null, ficha_tecnica_contratos?: { cliente?: string | null } | null }) => ({
         of_number: of.num_of,
         descricao_resumida: of.descritivo,
         gestor: of.gestor,
