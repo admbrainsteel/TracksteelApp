@@ -316,17 +316,28 @@ export const useTasksEnhanced = () => {
       if (!user) throw new Error('Usuário não autenticado');
 
       const { data, error } = await supabase
-        .from('ficha_tecnica_contratos')
-        .select('of_number, cliente')
-        .order('of_number');
+        .from('ordens_fabricacao')
+        .select(`
+          num_of,
+          ficha_tecnica_contratos (
+            cliente
+          )
+        `)
+        .eq('status', 'ativa')
+        .order('num_of');
 
       if (error) {
         console.error('❌ Error fetching OFs:', error);
         throw error;
       }
 
-      console.log('✅ Available OFs fetched:', data?.length || 0);
-      return data || [];
+      const mappedData = data?.map((of: any) => ({
+        of_number: of.num_of,
+        cliente: of.ficha_tecnica_contratos?.cliente
+      }));
+
+      console.log('✅ Available OFs fetched:', mappedData?.length || 0);
+      return mappedData || [];
     },
     enabled: !!user,
   });

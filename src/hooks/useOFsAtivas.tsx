@@ -14,17 +14,29 @@ export const useOFsAtivas = () => {
     queryKey: ['ofs-ativas'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('ficha_tecnica_contratos')
-        .select('of_number, descricao_resumida, cliente, gestor')
-        .not('of_number', 'is', null)
-        .order('of_number');
+        .from('ordens_fabricacao')
+        .select(`
+          num_of,
+          descritivo,
+          gestor,
+          ficha_tecnica_contratos (
+            cliente
+          )
+        `)
+        .eq('status', 'ativa')
+        .order('num_of');
 
       if (error) {
         console.error('Erro ao buscar OFs ativas:', error);
         throw error;
       }
 
-      return data as OFAtiva[];
+      return data.map((of: any) => ({
+        of_number: of.num_of,
+        descricao_resumida: of.descritivo,
+        gestor: of.gestor,
+        cliente: of.ficha_tecnica_contratos?.cliente
+      })) as OFAtiva[];
     },
   });
 
