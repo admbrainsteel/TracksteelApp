@@ -324,6 +324,7 @@ export const useSessionLogs = () => {
     } else if (!user && currentSessionId) {
       endSession();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Finalizar sessão quando a janela é fechada

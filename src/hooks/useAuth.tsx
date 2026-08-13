@@ -279,6 +279,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (cleanupFn) cleanupFn();
       });
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Limpeza periódica de usuários offline e listener de fechamento de janela
@@ -330,6 +331,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         window.removeEventListener('beforeunload', handleBeforeUnload);
       };
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, authInitialized]);
 
   const signIn = async (email: string, password: string) => {
@@ -410,6 +412,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
