@@ -296,12 +296,24 @@ export const useSessionLogs = () => {
     }
   };
 
-  // Atualizar automaticamente usuários online
+  // Atualizar automaticamente usuários online e fazer heartbeat da sessão
   useEffect(() => {
     fetchOnlineUsers();
-    const interval = setInterval(fetchOnlineUsers, 30000); // Atualizar a cada 30 segundos
+    const interval = setInterval(() => {
+      fetchOnlineUsers();
+      
+      const sessionId = currentSessionId || localStorage.getItem('currentSessionId');
+      if (sessionId) {
+        // Heartbeat pings database every 30s to keep session alive
+        supabase
+          .from('user_session_logs')
+          .update({ updated_at: new Date().toISOString() })
+          .eq('id', sessionId)
+          .catch(console.error);
+      }
+    }, 30000); // Atualizar a cada 30 segundos
     return () => clearInterval(interval);
-  }, []);
+  }, [currentSessionId]);
 
   // Gerenciar sessão baseado no estado de autenticação
   useEffect(() => {

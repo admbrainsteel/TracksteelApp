@@ -140,6 +140,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const shouldSkipLogging = await isAdminOrDeveloper(userId);
       if (shouldSkipLogging) return;
 
+      // Desativar qualquer sessão antiga que ficou presa (fechar abas sem logout)
+      await supabase
+        .from('user_session_logs')
+        .update({ is_active: false, session_end: new Date().toISOString() })
+        .eq('user_id', userId)
+        .eq('is_active', true);
+
       const { data, error } = await supabase
         .from('user_session_logs')
         .insert({
@@ -225,10 +232,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 if (mounted) {
                   setAuthInitialized(true);
                   setUserOnline(session.user.id);
-                  const existingSessionId = localStorage.getItem('currentSessionId');
-                  if (!existingSessionId) {
-                    startSessionLog(session.user.id);
-                  }
+                  // Sempre cria uma nova sessão, resetando contadores anteriores
+                  startSessionLog(session.user.id);
                 }
               }, 100);
             } else if (mounted) {
@@ -282,12 +287,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     if (user && authInitialized) {
       cleanupInterval = setInterval(async () => {
+        // Enviar Heartbeat global da sessão (mantém o usuário online de fato)
+        const sessionId = localStorage.getItem('currentSessionId');
+        if (sessionId) {
+          try {
+            await supabase
+              .from('user_session_logs')
+              .update({ updated_at: new Date().toISOString() })
+              .eq('id', sessionId);
+          } catch (e) {
+            console.error('Falha no heartbeat da sessão', e);
+          }
+        }
+        
         try {
           await supabase.rpc('cleanup_offline_users');
         } catch {
           // Ignora se RPC não existir
         }
-      }, 60000);
+      }, 30000); // 30 segundos
 
       const handleBeforeUnload = () => {
         if (user) {
