@@ -19,35 +19,10 @@ export function UserInfo() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loginTime, setLoginTime] = useState<string>('00:00:00');
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const loginStartTimeRef = useRef<number>(Date.now());
-
-  useEffect(() => {
-    if (user) {
-      fetchUserProfile();
-      initializeLoginTime(); // Inicializar timer baseado no localStorage
-    } else {
-      // Limpar timer quando não há usuário
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    }
-  }, [user]);
-
-  // Listener para eventos de autenticação do Supabase
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        // Reset timer apenas em login real
-        resetLoginTime();
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  const loginStartTimeRef = useRef<number>(0);
 
   // Inicializar tempo de login baseado no localStorage (preserva tempo entre navegações)
-  const initializeLoginTime = () => {
+  function initializeLoginTime() {
     const savedLoginTime = localStorage.getItem('userLoginTime');
     
     if (savedLoginTime) {
@@ -73,10 +48,10 @@ export function UserInfo() {
       const seconds = Math.floor(elapsed % (1000 * 60) / 1000);
       setLoginTime(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
     }, 1000);
-  };
+  }
 
   // Resetar tempo de login apenas em eventos reais de login
-  const resetLoginTime = () => {
+  function resetLoginTime() {
     // Limpar interval anterior se existir
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -95,28 +70,9 @@ export function UserInfo() {
       const seconds = Math.floor(elapsed % (1000 * 60) / 1000);
       setLoginTime(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
     }, 1000);
-  };
+  }
 
-  // Limpar tempo de login quando usuário sair
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      localStorage.removeItem('userLoginTime');
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, []);
-
-  const fetchUserProfile = async () => {
+  async function fetchUserProfile() {
     if (!user) return;
 
     const { data, error } = await supabase
@@ -135,7 +91,43 @@ export function UserInfo() {
         profile_image_url: null
       });
     }
-  };
+  }
+
+  useEffect(() => {
+    if (user) {
+      fetchUserProfile();
+      initializeLoginTime(); // Inicializar timer baseado no localStorage
+    } else {
+      // Limpar timer quando não há usuário
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Listener para eventos de autenticação do Supabase
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        // Reset timer apenas em login real
+        resetLoginTime();
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Limpe o interval quando desmontado
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []);
 
   if (!user || !profile) return null;
 
