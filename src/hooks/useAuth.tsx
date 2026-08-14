@@ -374,6 +374,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setIsRecoveryFlow(false);
+    localStorage.removeItem('userLoginTime'); // Reseta timer do front-end
     try {
       await supabase.auth.signOut();
     } catch (error) {
