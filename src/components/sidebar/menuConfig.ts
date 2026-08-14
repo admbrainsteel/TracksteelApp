@@ -39,9 +39,9 @@ export const menuGroups: MenuGroup[] = [
         icon: FileText,
         subItems: [
           {
-            key: "ficha-tecnica-of",
-            title: "Ficha Técnica da OF",
-            url: "/cadastro-of",
+            key: "ordens-fabricacao",
+            title: "Ordens de Fabricação",
+            url: "/ofs",
           },
           {
             key: "cadastro-pecas",
@@ -96,9 +96,9 @@ export const menuGroups: MenuGroup[] = [
         icon: FolderOpen,
         subItems: [
           {
-            key: "ordens-fabricacao",
-            title: "Ordens de Fabricação",
-            url: "/ofs",
+            key: "ficha-tecnica-of",
+            title: "Ficha Técnica da OF",
+            url: "/cadastro-of",
           },
           {
             key: "cronograma",
