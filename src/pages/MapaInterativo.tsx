@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,55 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { UserResourcePermissions } from '@/components/mapa-interativo/UserResourcePermissions';
 import { cn } from '@/lib/utils';
 
+const createCurvedPath = (fromX: number, fromY: number, toX: number, toY: number) => {
+  const midX = (fromX + toX) / 2;
+  const midY = (fromY + toY) / 2;
+  
+  const dx = toX - fromX;
+  const dy = toY - fromY;
+  const distance = Math.sqrt(dx * dx + dy * dy);
+  
+  const curvature = Math.min(distance * 0.3, 100);
+  const offsetX = -dy / distance * curvature;
+  const offsetY = dx / distance * curvature;
+  
+  const controlX = midX + offsetX;
+  const controlY = midY + offsetY;
+  
+  return `M ${fromX} ${fromY} Q ${controlX} ${controlY} ${toX} ${toY}`;
+};
+
+const getArrowPositions = (fromX: number, fromY: number, toX: number, toY: number) => {
+  const arrows = [];
+  const steps = 3; // Número de setas ao longo da linha
+  
+  for (let i = 1; i <= steps; i++) {
+    const t = i / (steps + 1);
+    
+    const midX = (fromX + toX) / 2;
+    const midY = (fromY + toY) / 2;
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const curvature = Math.min(distance * 0.3, 100);
+    const offsetX = -dy / distance * curvature;
+    const offsetY = dx / distance * curvature;
+    const controlX = midX + offsetX;
+    const controlY = midY + offsetY;
+    
+    const x = (1 - t) * (1 - t) * fromX + 2 * (1 - t) * t * controlX + t * t * toX;
+    const y = (1 - t) * (1 - t) * fromY + 2 * (1 - t) * t * controlY + t * t * toY;
+    
+    const tangentX = 2 * (1 - t) * (controlX - fromX) + 2 * t * (toX - controlX);
+    const tangentY = 2 * (1 - t) * (controlY - fromY) + 2 * t * (toY - controlY);
+    const angle = Math.atan2(tangentY, tangentX) * 180 / Math.PI;
+    
+    arrows.push({ x, y, angle });
+  }
+  
+  return arrows;
+};
+
 export default function MapaInterativo() {
   const { nodes, connections } = useSystemMapAutoDiscovery();
   const { isAdmin } = useUserRole();
@@ -36,21 +85,25 @@ export default function MapaInterativo() {
     { id: 'permissions', label: 'Meus Acessos', icon: Shield }
   ];
 
-  const filteredNodes = nodes.filter(node => {
-    switch (activeFilter) {
-      case 'main-flow': return node.isMainFlow;
-      case 'permissions': return node.hasAccess;
-      default: return true;
-    }
-  });
+  const filteredNodes = useMemo(() => {
+    return nodes.filter(node => {
+      switch (activeFilter) {
+        case 'main-flow': return node.isMainFlow;
+        case 'permissions': return node.hasAccess;
+        default: return true;
+      }
+    });
+  }, [nodes, activeFilter]);
 
-  const filteredConnections = connections.filter(conn => {
-    const sourceExists = filteredNodes.some(n => n.id === conn.from);
-    const targetExists = filteredNodes.some(n => n.id === conn.to);
-    return sourceExists && targetExists;
-  });
+  const filteredConnections = useMemo(() => {
+    return connections.filter(conn => {
+      const sourceExists = filteredNodes.some(n => n.id === conn.from);
+      const targetExists = filteredNodes.some(n => n.id === conn.to);
+      return sourceExists && targetExists;
+    });
+  }, [connections, filteredNodes]);
 
-  const getMapDimensions = () => {
+  const getMapDimensions = useCallback(() => {
     if (filteredNodes.length === 0) return { width: 1200, height: 800 };
     
     const cardWidth = 240;
@@ -78,71 +131,30 @@ export default function MapaInterativo() {
       width: Math.max(1200, maxX + padding),
       height: Math.max(800, maxY + padding)
     };
-  };
+  }, [filteredNodes]);
 
-  const [mapDimensions, setMapDimensions] = useState(getMapDimensions());
+  const [mapDimensions, setMapDimensions] = useState({ width: 1200, height: 800 });
 
   useEffect(() => {
     const updateDimensions = () => {
-      setMapDimensions(getMapDimensions());
+      setMapDimensions(prev => {
+        const next = getMapDimensions();
+        if (prev.width === next.width && prev.height === next.height) {
+          return prev;
+        }
+        return next;
+      });
     };
     
     updateDimensions();
     const interval = setInterval(updateDimensions, 1000); // Atualizar periodicamente
     
     return () => clearInterval(interval);
-  }, [filteredNodes]);
+  }, [getMapDimensions]);
 
-  const createCurvedPath = (fromX: number, fromY: number, toX: number, toY: number) => {
-    const midX = (fromX + toX) / 2;
-    const midY = (fromY + toY) / 2;
-    
-    const dx = toX - fromX;
-    const dy = toY - fromY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    
-    const curvature = Math.min(distance * 0.3, 100);
-    const offsetX = -dy / distance * curvature;
-    const offsetY = dx / distance * curvature;
-    
-    const controlX = midX + offsetX;
-    const controlY = midY + offsetY;
-    
-    return `M ${fromX} ${fromY} Q ${controlX} ${controlY} ${toX} ${toY}`;
-  };
 
-  const getArrowPositions = (fromX: number, fromY: number, toX: number, toY: number) => {
-    const arrows = [];
-    const steps = 3; // Número de setas ao longo da linha
-    
-    for (let i = 1; i <= steps; i++) {
-      const t = i / (steps + 1);
-      
-      const midX = (fromX + toX) / 2;
-      const midY = (fromY + toY) / 2;
-      const dx = toX - fromX;
-      const dy = toY - fromY;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      const curvature = Math.min(distance * 0.3, 100);
-      const offsetX = -dy / distance * curvature;
-      const offsetY = dx / distance * curvature;
-      const controlX = midX + offsetX;
-      const controlY = midY + offsetY;
-      
-      const x = (1 - t) * (1 - t) * fromX + 2 * (1 - t) * t * controlX + t * t * toX;
-      const y = (1 - t) * (1 - t) * fromY + 2 * (1 - t) * t * controlY + t * t * toY;
-      
-      const tangentX = 2 * (1 - t) * (controlX - fromX) + 2 * t * (toX - controlX);
-      const tangentY = 2 * (1 - t) * (controlY - fromY) + 2 * t * (toY - controlY);
-      const angle = Math.atan2(tangentY, tangentX) * 180 / Math.PI;
-      
-      arrows.push({ x, y, angle });
-    }
-    
-    return arrows;
-  };
 
-  const updateConnections = () => {
+  const updateConnections = useCallback(() => {
     if (!mapContainerRef.current) return;
     
     const container = mapContainerRef.current;
@@ -179,14 +191,14 @@ export default function MapaInterativo() {
         }
       }
     });
-  };
+  }, [filteredConnections]);
 
   useEffect(() => {
     updateConnections();
     const handleResize = () => updateConnections();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [filteredNodes, filteredConnections]);
+  }, [updateConnections]);
 
   const handleNodeMouseOver = (nodeId: string) => {
     const relatedNodes = new Set<string>();
