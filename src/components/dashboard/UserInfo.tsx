@@ -21,35 +21,6 @@ export function UserInfo() {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const loginStartTimeRef = useRef<number>(0);
 
-  // Inicializar tempo de login baseado no localStorage (preserva tempo entre navegações)
-  function initializeLoginTime() {
-    const savedLoginTime = localStorage.getItem('userLoginTime');
-    
-    if (savedLoginTime) {
-      // Usar tempo salvo do localStorage
-      loginStartTimeRef.current = parseInt(savedLoginTime);
-    } else {
-      // Se não há tempo salvo, definir tempo atual (primeira vez)
-      const currentTime = Date.now();
-      loginStartTimeRef.current = currentTime;
-      localStorage.setItem('userLoginTime', currentTime.toString());
-    }
-    
-    // Limpar interval anterior se existir
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-    
-    // Iniciar cronômetro
-    intervalRef.current = setInterval(() => {
-      const elapsed = Date.now() - loginStartTimeRef.current;
-      const hours = Math.floor(elapsed / (1000 * 60 * 60));
-      const minutes = Math.floor(elapsed % (1000 * 60 * 60) / (1000 * 60));
-      const seconds = Math.floor(elapsed % (1000 * 60) / 1000);
-      setLoginTime(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
-    }, 1000);
-  }
-
   // Resetar tempo de login apenas em eventos reais de login
   function resetLoginTime() {
     // Limpar interval anterior se existir
@@ -72,39 +43,56 @@ export function UserInfo() {
     }, 1000);
   }
 
-  async function fetchUserProfile() {
-    if (!user) return;
-
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('full_name, email, profile_image_url')
-      .eq('id', user.id)
-      .single();
-
-    if (!error && data) {
-      setProfile(data);
-    } else {
-      // Fallback para dados do usuário auth
-      setProfile({
-        full_name: user.user_metadata?.full_name || null,
-        email: user.email || null,
-        profile_image_url: null
-      });
-    }
-  }
-
   useEffect(() => {
+    async function fetchUserProfile() {
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('full_name, email, profile_image_url')
+        .eq('id', user.id)
+        .single();
+
+      if (!error && data) {
+        setProfile(data);
+      } else {
+        setProfile({
+          full_name: user.user_metadata?.full_name || null,
+          email: user.email || null,
+          profile_image_url: null
+        });
+      }
+    }
+
+    function initializeLoginTime() {
+      const savedLoginTime = localStorage.getItem('userLoginTime');
+      if (savedLoginTime) {
+        loginStartTimeRef.current = parseInt(savedLoginTime);
+      } else {
+        const currentTime = Date.now();
+        loginStartTimeRef.current = currentTime;
+        localStorage.setItem('userLoginTime', currentTime.toString());
+      }
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      intervalRef.current = setInterval(() => {
+        const elapsed = Date.now() - loginStartTimeRef.current;
+        const hours = Math.floor(elapsed / (1000 * 60 * 60));
+        const minutes = Math.floor(elapsed % (1000 * 60 * 60) / (1000 * 60));
+        const seconds = Math.floor(elapsed % (1000 * 60) / 1000);
+        setLoginTime(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+      }, 1000);
+    }
+
     if (user) {
       fetchUserProfile();
-      initializeLoginTime(); // Inicializar timer baseado no localStorage
+      initializeLoginTime();
     } else {
-      // Limpar timer quando não há usuário
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Listener para eventos de autenticação do Supabase
@@ -117,7 +105,6 @@ export function UserInfo() {
     });
 
     return () => subscription.unsubscribe();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Limpe o interval quando desmontado
