@@ -1,428 +1,117 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
-import { logger } from '@/utils/logger';
+// Hook de autenticação usando Logto (sem Supabase Auth)
+// Mantém a MESMA shape do useAuth original pra não quebrar consumers
 
-interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+  ReactNode,
+} from 'react';
+import {
+  LogtoUser,
+  signIn as logtoSignIn,
+  signOut as logtoSignOut,
+  getUser as logtoGetUser,
+  handleCallback,
+  isAuthenticated,
+  requestPasswordReset,
+} from '@/lib/logto/client';
+
+export interface UseAuthReturn {
+  user: LogtoUser | null;
   loading: boolean;
-  signIn: () => Promise<{ error: unknown }>;
+  authInitialized: boolean;
+  isRecoveryFlow: boolean;
+  signIn: (email?: string, password?: string) => Promise<{ error: unknown }>;
   signUp: (email: string, password: string) => Promise<{ error: unknown }>;
   signOut: () => Promise<void>;
   updatePassword: (password: string) => Promise<{ error: unknown }>;
-  isRecoveryFlow: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<UseAuthReturn | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<LogtoUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isRecoveryFlow, setIsRecoveryFlow] = useState(false);
   const [authInitialized, setAuthInitialized] = useState(false);
+  const [isRecoveryFlow, setIsRecoveryFlow] = useState(false);
 
-  // Verifica se o usuário é admin ou desenvolvedor (excluídos dos logs de sessão)
-  const isAdminOrDeveloper = async (userId: string): Promise<boolean> => {
-    try {
-      const { data: adminRoles, error: adminError } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .eq('role', 'admin')
-        .maybeSingle();
-
-      if (!adminError && adminRoles) {
-        return true;
-      }
-
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('function_id, functions(name)')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (profileError) {
-        return false;
-      }
-
-      if (profile?.functions?.name === 'Desenvolvedor') {
-        return true;
-      }
-
-      return false;
-    } catch {
-      return false;
-    }
-  };
-
-  // Processa tokens de recuperação de senha na URL
-  const processRecoveryTokens = () => {
-    try {
-      const currentUrl = window.location.href;
-      const urlObj = new URL(currentUrl);
-
-      const recoveryType = urlObj.searchParams.get('type');
-      const hashParams = new URLSearchParams(urlObj.hash.substring(1));
-      const accessToken = hashParams.get('access_token');
-      const refreshToken = hashParams.get('refresh_token');
-      const tokenType = hashParams.get('type');
-
-      const isRecovery = recoveryType === 'recovery' || tokenType === 'recovery' || (accessToken && refreshToken);
-
-      if (isRecovery) {
-        setIsRecoveryFlow(true);
-
-        if (accessToken && refreshToken) {
-          supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken
-          }).then(({ data, error }) => {
-            if (!error) {
-              setSession(data.session);
-              setUser(data.session?.user || null);
-              setIsRecoveryFlow(true);
-            }
-            const cleanUrl = `${window.location.origin}/auth?type=recovery`;
-            window.history.replaceState({}, '', cleanUrl);
-          });
-        }
-
-        return true;
-      }
-
-      return false;
-    } catch {
-      return false;
-    }
-  };
-
-  // Marca usuário como online no sistema
-  const setUserOnline = async (userId: string) => {
-    if (!authInitialized) return;
-
-    try {
-      const shouldSkipLogging = await isAdminOrDeveloper(userId);
-      if (shouldSkipLogging) return;
-
-      try {
-        await supabase.rpc('set_user_online', { user_id_param: userId });
-      } catch {
-        // RPC não encontrada — continua sem erro
-      }
-    } catch (error) {
-      logger.error('Erro ao marcar usuário como online:', error);
-    }
-  };
-
-  const setUserOffline = async (userId: string) => {
-    if (!authInitialized) return;
-
-    try {
-      const shouldSkipLogging = await isAdminOrDeveloper(userId);
-      if (shouldSkipLogging) return;
-
-      try {
-        await supabase.rpc('set_user_offline', { user_id_param: userId });
-      } catch {
-        // RPC não encontrada — continua sem erro
-      }
-    } catch (error) {
-      logger.error('Erro ao marcar usuário como offline:', error);
-    }
-  };
-
-  const startSessionLog = async (userId: string) => {
-    if (!authInitialized) return;
-
-    try {
-      const shouldSkipLogging = await isAdminOrDeveloper(userId);
-      if (shouldSkipLogging) return;
-
-      // Desativar qualquer sessão antiga que ficou presa (fechar abas sem logout)
-      await supabase
-        .from('user_session_logs')
-        .update({ is_active: false, session_end: new Date().toISOString() })
-        .eq('user_id', userId)
-        .eq('is_active', true);
-
-      const { data, error } = await supabase
-        .from('user_session_logs')
-        .insert({
-          user_id: userId,
-          user_agent: navigator.userAgent,
-          is_active: true
-        })
-        .select()
-        .single();
-
-      if (error) {
-        logger.error('Erro ao registrar início de sessão:', error);
-      } else if (data) {
-        localStorage.setItem('currentSessionId', data.id);
-      }
-    } catch (error) {
-      logger.error('Erro inesperado ao registrar início de sessão:', error);
-    }
-  };
-
-  const endSessionLog = async () => {
-    if (!authInitialized) return;
-
-    try {
-      const sessionId = localStorage.getItem('currentSessionId');
-      if (sessionId) {
-        try {
-          await supabase.rpc('end_user_session', { session_id: sessionId });
-        } catch {
-          // RPC não encontrada — continua sem erro
-        }
-        localStorage.removeItem('currentSessionId');
-      }
-    } catch (error) {
-      logger.error('Erro ao finalizar sessão:', error);
-    }
-  };
-
+  // Detecta callback URL e processa
   useEffect(() => {
-    let mounted = true;
-
-    const initializeAuth = async () => {
-      try {
-        const hasRecoveryTokens = processRecoveryTokens();
-
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          (event, session) => {
-            if (!mounted) return;
-
-            setSession(session);
-            setUser(session?.user ?? null);
-
-            if (event === 'SIGNED_IN' && session?.user) {
-              setTimeout(() => {
-                if (mounted && authInitialized) {
-                  setUserOnline(session.user.id);
-                  startSessionLog(session.user.id);
-                }
-              }, 100);
-
-            } else if (event === 'SIGNED_OUT') {
-              setIsRecoveryFlow(false);
-
-              const currentUser = user;
-              if (currentUser && mounted && authInitialized) {
-                setTimeout(() => {
-                  setUserOffline(currentUser.id);
-                  endSessionLog();
-                }, 100);
-              }
-            }
-          }
-        );
-
-        if (!hasRecoveryTokens) {
-          try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (mounted && session?.user) {
-              setSession(session);
-              setUser(session.user);
-
-              setTimeout(() => {
-                if (mounted) {
-                  setAuthInitialized(true);
-                  setUserOnline(session.user.id);
-                  // Sempre cria uma nova sessão, resetando contadores anteriores
-                  startSessionLog(session.user.id);
-                }
-              }, 100);
-            } else if (mounted) {
-              setSession(null);
-              setUser(null);
-              setAuthInitialized(true);
-            }
-          } catch (sessionError) {
-            logger.error('Erro ao verificar sessão:', sessionError);
-            if (mounted) {
-              setSession(null);
-              setUser(null);
-              setAuthInitialized(true);
-            }
-          }
-        } else {
-          setAuthInitialized(true);
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('code')) {
+      setLoading(true);
+      handleCallback().then((ok) => {
+        if (ok) {
+          logtoGetUser().then(setUser);
         }
-
-        if (mounted) {
-          setLoading(false);
-        }
-
-        return () => {
-          mounted = false;
-          subscription.unsubscribe();
-        };
-      } catch (error) {
-        logger.error('Erro na inicialização da autenticação:', error);
-        if (mounted) {
-          setLoading(false);
-          setSession(null);
-          setUser(null);
-          setAuthInitialized(true);
-        }
-      }
-    };
-
-    const cleanup = initializeAuth();
-
-    return () => {
-      cleanup.then((cleanupFn) => {
-        if (cleanupFn) cleanupFn();
+        setAuthInitialized(true);
+        setLoading(false);
       });
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    } else {
+      setAuthInitialized(true);
+      if (isAuthenticated()) {
+        logtoGetUser().then((u) => {
+          setUser(u);
+          setLoading(false);
+        });
+      } else {
+        setLoading(false);
+      }
+    }
   }, []);
 
-  // Limpeza periódica de usuários offline e listener de fechamento de janela
-  useEffect(() => {
-    let cleanupInterval: NodeJS.Timeout;
-
-    if (user && authInitialized) {
-      cleanupInterval = setInterval(async () => {
-        // Enviar Heartbeat global da sessão (mantém o usuário online de fato)
-        const sessionId = localStorage.getItem('currentSessionId');
-        if (sessionId) {
-          try {
-            await supabase
-              .from('user_session_logs')
-              .update({ updated_at: new Date().toISOString() })
-              .eq('id', sessionId);
-          } catch (e) {
-            console.error('Falha no heartbeat da sessão', e);
-          }
-        }
-        
-        try {
-          await supabase.rpc('cleanup_offline_users');
-        } catch {
-          // Ignora se RPC não existir
-        }
-      }, 30000); // 30 segundos
-
-      const handleBeforeUnload = () => {
-        if (user) {
-          const sessionId = localStorage.getItem('currentSessionId');
-          if (sessionId) {
-            try {
-              supabase.rpc('end_user_session', { session_id: sessionId });
-            } catch {
-              // Ignora no unload
-            }
-            localStorage.removeItem('currentSessionId');
-          }
-        }
-      };
-
-      window.addEventListener('beforeunload', handleBeforeUnload);
-
-      return () => {
-        if (cleanupInterval) {
-          clearInterval(cleanupInterval);
-        }
-        window.removeEventListener('beforeunload', handleBeforeUnload);
-      };
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, authInitialized]);
-
-  const signIn = async () => {
+  const signIn = useCallback(async (_email?: string, _password?: string) => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'keycloak',
-        options: {
-          scopes: 'openid email profile',
-          redirectTo: window.location.origin + '/'
-        }
-      });
-      if (error) {
-        return { error };
-      }
+      await logtoSignIn();
       return { error: null };
     } catch (err) {
-      return { error: err as Error };
+      return { error: err };
     }
-  };
+  }, []);
 
-  const signUp = async (email: string, password: string) => {
-    try {
-      const redirectUrl = `${window.location.origin}/`;
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: redirectUrl
-        }
-      });
-      return { error };
-    } catch (error) {
-      logger.error('Erro crítico no signup:', error);
-      return { error };
-    }
-  };
+  const signUp = useCallback(async (_email: string, _password: string) => {
+    // Logto tem tela própria de signup (botão na página de login)
+    await logtoSignIn();
+    return { error: null };
+  }, []);
 
-  const signOut = async () => {
-    const currentUser = user;
-    if (currentUser && authInitialized) {
-      setTimeout(() => {
-        setUserOffline(currentUser.id);
-        endSessionLog();
-      }, 100);
-    }
-
+  const signOut = useCallback(async () => {
+    localStorage.removeItem('userLoginTime');
     setIsRecoveryFlow(false);
-    localStorage.removeItem('userLoginTime'); // Reseta timer do front-end
-    try {
-      await supabase.auth.signOut();
-    } catch (error) {
-      logger.error('Erro no signOut:', error);
-    }
-  };
+    await logtoSignOut();
+  }, []);
 
-  const updatePassword = async (password: string) => {
-    try {
-      const { error } = await supabase.auth.updateUser({
-        password: password
-      });
+  const updatePassword = useCallback(async (_password: string) => {
+    return {
+      error: new Error(
+        'Para alterar senha, acesse as configurações da conta no Logto (gerenciado pelo IdP)'
+      ),
+    };
+  }, []);
 
-      if (!error) {
-        setIsRecoveryFlow(false);
-      }
-
-      return { error };
-    } catch (error) {
-      logger.error('Erro crítico ao atualizar senha:', error);
-      return { error };
-    }
-  };
-
-  const value = {
+  const value: UseAuthReturn = {
     user,
-    session,
     loading,
+    authInitialized,
+    isRecoveryFlow,
     signIn,
     signUp,
     signOut,
     updatePassword,
-    isRecoveryFlow,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
-export function useAuth() {
+export function useAuth(): UseAuthReturn {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }
+
+export { requestPasswordReset };
