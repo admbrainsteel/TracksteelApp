@@ -9,7 +9,6 @@ import { AuthProvider } from './hooks/useAuth'
 import { IconStyleProvider } from './hooks/useIconStyle'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AppRoutes } from './components/AppRoutes'
-import { LogtoProvider, LogtoConfig } from '@logto/react'
 
 import './index.css'
 
@@ -29,11 +28,6 @@ const queryClient = new QueryClient({
   },
 })
 
-const config: LogtoConfig = {
-  endpoint: 'https://logto-bzlued1boxl3t8ewsyn99an9.187.77.227.172.sslip.io',
-  appId: '4qun0u1tfce1fdn3pxrgq',
-};
-
 // ============================================================================
 // Render da aplicação
 // ============================================================================
@@ -42,18 +36,16 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <LogtoProvider config={config}>
-          <AuthProvider>
-            <IconStyleProvider>
-              <ThemeProvider defaultTheme="system">
-                <BrowserRouter>
-                  <AppRoutes />
-                </BrowserRouter>
-                <Toaster />
-              </ThemeProvider>
-            </IconStyleProvider>
-          </AuthProvider>
-        </LogtoProvider>
+        <AuthProvider>
+          <IconStyleProvider>
+            <ThemeProvider defaultTheme="system">
+              <BrowserRouter>
+                <AppRoutes />
+              </BrowserRouter>
+              <Toaster />
+            </ThemeProvider>
+          </IconStyleProvider>
+        </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   </React.StrictMode>,
