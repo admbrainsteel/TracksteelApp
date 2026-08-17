@@ -347,8 +347,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { error };
       }
       return { error: null };
-    } catch (err: any) {
-      return { error: err };
+    } catch (err) {
+      return { error: err as Error };
     }
   };
 
