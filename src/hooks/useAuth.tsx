@@ -340,12 +340,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         provider: 'keycloak',
         options: {
           scopes: 'openid email profile',
+          redirectTo: window.location.origin + '/'
         }
       });
-      return { error };
-    } catch (error) {
-      logger.error('Erro crítico no login SSO:', error);
-      return { error };
+      if (error) {
+        return { error };
+      }
+      return { error: null };
+    } catch (err: any) {
+      return { error: err };
     }
   };
 
