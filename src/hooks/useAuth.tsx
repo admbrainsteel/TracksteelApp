@@ -7,7 +7,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: unknown }>;
+  signIn: () => Promise<{ error: unknown }>;
   signUp: (email: string, password: string) => Promise<{ error: unknown }>;
   signOut: () => Promise<void>;
   updatePassword: (password: string) => Promise<{ error: unknown }>;
@@ -334,15 +334,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, authInitialized]);
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = async () => {
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'keycloak',
+        options: {
+          scopes: 'openid email profile',
+        }
       });
       return { error };
     } catch (error) {
-      logger.error('Erro crítico no login:', error);
+      logger.error('Erro crítico no login SSO:', error);
       return { error };
     }
   };
