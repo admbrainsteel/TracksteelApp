@@ -21,20 +21,49 @@ import {
   requestPasswordReset,
 } from '@/lib/logto/client';
 
-// Sincroniza user Logto com profiles Supabase
-async function syncUserToProfile(user: LogtoUser): Promise<void> {
-  if (!user?.sub) return;
+// Sincroniza user Logto com profiles Supabase e retorna o UUID real do Supabase
+async function syncUserToProfile(user: LogtoUser): Promise<string> {
+  if (!user?.sub) return user.sub;
+  const email = user.email || `${user.username || 'user'}@logto.local`;
+
   try {
-    await supabase.from('profiles').upsert(
-      {
-        id: user.sub,
-        full_name: user.name || user.email || user.username || 'Usuário',
-        email: user.email || null,
-      },
-      { onConflict: 'id', ignoreDuplicates: false }
-    );
+    // 1. Tenta buscar o perfil existente pelo email
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .maybeSingle();
+
+    let profileId = existing?.id;
+
+    // 2. Se existe, atualizamos o nome e retornamos o UUID
+    if (profileId) {
+      const name = user.name || user.username;
+      if (name) {
+        await supabase.from('profiles').update({
+          full_name: name,
+        }).eq('id', profileId);
+      }
+      return profileId;
+    }
+
+    // 3. Se não existir, criamos um novo com um UUID gerado
+    profileId = crypto.randomUUID();
+    const { error: insertError } = await supabase.from('profiles').insert({
+      id: profileId,
+      email: email,
+      full_name: user.name || user.username || 'Usuário Logto',
+    });
+
+    if (insertError) {
+      console.warn('Erro ao inserir novo profile no Supabase:', insertError);
+      return user.sub;
+    }
+
+    return profileId;
   } catch (err) {
     console.warn('Erro ao sincronizar profile Supabase:', err);
+    return user.sub;
   }
 }
 
@@ -69,9 +98,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       handleCallback().then((ok) => {
         if (ok) {
-          logtoGetUser().then((u) => {
+          logtoGetUser().then(async (u) => {
+            if (u) {
+              const profileId = await syncUserToProfile(u);
+              u.id = profileId;
+            }
             setUser(u);
-            if (u) syncUserToProfile(u);
           });
         }
         setAuthInitialized(true);
@@ -80,9 +112,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setAuthInitialized(true);
       if (isAuthenticated()) {
-        logtoGetUser().then((u) => {
+        logtoGetUser().then(async (u) => {
+          if (u) {
+            const profileId = await syncUserToProfile(u);
+            u.id = profileId;
+          }
           setUser(u);
-          if (u) syncUserToProfile(u);
           setLoading(false);
         });
       } else {
