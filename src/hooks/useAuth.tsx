@@ -7,6 +7,7 @@ import React, {
   useEffect,
   useState,
   useCallback,
+  useRef,
   ReactNode,
 } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,11 +57,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [authInitialized, setAuthInitialized] = useState(false);
   const [isRecoveryFlow, setIsRecoveryFlow] = useState(false);
+  const callbackHandled = useRef(false);
 
   // Detecta callback URL e processa
   useEffect(() => {
     const url = new URL(window.location.href);
     if (url.searchParams.has('code')) {
+      if (callbackHandled.current) return;
+      callbackHandled.current = true;
+      
       setLoading(true);
       handleCallback().then((ok) => {
         if (ok) {
