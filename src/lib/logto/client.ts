@@ -85,6 +85,15 @@ async function generatePkce(): Promise<{ verifier: string; challenge: string }> 
 
 // === Auth flow ===
 export async function signIn(): Promise<void> {
+  // Limpa estado anterior pra evitar PKCE mismatch
+  try {
+    sessionStorage.removeItem('logto_state');
+    sessionStorage.removeItem('logto_nonce');
+    sessionStorage.removeItem('logto_verifier');
+  } catch {
+    /* ignore */
+  }
+
   const state = generateRandomString(32);
   const nonce = generateRandomString(32);
   const pkce = await generatePkce();
@@ -142,7 +151,16 @@ export async function handleCallback(): Promise<boolean> {
     });
 
     if (!res.ok) {
-      console.error('Token exchange failed:', await res.text());
+      const errorText = await res.text();
+      console.error('Token exchange failed:', errorText);
+      // Limpa código da URL pra evitar retry com code inválido
+      try {
+        sessionStorage.removeItem('logto_state');
+        sessionStorage.removeItem('logto_nonce');
+        sessionStorage.removeItem('logto_verifier');
+      } catch {
+        /* ignore */
+      }
       return false;
     }
 
