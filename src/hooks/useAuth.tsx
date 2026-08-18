@@ -28,6 +28,7 @@ export interface UseAuthReturn {
   signUp: (email: string, password: string) => Promise<{ error: unknown }>;
   signOut: () => Promise<void>;
   updatePassword: (password: string) => Promise<{ error: unknown }>;
+  handleCallback: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<UseAuthReturn | undefined>(undefined);
@@ -92,6 +93,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const handleCallbackFn = useCallback(async (): Promise<boolean> => {
+    return await handleCallback();
+  }, []);
+
   const value: UseAuthReturn = {
     user,
     loading,
@@ -101,6 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp,
     signOut,
     updatePassword,
+    handleCallback: handleCallbackFn,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

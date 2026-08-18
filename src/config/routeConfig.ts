@@ -24,6 +24,11 @@ export const routeConfig: RouteDefinition[] = [
     component: () => import('@/pages/Auth'),
     guard: 'public',
   },
+  {
+    path: '/callback',
+    component: () => import('@/pages/Callback'),
+    guard: 'public',
+  },
 
   // ── Dashboard ────────────────────────────────────────────
   {
