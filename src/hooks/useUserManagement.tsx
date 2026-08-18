@@ -51,6 +51,33 @@ export interface UserDependency {
 }
 
 export function useUserManagement() {
+  const deleteUserAndLogtoAccount = async (userId: string, email: string) => {
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      
+      // 1. Deleta do Logto primeiro
+      const response = await fetch(`${supabaseUrl}/functions/v1/delete-logto-user`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!response.ok) {
+        console.error("Failed to delete from Logto", await response.text());
+        toast.error("Erro ao excluir do Logto. A exclusão no sistema continuará.");
+      }
+
+      // 2. Deleta do Supabase
+      return await deleteUser(userId, true);
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro na comunicação com o servidor de autenticação");
+      return false;
+    }
+  };
+
   const { user } = useAuth();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [pendingUsers, setPendingUsers] = useState<UserProfile[]>([]);
@@ -458,6 +485,7 @@ export function useUserManagement() {
     updateUser,
     toggleUserStatus,
     deleteUser,
+    deleteUserAndLogtoAccount,
     canDeleteUser,
     getUserDependencies,
     replaceUserWithDeleted,

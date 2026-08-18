@@ -20,7 +20,8 @@ import { UserProfile, UserFunction, UserPrivilege } from '@/hooks/useUserManagem
 import { AvatarUpload } from '@/components/ui/avatar-upload';
 import { useProfileImage } from '@/hooks/useProfileImage';
 import { usePasswordManagement } from '@/hooks/usePasswordManagement';
-import { Eye, EyeOff } from 'lucide-react';
+import { useUserManagement } from '@/hooks/useUserManagement';
+import { Eye, EyeOff, AlertTriangle } from 'lucide-react';
 
 interface UserModalProps {
   user: UserProfile | null;
@@ -35,7 +36,9 @@ interface UserModalProps {
 export function UserModal({ user, functions, privileges, onSave, onCreate, onClose, readOnly = false }: UserModalProps) {
   const { updateProfileImage, removeProfileImage, updating } = useProfileImage();
   const { changeUserPassword, isChangingPassword } = usePasswordManagement();
+  const { deleteUserAndLogtoAccount } = useUserManagement();
   const [showPassword, setShowPassword] = useState(false);
+  const [isDeletingLogto, setIsDeletingLogto] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     full_name: '',
@@ -124,6 +127,18 @@ export function UserModal({ user, functions, privileges, onSave, onCreate, onClo
       onSave(user.id, updateData);
     }
     onClose();
+  };
+
+  const handleDeleteLogtoAndSupabase = async () => {
+    if (!user || isReadOnly) return;
+    if (confirm(`ATENÇÃO! Esta ação irá apagar a conta do usuário ${user.email} permanentemente no LOGTO e no Supabase. O usuário perderá o acesso totalmente. Tem certeza?`)) {
+      setIsDeletingLogto(true);
+      const success = await deleteUserAndLogtoAccount(user.id, user.email);
+      setIsDeletingLogto(false);
+      if (success) {
+        onClose();
+      }
+    }
   };
 
   return (
@@ -297,9 +312,21 @@ export function UserModal({ user, functions, privileges, onSave, onCreate, onClo
               <Button 
                 type="submit" 
                 className="bg-blue-600 hover:bg-blue-700"
-                disabled={updating || (isCreateMode && !formData.email)}
+                disabled={updating || (isCreateMode && !formData.email) || isDeletingLogto}
               >
                 {isCreateMode ? 'Criar Usuário' : 'Salvar'}
+              </Button>
+            )}
+            {!isCreateMode && !isReadOnly && (
+              <Button 
+                type="button" 
+                variant="destructive"
+                onClick={handleDeleteLogtoAndSupabase}
+                disabled={isDeletingLogto}
+                className="flex items-center gap-1 bg-red-600 hover:bg-red-700"
+              >
+                <AlertTriangle className="h-4 w-4" />
+                {isDeletingLogto ? 'Excluindo...' : 'Excluir Conta Logto'}
               </Button>
             )}
             <Button type="button" variant="ghost" onClick={onClose}>
