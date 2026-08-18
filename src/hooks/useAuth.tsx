@@ -9,6 +9,7 @@ import React, {
   useCallback,
   ReactNode,
 } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import {
   LogtoUser,
   signIn as logtoSignIn,
@@ -18,6 +19,23 @@ import {
   isAuthenticated,
   requestPasswordReset,
 } from '@/lib/logto/client';
+
+// Sincroniza user Logto com profiles Supabase
+async function syncUserToProfile(user: LogtoUser): Promise<void> {
+  if (!user?.sub) return;
+  try {
+    await supabase.from('profiles').upsert(
+      {
+        id: user.sub,
+        full_name: user.name || user.email || user.username || 'Usuário',
+        email: user.email || null,
+      },
+      { onConflict: 'id', ignoreDuplicates: false }
+    );
+  } catch (err) {
+    console.warn('Erro ao sincronizar profile Supabase:', err);
+  }
+}
 
 export interface UseAuthReturn {
   user: LogtoUser | null;
@@ -46,7 +64,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       handleCallback().then((ok) => {
         if (ok) {
-          logtoGetUser().then(setUser);
+          logtoGetUser().then((u) => {
+            setUser(u);
+            if (u) syncUserToProfile(u);
+          });
         }
         setAuthInitialized(true);
         setLoading(false);
@@ -56,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (isAuthenticated()) {
         logtoGetUser().then((u) => {
           setUser(u);
+          if (u) syncUserToProfile(u);
           setLoading(false);
         });
       } else {
