@@ -120,8 +120,13 @@ export async function signIn(): Promise<void> {
   window.location.assign(LOGTO_ENDPOINT + '/oidc/auth?' + params.toString());
 }
 
+let callbackPromise: Promise<boolean> | null = null;
+
 export async function handleCallback(): Promise<boolean> {
-  try {
+  if (callbackPromise) return callbackPromise;
+
+  callbackPromise = (async () => {
+    try {
     const url = new URL(window.location.href);
     const code = url.searchParams.get('code');
     const state = url.searchParams.get('state');
@@ -184,7 +189,15 @@ export async function handleCallback(): Promise<boolean> {
   } catch (err) {
     console.error('Callback error:', err);
     return false;
+  } finally {
+    // Limpa a promise depois de um tempo pra permitir novos logins futuros,
+    // mas bloqueia execuções duplas imediatas (React Strict Mode / uso duplo)
+    setTimeout(() => {
+      callbackPromise = null;
+    }, 2000);
   }
+})();
+  return callbackPromise;
 }
 
 export async function getUser(): Promise<LogtoUser | null> {
