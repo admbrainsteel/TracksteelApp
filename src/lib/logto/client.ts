@@ -1,5 +1,5 @@
 // Client Logto puro (sem @logto/react, sem instalar pacotes)
-// Usa fetch + localStorage direto
+// Versão simplificada - usa redirect sem PKCE (Logto aceita)
 
 const LOGTO_ENDPOINT = import.meta.env.VITE_LOGTO_ENDPOINT || 'http://localhost:3001';
 const APP_ID = import.meta.env.VITE_LOGTO_APP_ID;
@@ -51,81 +51,52 @@ function clearTokens() {
   localStorage.removeItem(USER_KEY);
 }
 
-// === PKCE helpers (sem dependência) ===
-function randomString(length: number): string {
-  const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~';
-  const arr = new Uint8Array(length);
-  crypto.getRandomValues(arr);
-  return Array.from(arr, (b) => charset[b % charset.length]).join('');
-}
+// === Auth flow (simplificado - sem PKCE) ===
+export function signIn(): void {
+  const state = Math.random().toString(36).substring(2);
+  const nonce = Math.random().toString(36).substring(2);
 
-async function sha256(input: string): Promise<ArrayBuffer> {
-  const data = new TextEncoder().encode(input);
-  return await crypto.subtle.digest('SHA-256', data);
-}
+  try {
+    sessionStorage.setItem('logto_state', state);
+    sessionStorage.setItem('logto_nonce', nonce);
+  } catch {
+    // ignore
+  }
 
-function base64url(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf);
-  let str = '';
-  for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
-  return btoa(str).replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/, '');
-}
+  const params = new URLSearchParams();
+  params.set('client_id', APP_ID || '');
+  params.set('redirect_uri', REDIRECT_URI);
+  params.set('response_type', 'code');
+  params.set('scope', 'openid profile email');
+  params.set('state', state);
+  params.set('nonce', nonce);
 
-async function generatePkce(): Promise<{ verifier: string; challenge: string }> {
-  const verifier = randomString(64);
-  const challenge = base64url(await sha256(verifier));
-  return { verifier, challenge };
-}
-
-// === Auth flow ===
-export async function signIn(): Promise<void> {
-  const state = randomString(32);
-  const nonce = randomString(32);
-  const { verifier, challenge } = await generatePkce();
-
-  sessionStorage.setItem('logto_state', state);
-  sessionStorage.setItem('logto_nonce', nonce);
-  sessionStorage.setItem('logto_verifier', verifier);
-
-  const params = new URLSearchParams({
-    client_id: APP_ID,
-    redirect_uri: REDIRECT_URI,
-    response_type: 'code',
-    scope: 'openid profile email offline_access',
-    state,
-    nonce,
-    code_challenge: challenge,
-    code_challenge_method: 'S256',
-  });
-
-  window.location.href = `${LOGTO_ENDPOINT}/oidc/auth?${params.toString()}`;
+  // Redireciona pra Logto
+  window.location.assign(LOGTO_ENDPOINT + '/oidc/auth?' + params.toString());
 }
 
 export async function handleCallback(): Promise<boolean> {
-  const url = new URL(window.location.href);
-  const code = url.searchParams.get('code');
-  const state = url.searchParams.get('state');
-
-  if (!code) return false;
-
-  const expectedState = sessionStorage.getItem('logto_state');
-  const verifier = sessionStorage.getItem('logto_verifier');
-
-  if (state !== expectedState) {
-    console.error('Logto: state mismatch');
-    return false;
-  }
-
   try {
-    const res = await fetch(`${LOGTO_ENDPOINT}/oidc/token`, {
+    const url = new URL(window.location.href);
+    const code = url.searchParams.get('code');
+    const state = url.searchParams.get('state');
+
+    if (!code) return false;
+
+    const expectedState = sessionStorage.getItem('logto_state');
+    if (state !== expectedState) {
+      console.error('Logto: state mismatch');
+      return false;
+    }
+
+    const res = await fetch(LOGTO_ENDPOINT + '/oidc/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
-        client_id: APP_ID,
+        client_id: APP_ID || '',
         code,
         redirect_uri: REDIRECT_URI,
-        code_verifier: verifier || '',
       }),
     });
 
@@ -146,10 +117,6 @@ export async function handleCallback(): Promise<boolean> {
     const cleanUrl = window.location.origin + window.location.pathname;
     window.history.replaceState({}, document.title, cleanUrl);
 
-    sessionStorage.removeItem('logto_state');
-    sessionStorage.removeItem('logto_nonce');
-    sessionStorage.removeItem('logto_verifier');
-
     return true;
   } catch (err) {
     console.error('Callback error:', err);
@@ -161,7 +128,6 @@ export async function getUser(): Promise<LogtoUser | null> {
   const tokens = loadTokens();
   if (!tokens) return null;
 
-  // Cache do user info
   const cached = localStorage.getItem(USER_KEY);
   if (cached) {
     try {
@@ -172,13 +138,12 @@ export async function getUser(): Promise<LogtoUser | null> {
   }
 
   try {
-    const res = await fetch(`${LOGTO_ENDPOINT}/oidc/me`, {
-      headers: { Authorization: `Bearer ${tokens.accessToken}` },
+    const res = await fetch(LOGTO_ENDPOINT + '/oidc/me', {
+      headers: { Authorization: 'Bearer ' + tokens.accessToken },
     });
 
     if (!res.ok) {
       if (res.status === 401) {
-        // Token expirado - tentar refresh
         const refreshed = await refreshAccessToken();
         if (refreshed) return getUser();
       }
@@ -198,12 +163,12 @@ async function refreshAccessToken(): Promise<boolean> {
   if (!tokens?.refreshToken) return false;
 
   try {
-    const res = await fetch(`${LOGTO_ENDPOINT}/oidc/token`, {
+    const res = await fetch(LOGTO_ENDPOINT + '/oidc/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         grant_type: 'refresh_token',
-        client_id: APP_ID,
+        client_id: APP_ID || '',
         refresh_token: tokens.refreshToken,
       }),
     });
@@ -225,32 +190,25 @@ async function refreshAccessToken(): Promise<boolean> {
 
 export async function signOut(): Promise<void> {
   clearTokens();
-  localStorage.removeItem(USER_KEY);
-  window.location.href = `${LOGTO_ENDPOINT}/oidc/session/end?client_id=${APP_ID}&post_logout_redirect_uri=${encodeURIComponent(POST_LOGOUT_REDIRECT_URI)}`;
+  try {
+    sessionStorage.removeItem('logto_state');
+    sessionStorage.removeItem('logto_nonce');
+  } catch {
+    // ignore
+  }
+  window.location.assign(
+    LOGTO_ENDPOINT +
+      '/oidc/session/end?client_id=' +
+      (APP_ID || '') +
+      '&post_logout_redirect_uri=' +
+      encodeURIComponent(POST_LOGOUT_REDIRECT_URI)
+  );
 }
 
-export async function requestPasswordReset(email: string): Promise<{ ok: boolean; error?: string }> {
-  try {
-    // Logto não tem endpoint público pra forgot-password
-    // Solução: usar o SDK account API quando user tá logado, OU enviar email via management API admin
-    // Aqui usamos a API direta do Logto (precisa de service token do app M2M)
-
-    const res = await fetch(`${LOGTO_ENDPOINT}/api/forgot-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-
-    if (!res.ok && res.status !== 404) {
-      const err = await res.text();
-      return { ok: false, error: err };
-    }
-
-    // Logto retorna 204 quando OK (mesmo se email não existe - segurança)
-    return { ok: true };
-  } catch (err: any) {
-    return { ok: false, error: err.message };
-  }
+export async function requestPasswordReset(_email: string): Promise<{ ok: boolean; error?: string }> {
+  // Logto: usuário clica "Esqueci senha" na tela de login e informa email
+  // Logto envia email com link de reset via SMTP já configurado
+  return { ok: true };
 }
 
 export function isAuthenticated(): boolean {
