@@ -24,7 +24,7 @@ const Callback = () => {
         } else {
           setStatus('error');
           setMessage('Falha no login. Tente novamente.');
-          setTimeout(() => navigate('/auth'), 2500);
+          // Não navega automaticamente - deixa o user ver o erro
         }
       } catch (err) {
         if (cancelled) return;

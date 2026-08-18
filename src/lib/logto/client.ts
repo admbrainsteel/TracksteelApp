@@ -126,15 +126,19 @@ export async function handleCallback(): Promise<boolean> {
     const code = url.searchParams.get('code');
     const state = url.searchParams.get('state');
 
+    console.log('[Logto Callback] Recebido:', { hasCode: !!code, hasState: !!state });
+
     if (!code) return false;
 
     const expectedState = sessionStorage.getItem('logto_state');
+    const verifier = sessionStorage.getItem('logto_verifier') || '';
+
+    console.log('[Logto Callback] State match?', { received: state, expected: expectedState, hasVerifier: !!verifier });
+
     if (state !== expectedState) {
       console.error('Logto: state mismatch');
       return false;
     }
-
-    const verifier = sessionStorage.getItem('logto_verifier') || '';
 
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
