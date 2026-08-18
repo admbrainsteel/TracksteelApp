@@ -15,6 +15,7 @@ const USER_KEY = 'logto_user';
 
 export interface LogtoUser {
   sub: string;
+  id?: string; // alias pra sub (compat com Supabase)
   email?: string;
   name?: string;
   username?: string;
@@ -191,8 +192,9 @@ export async function getUser(): Promise<LogtoUser | null> {
     }
 
     const user = (await res.json()) as LogtoUser;
-    localStorage.setItem(USER_KEY, JSON.stringify(user));
-    return user;
+    const result: LogtoUser = { ...user, id: user.sub };
+    localStorage.setItem(USER_KEY, JSON.stringify(result));
+    return result;
   } catch {
     return null;
   }
