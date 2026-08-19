@@ -67,19 +67,20 @@ export function useUserResourcePermissions(resourceKey: string) {
       // Enriquecer com dados do usuário
       const enrichedData = await Promise.all(
         (data || []).map(async (permission) => {
-          const { data: profileData } = await supabase
+          const { data: profileDataArr } = await supabase
             .from('profiles')
             .select('email, full_name')
             .eq('id', permission.user_id)
-            .maybeSingle();
+            .limit(1);
           
+          const profileData = profileDataArr && profileDataArr.length > 0 ? profileDataArr[0] : null;
           return {
             user_id: permission.user_id,
             resource_key: permission.resource_key,
             permission_level: permission.permission as PermissionLevel,
             created_at: permission.created_at,
             updated_at: permission.updated_at,
-            profiles: profileData
+            profiles: profileData as any
           } as UserInterfacePermission;
         })
       );
@@ -167,12 +168,13 @@ export function useUserResourcePermissions(resourceKey: string) {
       }
 
       // Verify user exists
-      const { data: userExists, error: userError } = await supabase
+      const { data: userExistsArr, error: userError } = await supabase
         .from('profiles')
         .select('id, email')
         .eq('id', userId)
-        .maybeSingle();
+        .limit(1);
 
+      const userExists = userExistsArr && userExistsArr.length > 0 ? userExistsArr[0] : null;
       if (userError || !userExists) {
         console.error('User not found:', { userId, userError });
         toast.error('Usuário não encontrado');

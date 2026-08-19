@@ -209,16 +209,17 @@ export function useInterfaceResources() {
         .from('profiles')
         .select('privilege_id')
         .eq('id', userId)
-        .maybeSingle();
+        .limit(1);
 
       if (profileError) throw profileError;
       
-      if (!profile?.privilege_id) return [];
+      const priv = profile && profile.length > 0 ? profile[0].privilege_id : null;
+      if (!priv) return [];
 
       const { data, error } = await supabase
         .from('privilege_interface_resources')
         .select('resource_key')
-        .eq('privilege_id', profile.privilege_id);
+        .eq('privilege_id', priv);
 
       if (error) throw error;
       

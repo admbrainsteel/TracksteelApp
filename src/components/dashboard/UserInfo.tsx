@@ -46,14 +46,14 @@ export function UserInfo() {
   useEffect(() => {
     async function fetchUserProfile() {
       if (!user) return;
-      const { data, error } = await supabase
+      const { data: profileArr, error } = await supabase
         .from('profiles')
         .select('full_name, email, profile_image_url')
         .eq('id', user.id)
-        .maybeSingle();
+        .limit(1);
 
-      if (!error && data) {
-        setProfile(data);
+      if (!error && profileArr && profileArr.length > 0) {
+        setProfile(profileArr[0]);
       } else {
         setProfile({
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
