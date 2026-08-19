@@ -18,6 +18,7 @@ export function useUserResourcePermissions(resourceKey: string) {
   const [users, setUsers] = useState<UserWithProfile[]>([]);
   const [resourcePermissions, setResourcePermissions] = useState<UserInterfacePermission[]>([]);
   const [loading, setLoading] = useState(true);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const channelRef = useRef<any>(null);
   const mountedRef = useRef(true);
 
@@ -341,6 +342,7 @@ export function useUserResourcePermissions(resourceKey: string) {
       mountedRef.current = false;
       cleanupChannel();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, isAdmin, resourceKey]);
 
   // Cleanup on unmount

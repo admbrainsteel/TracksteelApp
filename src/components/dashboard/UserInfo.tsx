@@ -56,6 +56,7 @@ export function UserInfo() {
         setProfile(data);
       } else {
         setProfile({
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           full_name: (user as any).name || (user as any).username || null,
           email: user.email || null,
           profile_image_url: null
