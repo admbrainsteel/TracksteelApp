@@ -7,6 +7,7 @@ interface UserProfile {
   full_name: string | null;
   email: string | null;
   profile_image_url: string | null;
+  status: string | null;
 }
 
 export function useUserProfile() {
@@ -21,6 +22,7 @@ export function useUserProfile() {
       setProfile(null);
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchUserProfile = async () => {
@@ -30,7 +32,7 @@ export function useUserProfile() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('full_name, email, profile_image_url')
+        .select('full_name, email, profile_image_url, status')
         .eq('id', user.id)
         .maybeSingle();
       
@@ -41,7 +43,8 @@ export function useUserProfile() {
         setProfile({
           full_name: user.user_metadata?.full_name || null,
           email: user.email || null,
-          profile_image_url: null
+          profile_image_url: null,
+          status: null
         });
       }
     } catch (error) {
@@ -50,7 +53,8 @@ export function useUserProfile() {
       setProfile({
         full_name: user.user_metadata?.full_name || null,
         email: user.email || null,
-        profile_image_url: null
+        profile_image_url: null,
+        status: null
       });
     } finally {
       setLoading(false);
