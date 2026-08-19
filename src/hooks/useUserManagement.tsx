@@ -198,6 +198,7 @@ export function useUserManagement() {
     try {
       const { data: result, error } = await supabase.rpc('admin_create_user', {
         user_email: data.email,
+        _caller_id: user?.id,
         user_full_name: data.full_name || null,
         user_function_id: data.function_id || null,
         user_privilege_id: data.privilege_id || null
@@ -257,6 +258,7 @@ export function useUserManagement() {
       }
 
       const { data, error } = await supabase.rpc('admin_delete_user', {
+        _caller_id: user?.id,
         _user_id: userId
       });
 
