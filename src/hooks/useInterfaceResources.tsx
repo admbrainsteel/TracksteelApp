@@ -209,7 +209,7 @@ export function useInterfaceResources() {
         .from('profiles')
         .select('privilege_id')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (profileError) throw profileError;
       

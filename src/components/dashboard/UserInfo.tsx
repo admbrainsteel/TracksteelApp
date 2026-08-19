@@ -50,13 +50,13 @@ export function UserInfo() {
         .from('profiles')
         .select('full_name, email, profile_image_url')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
       if (!error && data) {
         setProfile(data);
       } else {
         setProfile({
-          full_name: user.user_metadata?.full_name || null,
+          full_name: (user as any).name || (user as any).username || null,
           email: user.email || null,
           profile_image_url: null
         });

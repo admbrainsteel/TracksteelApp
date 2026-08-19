@@ -70,7 +70,7 @@ export function useUserResourcePermissions(resourceKey: string) {
             .from('profiles')
             .select('email, full_name')
             .eq('id', permission.user_id)
-            .single();
+            .maybeSingle();
           
           return {
             user_id: permission.user_id,
@@ -170,7 +170,7 @@ export function useUserResourcePermissions(resourceKey: string) {
         .from('profiles')
         .select('id, email')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
       if (userError || !userExists) {
         console.error('User not found:', { userId, userError });
