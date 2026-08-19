@@ -41,7 +41,7 @@ export function useUserProfile() {
       } else {
         // Fallback para dados do usuário auth
         setProfile({
-          full_name: user.user_metadata?.full_name || null,
+          full_name: user.name || user.username || null,
           email: user.email || null,
           profile_image_url: null,
           status: null
@@ -51,7 +51,7 @@ export function useUserProfile() {
       console.error('Erro ao buscar perfil do usuário:', error);
       // Fallback para dados do usuário auth
       setProfile({
-        full_name: user.user_metadata?.full_name || null,
+        full_name: user.name || user.username || null,
         email: user.email || null,
         profile_image_url: null,
         status: null
