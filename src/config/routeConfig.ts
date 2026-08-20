@@ -229,13 +229,13 @@ export const routeConfig: RouteDefinition[] = [
   {
     path: '/configuracoes',
     component: () => import('@/pages/Configuracoes'),
-    guard: 'resource',
+    guard: 'admin',
     resourceKey: 'configuracoes-gerais',
   },
   {
     path: '/admin/theme-customization',
     component: () => import('@/pages/ThemeCustomizationPage'),
-    guard: 'resource',
+    guard: 'admin',
     resourceKey: 'theme-customization',
   },
 

@@ -2,7 +2,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
 import type { 
   UserPermissions, 
@@ -14,7 +13,6 @@ import type {
 
 export function useUserPermissions() {
   const { user } = useAuth();
-  const { isAdmin } = useUserRole();
   const [userPermissions, setUserPermissions] = useState<UserPermissions>({
     can_admin: false,
     can_create_update_delete: false,
@@ -88,10 +86,9 @@ export function useUserPermissions() {
     loadUserPermissions();
   }, [loadUserPermissions]);
 
-  // Check if user has access to a resource
   const hasAccess = useCallback((resourceKey?: string): boolean => {
     // Admin always has access
-    if (isAdmin) {
+    if (userPermissions.can_admin) {
       console.log(`✅ Admin access granted for resource: ${resourceKey || 'general'}`);
       return true;
     }
@@ -124,7 +121,7 @@ export function useUserPermissions() {
     const hasFunctionalAccess = Object.values(userPermissions).some(Boolean);
     console.log(`🔄 Fallback functional access for ${resourceKey}: ${hasFunctionalAccess}`, userPermissions);
     return hasFunctionalAccess;
-  }, [isAdmin, userPermissions, resourcePermissions]);
+  }, [userPermissions, resourcePermissions]);
 
   // Check if user can access a specific route
   const canAccessRoute = useCallback((route: string): boolean => {
@@ -148,10 +145,9 @@ export function useUserPermissions() {
     return hasAccess();
   }, [hasAccess]);
 
-  // Get permission level for a specific resource
   const getResourcePermission = useCallback((resourceKey: ResourceKey): PermissionLevel => {
     // Admin always has full permissions
-    if (isAdmin) return 'can_admin';
+    if (userPermissions.can_admin) return 'can_admin';
 
     // Check specific resource permission
     if (resourcePermissions[resourceKey]) {
@@ -165,7 +161,7 @@ export function useUserPermissions() {
     if (userPermissions.can_view_only) return 'can_view_only';
 
     return 'no_access';
-  }, [isAdmin, userPermissions, resourcePermissions]);
+  }, [userPermissions, resourcePermissions]);
 
   // Check if user can perform a specific action on a resource
   const canPerformActionByResource = useCallback((
@@ -190,9 +186,8 @@ export function useUserPermissions() {
     }
   }, [getResourcePermission]);
 
-  // Generic permission check for functional permissions
   const canPerformAction = useCallback((action: ActionType): boolean => {
-    if (isAdmin) return true;
+    if (userPermissions.can_admin) return true;
 
     switch (action) {
       case 'admin':
@@ -208,7 +203,7 @@ export function useUserPermissions() {
       default:
         return false;
     }
-  }, [isAdmin, userPermissions]);
+  }, [userPermissions]);
 
   // Set specific resource permission
   const setResourcePermission = useCallback(async (

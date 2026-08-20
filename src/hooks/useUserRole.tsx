@@ -1,14 +1,17 @@
 // Hook que retorna role/permissões do usuário
-// Migrado pra Logto: não depende mais do Supabase
-// Qualquer usuário autenticado via Logto tem acesso Total
+// Migrado pra consumir as permissões reais do banco via useUserPermissions
 
 import { useAuth } from '@/hooks/useAuth';
+import { useUserPermissions } from '@/hooks/useUserPermissions';
 import type { UserRole, AppRole } from '@/hooks/useUserPermissions/types';
 
 export type AccessLevel = 'Total' | 'Parcial' | 'Restrita';
 
 export const useUserRole = () => {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
+  const { userPermissions, loading: permsLoading } = useUserPermissions();
+
+  const loading = authLoading || permsLoading;
 
   // Sem usuário = sem permissão
   if (!user) {
@@ -18,18 +21,20 @@ export const useUserRole = () => {
       isGerencia: false,
       isDiretoria: false,
       role: 'user' as UserRole,
-      loading: false,
+      loading,
       error: null,
     };
   }
 
-  // Com usuário autenticado via Logto = Total
+  // Com usuário autenticado + validações do json de privilégios do DB
+  const isAdminCheck = Boolean(userPermissions.can_admin);
+  
   return {
-    accessLevel: 'Total' as AccessLevel,
-    isAdmin: true,
-    isGerencia: true,
-    isDiretoria: true,
-    role: 'admin' as UserRole,
+    accessLevel: isAdminCheck ? 'Total' : 'Parcial' as AccessLevel,
+    isAdmin: isAdminCheck,
+    isGerencia: isAdminCheck, // fallback para componentes legados
+    isDiretoria: isAdminCheck, // fallback para componentes legados
+    role: (isAdminCheck ? 'admin' : 'user') as UserRole,
     loading,
     error: null,
   };
