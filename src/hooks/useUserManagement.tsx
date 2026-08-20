@@ -22,7 +22,7 @@ export interface UserProfile {
   privileges?: {
     name: string;
     description: string;
-    permissions: any;
+    permissions: Record<string, unknown>;
   };
 }
 
@@ -38,7 +38,7 @@ export interface UserPrivilege {
   id: string;
   name: string;
   description: string | null;
-  permissions: any;
+  permissions: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -209,10 +209,11 @@ export function useUserManagement() {
       toast.success('Usuário criado com sucesso! Senha padrão: 1234');
       fetchUsers();
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating user:', error);
       
-      if (error.message?.includes('User with this email already exists')) {
+      const err = error as Error;
+      if (err.message?.includes('User with this email already exists')) {
         toast.error('Este e-mail já está em uso');
       } else if (error.message?.includes('Only admins can create new users')) {
         toast.error('Apenas administradores podem criar usuários');
@@ -268,12 +269,13 @@ export function useUserManagement() {
       fetchUsers();
       fetchPendingUsers();
       return true;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting user:', error);
       
-      if (error.message?.includes('Only admins can delete users')) {
+      const err = error as Error;
+      if (err.message?.includes('Only admins can delete users')) {
         toast.error('Apenas administradores podem excluir usuários');
-      } else if (error.message?.includes('User cannot be deleted due to existing dependencies')) {
+      } else if (err.message?.includes('User cannot be deleted due to existing dependencies')) {
         toast.error('Este usuário não pode ser excluído pois possui dados vinculados no sistema');
       } else {
         toast.error('Erro ao excluir usuário');
@@ -338,10 +340,9 @@ export function useUserManagement() {
     }
   };
 
-  // Toggle user status
   const toggleUserStatus = async (userId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-    await updateUser(userId, { status: newStatus as any });
+    await updateUser(userId, { status: newStatus as UserProfile['status'] });
   };
 
   // CRUD functions for Functions table
@@ -396,7 +397,7 @@ export function useUserManagement() {
   };
 
   // CRUD functions for Privileges table - Updated to handle interface resources
-  const createPrivilege = async (data: { name: string; description?: string; permissions?: any }, resourceKeys: string[] = []) => {
+  const createPrivilege = async (data: { name: string; description?: string; permissions?: Record<string, unknown> }, resourceKeys: string[] = []) => {
     try {
       const { data: newPrivilege, error } = await supabase
         .from('privileges')
@@ -424,7 +425,7 @@ export function useUserManagement() {
     }
   };
 
-  const updatePrivilege = async (id: string, data: { name: string; description?: string; permissions?: any }) => {
+  const updatePrivilege = async (id: string, data: { name: string; description?: string; permissions?: Record<string, unknown> }) => {
     try {
       const { error } = await supabase
         .from('privileges')
