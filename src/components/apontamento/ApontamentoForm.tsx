@@ -113,6 +113,11 @@ export const ApontamentoForm = () => {
     const ordemProcesso = processoSelecionado?.ordem || 1;
     const nomeProcesso = processoSelecionado?.nome || `${ordemProcesso}`;
 
+    // Reordenar processos para identificar sequencialidade
+    const processosOrdenados = [...processos].sort((a, b) => a.ordem - b.ordem);
+    const indexAtual = processosOrdenados.findIndex(p => p.id === processo_id);
+    const procAtual = processosOrdenados[indexAtual];
+
     // 1. Peças da OF e Fase selecionadas
     const pecasDaFase = pecas.filter(
       p => p.of_number === of_number && p.etapa_fase === fase
@@ -122,11 +127,35 @@ export const ApontamentoForm = () => {
 
     pecasDaFase.forEach(peca => {
       // Calcular quanto já foi apontado desta peça neste processo
-      const totalApontado = apontamentos
+      const totalApontadoAtual = apontamentos
         .filter(a => a.tipo_apontamento === 'peca' && a.peca_id === peca.id && a.processo_id === processo_id)
         .reduce((sum, a) => sum + (Number(a.quantidade_produzida) || 0), 0);
 
-      const saldoDisponivel = Math.max(0, (Number(peca.quantidade) || 0) - totalApontado);
+      let qtdDisponivelParaEntrar = Number(peca.quantidade) || 0;
+
+      // Regra: peças sem componentes não passam por solda
+      if (!peca.tem_componentes && procAtual && procAtual.nome.toLowerCase().includes('solda')) {
+        qtdDisponivelParaEntrar = 0;
+      } else if (indexAtual > 0) {
+        // Encontrar processo anterior válido
+        let processoAnteriorValido = null;
+        for (let i = indexAtual - 1; i >= 0; i--) {
+          const p = processosOrdenados[i];
+          if (!peca.tem_componentes && p.nome.toLowerCase().includes('solda')) {
+            continue; // Pula a solda na busca do processo anterior para peças simples
+          }
+          processoAnteriorValido = p;
+          break;
+        }
+
+        if (processoAnteriorValido) {
+           qtdDisponivelParaEntrar = apontamentos
+              .filter(a => a.tipo_apontamento === 'peca' && a.peca_id === peca.id && a.processo_id === processoAnteriorValido.id)
+              .reduce((sum, a) => sum + (Number(a.quantidade_produzida) || 0), 0);
+        }
+      }
+
+      const saldoDisponivel = Math.max(0, qtdDisponivelParaEntrar - totalApontadoAtual);
 
       if (saldoDisponivel > 0) {
         pecasDisponiveis.push({
@@ -146,12 +175,22 @@ export const ApontamentoForm = () => {
 
     if (componentesAgrupados && componentesAgrupados.length > 0) {
       componentesAgrupados.forEach(comp => {
-        // Calcular quanto já foi apontado deste componente neste processo
+        let qtdDisponivelParaEntrarComp = Number(comp.quantidade_total) || 0;
+
+        if (indexAtual > 0) {
+           const processoAnteriorValido = processosOrdenados[indexAtual - 1];
+           if (processoAnteriorValido) {
+              qtdDisponivelParaEntrarComp = apontamentos
+                .filter(a => a.tipo_apontamento === 'componente' && comp.componente_ids.includes(a.componente_id || '') && a.processo_id === processoAnteriorValido.id)
+                .reduce((sum, a) => sum + (Number(a.quantidade_produzida) || 0), 0);
+           }
+        }
+
         const totalApontadoComp = apontamentos
           .filter(a => a.tipo_apontamento === 'componente' && comp.componente_ids.includes(a.componente_id || '') && a.processo_id === processo_id)
           .reduce((sum, a) => sum + (Number(a.quantidade_produzida) || 0), 0);
 
-        const saldoComp = Math.max(0, (Number(comp.quantidade_total) || 0) - totalApontadoComp);
+        const saldoComp = Math.max(0, qtdDisponivelParaEntrarComp - totalApontadoComp);
 
         if (saldoComp > 0) {
           componentesDisponiveis.push({
