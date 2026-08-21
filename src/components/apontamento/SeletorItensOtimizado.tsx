@@ -26,6 +26,7 @@ interface ItemDisponivel {
   tipo: 'peca' | 'componente';
   quantidade_disponivel: number;
   processo_atual_permitido: number;
+  nome_processo?: string;
 }
 
 interface ComponenteItemData {
@@ -170,7 +171,6 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
     }
     try {
       setLoadingPecas(true);
-      // Implementar busca de peças aqui
     } catch (error) {
       console.error('Erro ao buscar peças:', error);
     } finally {
@@ -214,7 +214,8 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
         descricao: peca.descricao || '',
         tipo: 'peca',
         quantidade_disponivel: peca.quantidadeDisponivel || 0,
-        processo_atual_permitido: peca.processo_atual_permitido || 0
+        processo_atual_permitido: peca.processo_atual_permitido || 0,
+        nome_processo: (peca as any).nome_processo
       };
       onItemSelect(itemDisponivel);
     }
@@ -246,28 +247,28 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
 
   const getPrioridadeColor = (prioridade: string) => {
     switch (prioridade?.toLowerCase()) {
-      case 'alta': return 'text-red-400';
-      case 'média': return 'text-yellow-400';
-      case 'baixa': return 'text-green-400';
-      default: return 'text-slate-400';
+      case 'alta': return 'text-red-600 dark:text-red-400';
+      case 'média': return 'text-amber-600 dark:text-yellow-400';
+      case 'baixa': return 'text-emerald-600 dark:text-green-400';
+      default: return 'text-muted-foreground';
     }
   };
 
   const PecaItem = ({ peca, onSelect }: { peca: PecaWithComponents; onSelect: (peca: PecaWithComponents) => void }) => {
     return (
-      <div className="p-2 border border-slate-600 rounded-md hover:bg-slate-700/50 cursor-pointer transition-colors"
+      <div className="p-2 border border-border bg-card hover:bg-accent/50 rounded-md cursor-pointer transition-colors"
            onClick={() => onSelect(peca)}>
         <div className="space-y-1">
-          <div className="font-medium text-sm text-blue-300">{peca.marca}</div>
-          <div className="text-xs text-slate-400">
+          <div className="font-semibold text-sm text-foreground">{peca.marca}</div>
+          <div className="text-xs text-muted-foreground">
             Prioridade: <span className={getPrioridadeColor(peca.prioridade)}>{peca.prioridade || 'N/A'}</span>
           </div>
           {peca.descricao && (
-            <div className="text-xs text-slate-400 truncate" title={peca.descricao}>
+            <div className="text-xs text-muted-foreground truncate" title={peca.descricao}>
               {peca.descricao}
             </div>
           )}
-          <div className="text-xs text-green-400">
+          <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
             Qtd Disponível: {peca.quantidadeDisponivel || 0}
           </div>
         </div>
@@ -277,19 +278,19 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
 
   const ComponenteItem = ({ componente }: { componente: ComponenteItemData }) => (
     <div
-      className="p-2 border border-slate-600 rounded-md hover:bg-slate-700/50 cursor-pointer transition-colors"
+      className="p-2 border border-border bg-card hover:bg-accent/50 rounded-md cursor-pointer transition-colors"
       onClick={() => handleComponenteSelect(componente)}
     >
       <div className="space-y-1">
-        <div className="font-medium text-sm text-blue-300">{componente.marca_componente}</div>
-        <div className="text-xs text-slate-400">
+        <div className="font-semibold text-sm text-foreground">{componente.marca_componente}</div>
+        <div className="text-xs text-muted-foreground">
           Perfil: {componente.perfil || 'N/A'}
         </div>
-        <div className="text-xs text-slate-400">
+        <div className="text-xs text-muted-foreground">
           Peso Unitário: {componente.peso_unitario || 0}kg | Qtd por Peça: {componente.quantidade_por_peca || 1}
         </div>
         {componente.descricao && (
-          <div className="text-xs text-slate-400 truncate" title={componente.descricao}>
+          <div className="text-xs text-muted-foreground truncate" title={componente.descricao}>
             {componente.descricao}
           </div>
         )}
@@ -297,79 +298,30 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
     </div>
   );
 
-  const ItemDisponivelComponentBase = ({ item, isSelected }: { item: ItemDisponivel; isSelected: boolean }) => {
-    return (
-      <div 
-        className={`p-3 border rounded-md cursor-pointer transition-colors relative ${
-          isSelected 
-            ? 'border-blue-500 bg-blue-900/20' 
-            : 'border-slate-600 hover:bg-slate-700/50'
-        }`}
-        onClick={() => handleItemSelect(item)}
-      >
-        <div className="space-y-2">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="font-medium text-sm text-blue-300">{item.marca}</div>
-              <div className="text-xs text-slate-400 mt-1">
-                {item.descricao}
-              </div>
-            </div>
-            
-            {/* Botão administrativo - DISPONÍVEL PARA TODAS AS PEÇAS */}
-            {isAdmin && item.tipo === 'peca' && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 w-6 p-0 text-orange-400 hover:text-orange-300 hover:bg-orange-900/20 ml-2"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleAdminAction(item);
-                }}
-                title="Verificar apontamentos e forçar exclusão"
-              >
-                <Settings className="h-3 w-3" />
-              </Button>
-            )}
-          </div>
-          
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-green-400 font-bold">
-              Disponível: {item.quantidade_disponivel}
-            </span>
-            <span className="text-slate-400">
-              Processo: {item.processo_atual_permitido}
-            </span>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   const ItemDisponivelComponent = React.memo(({ item, isSelected }: { item: ItemDisponivel; isSelected: boolean }) => (
     <div className="relative">
       <div
         className={`p-3 border rounded-md cursor-pointer transition-colors ${
           isSelected
-            ? 'border-blue-500 bg-blue-900/20'
-            : 'border-slate-600 hover:bg-slate-700/50'
+            ? 'border-primary bg-primary/10 ring-1 ring-primary'
+            : 'border-border bg-card hover:bg-accent/50'
         }`}
         onClick={() => handleItemSelect(item)}
       >
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <div className="font-medium text-sm text-blue-300">{item.marca}</div>
-            <div className="text-xs text-green-400 font-bold">
+            <div className="font-semibold text-sm text-foreground">{item.marca}</div>
+            <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
               {item.quantidade_disponivel} disponível
             </div>
           </div>
           {item.descricao && (
-            <div className="text-xs text-slate-400 truncate" title={item.descricao}>
+            <div className="text-xs text-muted-foreground truncate" title={item.descricao}>
               {item.descricao}
             </div>
           )}
-          <div className="text-xs text-slate-500">
-            Processo: {item.processo_atual_permitido}
+          <div className="text-xs text-muted-foreground font-medium">
+            Processo: {item.nome_processo || item.processo_atual_permitido}
           </div>
         </div>
       </div>
@@ -378,7 +330,7 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
         <Button
           size="sm"
           variant="ghost"
-          className="absolute top-2 right-2 h-6 w-6 p-0 text-orange-400 hover:text-orange-300 hover:bg-orange-900/20"
+          className="absolute top-2 right-2 h-6 w-6 p-0 text-orange-500 hover:text-orange-600 hover:bg-orange-500/10"
           onClick={(e) => {
             e.stopPropagation();
             handleAdminAction(item);
@@ -401,21 +353,21 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             ref={inputRef}
-            className="bg-slate-800 border-slate-700 text-slate-300 placeholder-slate-500 shadow-none focus-visible:ring-slate-600 h-9"
+            className="bg-background border-input text-foreground placeholder:text-muted-foreground shadow-sm h-9"
           />
-          <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-500" />
+          <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         </div>
 
         {loadingPecas ? (
-          <div className="text-center text-slate-400">Carregando peças...</div>
+          <div className="text-center text-muted-foreground">Carregando peças...</div>
         ) : (
-          <ScrollArea className="rounded-md border border-slate-700 h-[300px] p-2">
+          <ScrollArea className="rounded-md border border-border h-[300px] p-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {pecasFiltradas.map((peca) => (
                 <PecaItem key={peca.id} peca={peca} onSelect={handlePecaSelect} />
               ))}
               {pecasFiltradas.length === 0 && (
-                <div className="text-center text-slate-400 col-span-full">
+                <div className="text-center text-muted-foreground col-span-full">
                   Nenhuma peça encontrada.
                 </div>
               )}
@@ -425,17 +377,17 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
 
         {showComponentes && (
           <div className="space-y-2">
-            <h3 className="text-lg font-semibold text-slate-300">Componentes da Peça</h3>
+            <h3 className="text-lg font-semibold text-foreground">Componentes da Peça</h3>
             {loadingComponentes ? (
-              <div className="text-center text-slate-400">Carregando componentes...</div>
+              <div className="text-center text-muted-foreground">Carregando componentes...</div>
             ) : (
-              <ScrollArea className="rounded-md border border-slate-700 h-[200px] p-2">
+              <ScrollArea className="rounded-md border border-border h-[200px] p-2">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {componentes.map((componente) => (
                     <ComponenteItem key={componente.id} componente={componente} />
                   ))}
                   {componentes.length === 0 && (
-                    <div className="text-center text-slate-400 col-span-full">
+                    <div className="text-center text-muted-foreground col-span-full">
                       Nenhum componente cadastrado para esta peça.
                     </div>
                   )}
@@ -452,14 +404,14 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
     <>
       <div className="space-y-4">
         {loading ? (
-          <div className="text-center text-slate-400">Carregando itens disponíveis...</div>
+          <div className="text-center text-muted-foreground">Carregando itens disponíveis...</div>
         ) : (
           <>
             {/* Seção de Peças Disponíveis */}
             {pecasDisponiveis.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                  <h3 className="text-lg font-semibold text-slate-300 flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
                     <Package className="h-5 w-5" />
                     Peças Disponíveis
                   </h3>
@@ -469,7 +421,7 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
                       placeholder="Filtrar por número da peça..."
                       value={filtroNumeroPeca}
                       onChange={(e) => setFiltroNumeroPeca(e.target.value)}
-                      className="bg-slate-800 border-slate-700 text-slate-300 placeholder-slate-500 h-8 w-48"
+                      className="bg-background border-input text-foreground placeholder:text-muted-foreground h-8 w-48 shadow-sm"
                     />
                     <Button
                       size="sm"
@@ -494,7 +446,7 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
                     )}
                   </div>
                 </div>
-                <ScrollArea className="rounded-md border border-slate-700 h-[300px] p-2">
+                <ScrollArea className="rounded-md border border-border h-[300px] p-2">
                   <div className="space-y-2">
                     {pecasOrdenadas.map((item) => (
                       <div key={item.id} className="relative">
@@ -507,7 +459,7 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="absolute top-2 right-2 h-6 w-6 p-0 text-orange-400 hover:text-orange-300 hover:bg-orange-900/20"
+                            className="absolute top-2 right-2 h-6 w-6 p-0 text-orange-500 hover:text-orange-600 hover:bg-orange-500/10"
                             onClick={(e) => {
                               e.stopPropagation();
                               handleAdminAction(item);
@@ -520,7 +472,7 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
                       </div>
                     ))}
                     {pecasOrdenadas.length === 0 && (
-                      <div className="text-center text-slate-400 py-8">
+                      <div className="text-center text-muted-foreground py-8">
                         {filtroNumeroPeca ? 'Nenhuma peça encontrada com esse filtro.' : 'Nenhuma peça disponível.'}
                       </div>
                     )}
@@ -533,7 +485,7 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
             {componentesDisponiveis.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-slate-300">Componentes Disponíveis</h3>
+                  <h3 className="text-lg font-semibold text-foreground">Componentes Disponíveis</h3>
                   <Button
                     size="sm"
                     variant="outline"
@@ -544,7 +496,7 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
                     Apontar Todos ({componentesOrdenados.length})
                   </Button>
                 </div>
-                <ScrollArea className="rounded-md border border-slate-700 h-[300px] p-2">
+                <ScrollArea className="rounded-md border border-border h-[300px] p-2">
                   <div className="space-y-2">
                     {componentesOrdenados.map((item) => (
                       <ItemDisponivelComponent 
@@ -560,7 +512,7 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
 
             {/* Mensagem quando não há itens */}
             {pecasDisponiveis.length === 0 && componentesDisponiveis.length === 0 && (
-              <div className="text-center text-slate-400 py-8">
+              <div className="text-center text-muted-foreground py-8">
                 Nenhum item disponível para este processo.
               </div>
             )}
@@ -583,32 +535,32 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
 
           {selectedPecaForAdmin && (
             <div className="space-y-4">
-              <div className="bg-slate-800 p-4 rounded-lg">
-                <h4 className="font-semibold text-slate-300 mb-2">Informações da Peça</h4>
+              <div className="bg-muted p-4 rounded-lg">
+                <h4 className="font-semibold text-foreground mb-2">Informações da Peça</h4>
                 <div className="space-y-1 text-sm">
-                  <div><span className="text-slate-400">Marca:</span> <span className="text-slate-200">{selectedPecaForAdmin.marca}</span></div>
-                  <div><span className="text-slate-400">Descrição:</span> <span className="text-slate-200">{selectedPecaForAdmin.descricao}</span></div>
-                  <div><span className="text-slate-400">Quantidade Disponível:</span> <span className="text-green-400 font-bold">{selectedPecaForAdmin.quantidade_disponivel}</span></div>
-                  <div><span className="text-slate-400">Processo Atual:</span> <span className="text-blue-400">{selectedPecaForAdmin.processo_atual_permitido}</span></div>
+                  <div><span className="text-muted-foreground">Marca:</span> <span className="text-foreground font-medium">{selectedPecaForAdmin.marca}</span></div>
+                  <div><span className="text-muted-foreground">Descrição:</span> <span className="text-foreground">{selectedPecaForAdmin.descricao}</span></div>
+                  <div><span className="text-muted-foreground">Quantidade Disponível:</span> <span className="text-emerald-600 dark:text-emerald-400 font-bold">{selectedPecaForAdmin.quantidade_disponivel}</span></div>
+                  <div><span className="text-muted-foreground">Processo Atual:</span> <span className="text-primary font-medium">{selectedPecaForAdmin.nome_processo || selectedPecaForAdmin.processo_atual_permitido}</span></div>
                 </div>
               </div>
 
               {loadingApontamentos ? (
-                <div className="text-center text-slate-400 py-4">
+                <div className="text-center text-muted-foreground py-4">
                   Carregando histórico de apontamentos...
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <h4 className="font-semibold text-slate-300">Histórico de Apontamentos ({apontamentosPeca.length})</h4>
+                  <h4 className="font-semibold text-foreground">Histórico de Apontamentos ({apontamentosPeca.length})</h4>
                   
                   {apontamentosPeca.length > 0 ? (
                     <>
-                      <div className="bg-orange-900/20 border border-orange-700 p-4 rounded-lg">
+                      <div className="bg-orange-500/10 border border-orange-500/30 p-4 rounded-lg">
                         <div className="flex items-start gap-2">
-                          <AlertTriangle className="h-5 w-5 text-orange-400 mt-0.5" />
+                          <AlertTriangle className="h-5 w-5 text-orange-500 mt-0.5" />
                           <div>
-                            <h5 className="font-semibold text-orange-300">Atenção!</h5>
-                            <p className="text-sm text-orange-200 mt-1">
+                            <h5 className="font-semibold text-orange-600 dark:text-orange-400">Atenção!</h5>
+                            <p className="text-sm text-muted-foreground mt-1">
                               Esta peça possui {apontamentosPeca.length} apontamento(s) registrado(s). 
                               Forçar a exclusão irá removê-la da exibição atual, mas não afetará os dados já salvos.
                             </p>
@@ -616,15 +568,15 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
                         </div>
                       </div>
                       
-                      <ScrollArea className="h-[200px] border border-slate-700 rounded-lg p-3">
+                      <ScrollArea className="h-[200px] border border-border rounded-lg p-3">
                         <div className="space-y-2">
                           {apontamentosPeca.map((apontamento, index) => (
-                            <div key={apontamento.id || index} className="bg-slate-800 p-3 rounded border border-slate-600">
+                            <div key={apontamento.id || index} className="bg-card p-3 rounded border border-border">
                               <div className="grid grid-cols-2 gap-2 text-sm">
-                                <div><span className="text-slate-400">Processo:</span> <span className="text-blue-300">{apontamento.processo?.nome || 'N/A'}</span></div>
-                                <div><span className="text-slate-400">Quantidade:</span> <span className="text-green-400">{apontamento.quantidade_produzida}</span></div>
-                                <div><span className="text-slate-400">Data:</span> <span className="text-slate-300">{new Date(apontamento.created_at).toLocaleString('pt-BR')}</span></div>
-                                <div><span className="text-slate-400">Usuário:</span> <span className="text-slate-300">{apontamento.usuario_id}</span></div>
+                                <div><span className="text-muted-foreground">Processo:</span> <span className="text-foreground font-medium">{apontamento.processo?.nome || 'N/A'}</span></div>
+                                <div><span className="text-muted-foreground">Quantidade:</span> <span className="text-emerald-600 dark:text-emerald-400 font-bold">{apontamento.quantidade_produzida}</span></div>
+                                <div><span className="text-muted-foreground">Data:</span> <span className="text-muted-foreground">{new Date(apontamento.created_at).toLocaleString('pt-BR')}</span></div>
+                                <div><span className="text-muted-foreground">Usuário:</span> <span className="text-muted-foreground">{apontamento.usuario_id}</span></div>
                               </div>
                             </div>
                           ))}
@@ -632,8 +584,8 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
                       </ScrollArea>
                     </>
                   ) : (
-                    <div className="bg-green-900/20 border border-green-700 p-4 rounded-lg">
-                      <div className="text-green-300 text-sm">
+                    <div className="bg-emerald-500/10 border border-emerald-500/30 p-4 rounded-lg">
+                      <div className="text-emerald-600 dark:text-emerald-400 text-sm">
                         ✅ Nenhum apontamento encontrado para esta peça. É seguro removê-la da exibição.
                       </div>
                     </div>

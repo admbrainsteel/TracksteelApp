@@ -22,6 +22,7 @@ interface ItemDisponivel {
   tipo: 'peca' | 'componente';
   quantidade_disponivel: number;
   processo_atual_permitido: number;
+  nome_processo?: string;
 }
 
 // Cache local para manter seleções básicas do formulário
@@ -110,6 +111,7 @@ export const ApontamentoForm = () => {
     }
 
     const ordemProcesso = processoSelecionado?.ordem || 1;
+    const nomeProcesso = processoSelecionado?.nome || `${ordemProcesso}`;
 
     // 1. Peças da OF e Fase selecionadas
     const pecasDaFase = pecas.filter(
@@ -133,7 +135,8 @@ export const ApontamentoForm = () => {
           descricao: peca.descricao || '',
           tipo: 'peca',
           quantidade_disponivel: saldoDisponivel,
-          processo_atual_permitido: ordemProcesso
+          processo_atual_permitido: ordemProcesso,
+          nome_processo: nomeProcesso
         });
       }
     });
@@ -157,7 +160,8 @@ export const ApontamentoForm = () => {
             descricao: comp.descricao || comp.perfil || '',
             tipo: 'componente',
             quantidade_disponivel: saldoComp,
-            processo_atual_permitido: ordemProcesso
+            processo_atual_permitido: ordemProcesso,
+            nome_processo: nomeProcesso
           });
         }
       });
