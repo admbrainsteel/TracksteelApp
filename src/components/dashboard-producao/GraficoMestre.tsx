@@ -6,8 +6,7 @@ import {
   XAxis, 
   YAxis, 
   CartesianGrid, 
-  Tooltip, 
-  Legend 
+  Tooltip 
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -60,6 +59,66 @@ const CORES_FALLBACK = [
   '#a855f7', '#3b82f6', '#f97316', '#ec4899', 
   '#06b6d4', '#14b8a6', '#6366f1', '#10b981', '#eab308'
 ];
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    name: string;
+    value: number;
+    color: string;
+    dataKey: string;
+  }>;
+  label?: string;
+  modoExibicao: 'kg' | 'percent';
+  selectedProcesso: string | null;
+}
+
+// Componente Tooltip declarado fora da renderização principal para evitar recriação no render
+const CustomTooltip: React.FC<CustomTooltipProps> = ({ 
+  active, 
+  payload, 
+  label, 
+  modoExibicao, 
+  selectedProcesso 
+}) => {
+  if (!active || !payload || !payload.length) return null;
+
+  return (
+    <div className="bg-popover/95 backdrop-blur-md border border-border shadow-2xl rounded-xl p-3 text-popover-foreground min-w-[200px] z-50">
+      <div className="flex items-center justify-between border-b border-border/50 pb-2 mb-2">
+        <span className="text-xs font-semibold text-muted-foreground">Data</span>
+        <span className="text-xs font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-md">{label}</span>
+      </div>
+      <div className="space-y-1.5">
+        {payload.map((entry, index) => {
+          const isHighlight = !selectedProcesso || selectedProcesso === entry.name;
+          return (
+            <div 
+              key={`item-${index}`} 
+              className={`flex items-center justify-between text-xs transition-opacity ${
+                isHighlight ? 'opacity-100 font-medium' : 'opacity-40'
+              }`}
+            >
+              <div className="flex items-center gap-1.5">
+                <span 
+                  className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" 
+                  style={{ backgroundColor: entry.color }}
+                />
+                <span className="truncate max-w-[130px]">{entry.name}</span>
+              </div>
+              <span className="font-mono font-semibold ml-2">
+                {modoExibicao === 'kg' 
+                  ? `${entry.value.toLocaleString('pt-BR')} kg`
+                  : `${entry.value.toFixed(1)}%`
+                }
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 export const GraficoMestre: React.FC<GraficoMestreProps> = ({ 
   processos, 
@@ -121,7 +180,7 @@ export const GraficoMestre: React.FC<GraficoMestreProps> = ({
 
     return datasOrdenadas.map(data => {
       const dataFormatada = format(parseISO(data), 'dd/MM', { locale: ptBR });
-      const pontoGrafico: any = {
+      const pontoGrafico: Record<string, string | number> = {
         data: dataFormatada,
         dataCompleta: data
       };
@@ -142,47 +201,6 @@ export const GraficoMestre: React.FC<GraficoMestreProps> = ({
       return pontoGrafico;
     });
   }, [processosOrdenados, modoExibicao]);
-
-  // Formatação customizada para o Tooltip estilo Glassmorphism
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (!active || !payload || !payload.length) return null;
-
-    return (
-      <div className="bg-popover/95 backdrop-blur-md border border-border shadow-2xl rounded-xl p-3 text-popover-foreground min-w-[200px] z-50">
-        <div className="flex items-center justify-between border-b border-border/50 pb-2 mb-2">
-          <span className="text-xs font-semibold text-muted-foreground">Data</span>
-          <span className="text-xs font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-md">{label}</span>
-        </div>
-        <div className="space-y-1.5">
-          {payload.map((entry: any, index: number) => {
-            const isHighlight = !selectedProcesso || selectedProcesso === entry.name;
-            return (
-              <div 
-                key={`item-${index}`} 
-                className={`flex items-center justify-between text-xs transition-opacity ${
-                  isHighlight ? 'opacity-100 font-medium' : 'opacity-40'
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  <span 
-                    className="w-2.5 h-2.5 rounded-full shrink-0 shadow-sm" 
-                    style={{ backgroundColor: entry.color }}
-                  />
-                  <span className="truncate max-w-[130px]">{entry.name}</span>
-                </div>
-                <span className="font-mono font-semibold ml-2">
-                  {modoExibicao === 'kg' 
-                    ? `${entry.value.toLocaleString('pt-BR')} kg`
-                    : `${entry.value.toFixed(1)}%`
-                  }
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="space-y-4 w-full">
@@ -286,7 +304,7 @@ export const GraficoMestre: React.FC<GraficoMestreProps> = ({
               unit={modoExibicao === 'kg' ? ' kg' : '%'}
               tickFormatter={(val) => modoExibicao === 'kg' && val >= 1000 ? `${(val / 1000).toFixed(1)}k` : `${val}`}
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<CustomTooltip modoExibicao={modoExibicao} selectedProcesso={selectedProcesso} />} />
             
             {processosOrdenados.map((processo, idx) => {
               const color = getCorProcesso(processo.nome, idx);
