@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { DashboardProcesso } from '@/hooks/useDashboardProducaoOtimizado';
@@ -11,11 +10,16 @@ interface GraficoProgressoIndividualProps {
 
 export const GraficoProgressoIndividual: React.FC<GraficoProgressoIndividualProps> = ({ processos }) => {
   const formatTooltipValue = (value: number, name: string) => [
-    `${(value / 1000).toFixed(2)} t`,
+    `${Math.round(value).toLocaleString('pt-BR')} kg`,
     name === 'planejado' ? 'Planejado' : 'Realizado'
   ];
 
-  const formatAxisValue = (value: number) => `${(value / 1000).toFixed(1)}t`;
+  const formatAxisValue = (value: number) => {
+    if (value >= 1000) {
+      return `${(value / 1000).toFixed(1)}k kg`;
+    }
+    return `${Math.round(value)} kg`;
+  };
 
   const formatDateLabel = (tickItem: string) => {
     try {
@@ -55,13 +59,13 @@ export const GraficoProgressoIndividual: React.FC<GraficoProgressoIndividualProp
             <h3 className="text-lg font-semibold text-card-foreground">
               Progresso - {processo.nome}
             </h3>
-            <div className="ml-auto text-sm text-muted-foreground">
-              {processo.progressoReal.toFixed(1)}% realizado
+            <div className="ml-auto text-sm text-muted-foreground font-mono">
+              {processo.progressoReal.toFixed(1)}% realizado ({Math.round(processo.pesoFabricado)} kg)
             </div>
           </div>
           
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-64 w-full relative min-h-[256px]">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <AreaChart data={processo.dadosGrafico}>
                 <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                 <XAxis 

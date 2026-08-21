@@ -178,20 +178,24 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
       
       console.log(`PROGRESSO GERAL: ${pesoTotalFabricado} kg / ${pesoTotalPlanejado} kg = ${progressoGeral.toFixed(2)}%`);
 
-      // 7. Buscar range de datas
-      const { data: dateRangeData, error: dateRangeError } = await supabase
-        .rpc('get_dashboard_date_range', { of_number_param: ofNumber });
-
-      if (dateRangeError) {
-        console.error('Erro ao buscar range de datas:', dateRangeError);
+      // 7. Buscar range de datas (opcional, ignora erro se a RPC não existir no Supabase)
+      let dateRangeData = null;
+      try {
+        const { data, error } = await supabase
+          .rpc('get_dashboard_date_range', { of_number_param: ofNumber });
+        if (!error) dateRangeData = data;
+      } catch (e) {
+        // Ignora caso RPC não exista
       }
 
-      // 8. Buscar dados consolidados
-      const { data: consolidatedData, error: consolidatedError } = await supabase
-        .rpc('get_dashboard_consolidated_data', { of_number_param: ofNumber });
-
-      if (consolidatedError) {
-        console.error('Erro ao buscar dados consolidados:', consolidatedError);
+      // 8. Buscar dados consolidados (opcional, ignora erro se a RPC não existir no Supabase)
+      let consolidatedData = null;
+      try {
+        const { data, error } = await supabase
+          .rpc('get_dashboard_consolidated_data', { of_number_param: ofNumber });
+        if (!error) consolidatedData = data;
+      } catch (e) {
+        // Ignora caso RPC não exista
       }
 
       // 9. Buscar processos
