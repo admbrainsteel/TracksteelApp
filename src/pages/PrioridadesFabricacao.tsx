@@ -58,17 +58,30 @@ const PrioridadesFabricacao = () => {
       const numBigBoxes = Math.floor(quantity / 5);
       const numSmallBoxes = quantity % 5;
       for (let i = 0; i < numBigBoxes; i++) {
-        boxesHtml += `<div class="tick-box-large"><span>5</span></div>`;
+        boxesHtml += `
+          <svg width="13" height="13" viewBox="0 0 13 13" style="display: inline-block; vertical-align: -1px; margin-right: 2px;">
+            <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#f3f4f6" stroke="#4b5563" stroke-width="1" />
+            <text x="6.5" y="9.5" text-anchor="middle" font-size="8.5" font-family="Arial, sans-serif" font-weight="bold" fill="#4b5563">5</text>
+          </svg>
+        `;
       }
       for (let i = 0; i < numSmallBoxes; i++) {
-        boxesHtml += `<div class="tick-box"></div>`;
+        boxesHtml += `
+          <svg width="13" height="13" viewBox="0 0 13 13" style="display: inline-block; vertical-align: -1px; margin-right: 2px;">
+            <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#ffffff" stroke="#4b5563" stroke-width="1" />
+          </svg>
+        `;
       }
     } else {
       for (let i = 0; i < quantity; i++) {
-        boxesHtml += `<div class="tick-box"></div>`;
+        boxesHtml += `
+          <svg width="13" height="13" viewBox="0 0 13 13" style="display: inline-block; vertical-align: -1px; margin-right: 2px;">
+            <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#ffffff" stroke="#4b5563" stroke-width="1" />
+          </svg>
+        `;
       }
     }
-    return `<div class="tick-boxes-wrapper">${boxesHtml}</div>`;
+    return `<span style="display: inline-block; vertical-align: middle; margin-left: 4px;">${boxesHtml}</span>`;
   };
 
   const handleImprimirRelatorio = async () => {
@@ -106,11 +119,11 @@ const PrioridadesFabricacao = () => {
 
         const getCoresPrioridade = (codigo: string) => {
           switch (codigo) {
-            case 'P1': return 'text-red-700 bg-red-100';
-            case 'P2': return 'text-orange-700 bg-orange-100';
-            case 'P3': return 'text-blue-700 bg-blue-100';
-            case 'P4': return 'text-gray-700 bg-gray-200';
-            default: return 'text-gray-700 bg-gray-200';
+            case 'P1': return 'text-red-700 bg-red-100 border-red-300';
+            case 'P2': return 'text-orange-700 bg-orange-100 border-orange-300';
+            case 'P3': return 'text-blue-700 bg-blue-100 border-blue-300';
+            case 'P4': return 'text-gray-700 bg-gray-200 border-gray-300';
+            default: return 'text-gray-700 bg-gray-200 border-gray-300';
           }
         };
 
@@ -119,15 +132,15 @@ const PrioridadesFabricacao = () => {
         
         itemsContent += `
           <div class="priority-group ${pageBreakClass}">
-            <h2 class="text-lg font-semibold ${getCoresPrioridade(codigo)} px-3 py-1 rounded-md inline-block mb-3">
+            <h2 class="text-base font-semibold ${getCoresPrioridade(codigo)} px-3 py-1 rounded-md inline-block mb-2.5 border">
               ${getPrioridadeNome(codigo)}
             </h2>
-            <div class="space-y-1">
+            <div class="space-y-1.5">
         `;
 
         // Gerar linhas de itens (3 por linha)
         for (let i = 0; i < Math.ceil(itens.length / 3); i++) {
-          const bgColorClass = i % 2 !== 0 ? 'bg-gray-50' : 'bg-white';
+          const bgColorClass = i % 2 !== 0 ? 'bg-gray-50/70' : 'bg-white';
           const rowItems = itens.slice(i * 3, (i + 1) * 3);
           
           itemsContent += `<div class="grid grid-cols-3 gap-2 p-1 rounded-md ${bgColorClass}">`;
@@ -141,9 +154,9 @@ const PrioridadesFabricacao = () => {
             
             itemsContent += `
               <div class="item-card">
-                <div class="item-header">
-                  <span class="item-marca">${marca} (${quantidade})</span>
-                  <span class="item-tipo">${infoType}</span>
+                <div style="margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                  <span style="font-size: 13px; font-weight: 700; color: #111827; vertical-align: middle; margin-right: 4px;">${marca} (${quantidade})</span>
+                  <span style="font-size: 11px; font-weight: 600; color: #6b7280; vertical-align: middle;">${infoType}</span>
                   ${tickBoxes}
                 </div>
                 <div class="item-signature">
@@ -179,87 +192,9 @@ const PrioridadesFabricacao = () => {
             <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
             <style>
                 body {
-                    font-family: 'Inter', sans-serif;
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
                     -webkit-print-color-adjust: exact;
                     print-color-adjust: exact;
-                }
-                .process-group {
-                  display: flex;
-                  align-items: center;
-                  flex-wrap: wrap;
-                  gap: 16px;
-                  margin-top: 4px;
-                }
-                .process-item {
-                  display: inline-flex;
-                  align-items: center;
-                  gap: 6px;
-                  vertical-align: middle;
-                }
-                .process-checkbox {
-                  width: 14px;
-                  height: 14px;
-                  min-width: 14px;
-                  min-height: 14px;
-                  border: 1.5px solid #4b5563;
-                  border-radius: 2px;
-                  display: inline-block;
-                  vertical-align: middle;
-                  box-sizing: border-box;
-                  background-color: #ffffff;
-                }
-                .process-label {
-                  font-size: 13px;
-                  font-weight: 600;
-                  color: #374151;
-                  line-height: 14px;
-                  display: inline-block;
-                  vertical-align: middle;
-                }
-                .tick-boxes-wrapper {
-                  display: inline-flex;
-                  align-items: center;
-                  flex-wrap: wrap;
-                  gap: 3px;
-                  vertical-align: middle;
-                }
-                .tick-box {
-                  width: 13px;
-                  height: 13px;
-                  min-width: 13px;
-                  min-height: 13px;
-                  border: 1px solid #4b5563;
-                  border-radius: 2px;
-                  display: inline-block;
-                  vertical-align: middle;
-                  box-sizing: border-box;
-                  background-color: #ffffff;
-                }
-                .tick-box-large {
-                  width: 13px;
-                  height: 13px;
-                  min-width: 13px;
-                  min-height: 13px;
-                  border: 1px solid #4b5563;
-                  border-radius: 2px;
-                  display: inline-flex;
-                  align-items: center;
-                  justify-content: center;
-                  vertical-align: middle;
-                  box-sizing: border-box;
-                  background-color: #f3f4f6;
-                  text-align: center;
-                  line-height: 1;
-                }
-                .tick-box-large span {
-                  color: #6b7280;
-                  font-size: 8.5px;
-                  font-weight: 700;
-                  line-height: 13px;
-                  display: block;
-                  width: 100%;
-                  height: 100%;
-                  text-align: center;
                 }
                 .item-card {
                   border: 1px solid #e5e7eb;
@@ -267,31 +202,6 @@ const PrioridadesFabricacao = () => {
                   border-radius: 6px;
                   background-color: #ffffff;
                   box-sizing: border-box;
-                }
-                .item-header {
-                  display: flex;
-                  align-items: center;
-                  flex-wrap: wrap;
-                  gap: 6px;
-                  min-height: 18px;
-                }
-                .item-marca {
-                  font-size: 13px;
-                  font-weight: 700;
-                  color: #111827;
-                  line-height: 14px;
-                  white-space: nowrap;
-                  display: inline-block;
-                  vertical-align: middle;
-                }
-                .item-tipo {
-                  font-size: 11px;
-                  font-weight: 600;
-                  color: #6b7280;
-                  line-height: 14px;
-                  white-space: nowrap;
-                  display: inline-block;
-                  vertical-align: middle;
                 }
                 .item-signature {
                   margin-top: 6px;
@@ -348,26 +258,48 @@ const PrioridadesFabricacao = () => {
                         </div>
                         <!-- Coluna Processo -->
                         <div class="md:col-span-2">
-                            <p class="text-xs font-medium text-gray-500">PROCESSO</p>
-                            <div class="process-group">
-                              <div class="process-item"><span class="process-checkbox"></span><span class="process-label">Corte</span></div>
-                              <div class="process-item"><span class="process-checkbox"></span><span class="process-label">Solda</span></div>
-                              <div class="process-item"><span class="process-checkbox"></span><span class="process-label">Pintura</span></div>
-                              <div class="process-item"><span class="process-checkbox"></span><span class="process-label">Expedição</span></div>
+                            <p class="text-xs font-medium text-gray-500 mb-1">PROCESSO</p>
+                            <div style="margin-top: 2px;">
+                              <div style="display: inline-block; vertical-align: middle; margin-right: 16px; white-space: nowrap;">
+                                <svg width="14" height="14" viewBox="0 0 14 14" style="display: inline-block; vertical-align: -2px; margin-right: 4px;">
+                                  <rect x="0.75" y="0.75" width="12.5" height="12.5" rx="1.5" fill="#ffffff" stroke="#4b5563" stroke-width="1.5" />
+                                </svg>
+                                <span style="font-size: 13px; font-weight: 600; color: #374151; vertical-align: middle;">Corte</span>
+                              </div>
+                              <div style="display: inline-block; vertical-align: middle; margin-right: 16px; white-space: nowrap;">
+                                <svg width="14" height="14" viewBox="0 0 14 14" style="display: inline-block; vertical-align: -2px; margin-right: 4px;">
+                                  <rect x="0.75" y="0.75" width="12.5" height="12.5" rx="1.5" fill="#ffffff" stroke="#4b5563" stroke-width="1.5" />
+                                </svg>
+                                <span style="font-size: 13px; font-weight: 600; color: #374151; vertical-align: middle;">Solda</span>
+                              </div>
+                              <div style="display: inline-block; vertical-align: middle; margin-right: 16px; white-space: nowrap;">
+                                <svg width="14" height="14" viewBox="0 0 14 14" style="display: inline-block; vertical-align: -2px; margin-right: 4px;">
+                                  <rect x="0.75" y="0.75" width="12.5" height="12.5" rx="1.5" fill="#ffffff" stroke="#4b5563" stroke-width="1.5" />
+                                </svg>
+                                <span style="font-size: 13px; font-weight: 600; color: #374151; vertical-align: middle;">Pintura</span>
+                              </div>
+                              <div style="display: inline-block; vertical-align: middle; margin-right: 16px; white-space: nowrap;">
+                                <svg width="14" height="14" viewBox="0 0 14 14" style="display: inline-block; vertical-align: -2px; margin-right: 4px;">
+                                  <rect x="0.75" y="0.75" width="12.5" height="12.5" rx="1.5" fill="#ffffff" stroke="#4b5563" stroke-width="1.5" />
+                                </svg>
+                                <span style="font-size: 13px; font-weight: 600; color: #374151; vertical-align: middle;">Expedição</span>
+                              </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Legenda -->
-                <div class="text-xs text-gray-600 mb-5 flex items-center flex-wrap gap-x-2.5">
-                    <span class="font-semibold">Legenda:</span>
-                    <span>Marca (Qtd)</span>
-                    <span class="font-medium text-gray-500">(S/M)</span>
-                    <span>= Sem Montagem,</span>
-                    <span class="font-medium text-gray-500">(C/M)</span>
-                    <span>= Com Montagem. Os quadrados</span>
-                    <span class="tick-box"></span>
+                <div class="text-xs text-gray-600 mb-5 flex items-center flex-wrap">
+                    <span class="font-semibold" style="margin-right: 6px;">Legenda:</span>
+                    <span style="margin-right: 6px;">Marca (Qtd)</span>
+                    <span class="font-medium text-gray-500" style="margin-right: 4px;">(S/M)</span>
+                    <span style="margin-right: 6px;">= Sem Montagem,</span>
+                    <span class="font-medium text-gray-500" style="margin-right: 4px;">(C/M)</span>
+                    <span style="margin-right: 4px;">= Com Montagem. Os quadrados</span>
+                    <svg width="13" height="13" viewBox="0 0 13 13" style="display: inline-block; vertical-align: -2px; margin: 0 4px;">
+                      <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#ffffff" stroke="#4b5563" stroke-width="1" />
+                    </svg>
                     <span>indicam o controle de peças fabricadas.</span>
                 </div>
                 

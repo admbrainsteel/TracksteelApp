@@ -57,24 +57,51 @@ export const PrioridadesPDFTemplate: React.FC<PrioridadesPDFTemplateProps> = ({
       // Quadrados com "5"
       for (let i = 0; i < numBigBoxes; i++) {
         boxes.push(
-          <div key={`big-${i}`} className="tick-box-large">
-            <span>5</span>
-          </div>
+          <svg 
+            key={`big-${i}`} 
+            width="13" 
+            height="13" 
+            viewBox="0 0 13 13" 
+            style={{ display: 'inline-block', verticalAlign: '-1px', marginRight: '2px' }}
+          >
+            <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#f3f4f6" stroke="#4b5563" strokeWidth="1" />
+            <text x="6.5" y="9.5" textAnchor="middle" fontSize="8.5" fontFamily="Arial, sans-serif" fontWeight="bold" fill="#4b5563">5</text>
+          </svg>
         );
       }
       
       // Quadrados unitários restantes
       for (let i = 0; i < numSmallBoxes; i++) {
-        boxes.push(<div key={`small-${i}`} className="tick-box"></div>);
+        boxes.push(
+          <svg 
+            key={`small-${i}`} 
+            width="13" 
+            height="13" 
+            viewBox="0 0 13 13" 
+            style={{ display: 'inline-block', verticalAlign: '-1px', marginRight: '2px' }}
+          >
+            <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#ffffff" stroke="#4b5563" strokeWidth="1" />
+          </svg>
+        );
       }
     } else {
       // Apenas quadrados unitários
       for (let i = 0; i < quantity; i++) {
-        boxes.push(<div key={i} className="tick-box"></div>);
+        boxes.push(
+          <svg 
+            key={i} 
+            width="13" 
+            height="13" 
+            viewBox="0 0 13 13" 
+            style={{ display: 'inline-block', verticalAlign: '-1px', marginRight: '2px' }}
+          >
+            <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#ffffff" stroke="#4b5563" strokeWidth="1" />
+          </svg>
+        );
       }
     }
     
-    return <div className="tick-boxes-wrapper">{boxes}</div>;
+    return <span style={{ display: 'inline-block', verticalAlign: 'middle', marginLeft: '4px' }}>{boxes}</span>;
   };
 
   return (
@@ -84,115 +111,12 @@ export const PrioridadesPDFTemplate: React.FC<PrioridadesPDFTemplateProps> = ({
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
           color: #111827;
         }
-        .process-group {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 16px;
-          margin-top: 4px;
-        }
-        .process-item {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          vertical-align: middle;
-        }
-        .process-checkbox {
-          width: 14px;
-          height: 14px;
-          min-width: 14px;
-          min-height: 14px;
-          border: 1.5px solid #4b5563;
-          border-radius: 2px;
-          display: inline-block;
-          vertical-align: middle;
-          box-sizing: border-box;
-          background-color: #ffffff;
-        }
-        .process-label {
-          font-size: 13px;
-          font-weight: 600;
-          color: #374151;
-          line-height: 14px;
-          display: inline-block;
-          vertical-align: middle;
-        }
-        .tick-boxes-wrapper {
-          display: inline-flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 3px;
-          vertical-align: middle;
-        }
-        .tick-box {
-          width: 13px;
-          height: 13px;
-          min-width: 13px;
-          min-height: 13px;
-          border: 1px solid #4b5563;
-          border-radius: 2px;
-          display: inline-block;
-          vertical-align: middle;
-          box-sizing: border-box;
-          background-color: #ffffff;
-        }
-        .tick-box-large {
-          width: 13px;
-          height: 13px;
-          min-width: 13px;
-          min-height: 13px;
-          border: 1px solid #4b5563;
-          border-radius: 2px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          vertical-align: middle;
-          box-sizing: border-box;
-          background-color: #f3f4f6;
-          text-align: center;
-          line-height: 1;
-        }
-        .tick-box-large span {
-          color: #6b7280;
-          font-size: 8.5px;
-          font-weight: 700;
-          line-height: 13px;
-          display: block;
-          width: 100%;
-          height: 100%;
-          text-align: center;
-        }
         .item-card {
           border: 1px solid #e5e7eb;
           padding: 8px 10px;
           border-radius: 6px;
           background-color: #ffffff;
           box-sizing: border-box;
-        }
-        .item-header {
-          display: flex;
-          align-items: center;
-          flex-wrap: wrap;
-          gap: 6px;
-          min-height: 18px;
-        }
-        .item-marca {
-          font-size: 13px;
-          font-weight: 700;
-          color: #111827;
-          line-height: 14px;
-          white-space: nowrap;
-          display: inline-block;
-          vertical-align: middle;
-        }
-        .item-tipo {
-          font-size: 11px;
-          font-weight: 600;
-          color: #6b7280;
-          line-height: 14px;
-          white-space: nowrap;
-          display: inline-block;
-          vertical-align: middle;
         }
         .item-signature {
           margin-top: 6px;
@@ -251,12 +175,29 @@ export const PrioridadesPDFTemplate: React.FC<PrioridadesPDFTemplateProps> = ({
             </div>
             {/* Coluna Processo */}
             <div className="md:col-span-2">
-              <p className="text-xs font-medium text-gray-500">PROCESSO</p>
-              <div className="process-group">
+              <p className="text-xs font-medium text-gray-500 mb-1">PROCESSO</p>
+              <div style={{ marginTop: '2px' }}>
                 {['Corte', 'Solda', 'Pintura', 'Expedição'].map((processo) => (
-                  <div key={processo} className="process-item">
-                    <span className="process-checkbox"></span>
-                    <span className="process-label">{processo}</span>
+                  <div 
+                    key={processo} 
+                    style={{ 
+                      display: 'inline-block', 
+                      verticalAlign: 'middle', 
+                      marginRight: '16px', 
+                      whiteSpace: 'nowrap' 
+                    }}
+                  >
+                    <svg 
+                      width="14" 
+                      height="14" 
+                      viewBox="0 0 14 14" 
+                      style={{ display: 'inline-block', verticalAlign: '-2px', marginRight: '4px' }}
+                    >
+                      <rect x="0.75" y="0.75" width="12.5" height="12.5" rx="1.5" fill="#ffffff" stroke="#4b5563" strokeWidth="1.5" />
+                    </svg>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151', verticalAlign: 'middle' }}>
+                      {processo}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -265,14 +206,21 @@ export const PrioridadesPDFTemplate: React.FC<PrioridadesPDFTemplateProps> = ({
         </div>
 
         {/* Legenda */}
-        <div className="text-xs text-gray-600 mb-5 flex items-center flex-wrap gap-x-2.5">
-          <span className="font-semibold">Legenda:</span>
-          <span>Marca (Qtd)</span>
-          <span className="font-medium text-gray-500">(S/M)</span>
-          <span>= Sem Montagem,</span>
-          <span className="font-medium text-gray-500">(C/M)</span>
-          <span>= Com Montagem. Os quadrados</span>
-          <span className="tick-box"></span>
+        <div className="text-xs text-gray-600 mb-5 flex items-center flex-wrap">
+          <span className="font-semibold" style={{ marginRight: '6px' }}>Legenda:</span>
+          <span style={{ marginRight: '6px' }}>Marca (Qtd)</span>
+          <span className="font-medium text-gray-500" style={{ marginRight: '4px' }}>(S/M)</span>
+          <span style={{ marginRight: '6px' }}>= Sem Montagem,</span>
+          <span className="font-medium text-gray-500" style={{ marginRight: '4px' }}>(C/M)</span>
+          <span style={{ marginRight: '4px' }}>= Com Montagem. Os quadrados</span>
+          <svg 
+            width="13" 
+            height="13" 
+            viewBox="0 0 13 13" 
+            style={{ display: 'inline-block', verticalAlign: '-2px', margin: '0 4px' }}
+          >
+            <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#ffffff" stroke="#4b5563" strokeWidth="1" />
+          </svg>
           <span>indicam o controle de peças fabricadas.</span>
         </div>
 
@@ -303,11 +251,13 @@ export const PrioridadesPDFTemplate: React.FC<PrioridadesPDFTemplateProps> = ({
                           
                           return (
                             <div key={item.id} className="item-card">
-                              <div className="item-header">
-                                <span className="item-marca">
+                              <div style={{ marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827', verticalAlign: 'middle', marginRight: '4px' }}>
                                   {marca} ({quantidade})
                                 </span>
-                                <span className="item-tipo">{infoType}</span>
+                                <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280', verticalAlign: 'middle' }}>
+                                  {infoType}
+                                </span>
                                 {generateTickBoxes(quantidade)}
                               </div>
                               <div className="item-signature">
