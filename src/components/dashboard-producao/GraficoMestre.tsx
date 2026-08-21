@@ -177,6 +177,7 @@ export const GraficoMestre: React.FC<GraficoMestreProps> = ({
     });
 
     const datasOrdenadas = Array.from(todasAsDatas).sort();
+    const ultimosValoresKg: Record<string, number> = {};
 
     return datasOrdenadas.map(data => {
       const dataFormatada = format(parseISO(data), 'dd/MM', { locale: ptBR });
@@ -187,7 +188,15 @@ export const GraficoMestre: React.FC<GraficoMestreProps> = ({
 
       processosOrdenados.forEach(processo => {
         const pontoProcesso = processo.dadosGrafico.find(p => p.data === data);
-        const valorKg = pontoProcesso ? pontoProcesso.realizado : 0;
+        
+        let valorKg: number;
+        if (pontoProcesso && pontoProcesso.realizado > 0) {
+          valorKg = pontoProcesso.realizado;
+          ultimosValoresKg[processo.nome] = valorKg;
+        } else {
+          // Se não houver novo ponto ou for 0, mantém o acumulado anterior para a linha NUNCA cair
+          valorKg = ultimosValoresKg[processo.nome] || 0;
+        }
         
         if (modoExibicao === 'percent') {
           const pesoTotal = processo.pesoTotal > 0 ? processo.pesoTotal : 1;

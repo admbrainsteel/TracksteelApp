@@ -429,9 +429,13 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
             }
             // Antes do início planejado, o planejado fica 0
            
-           // Calcular progresso real até esta data - soma dos pesos apontados
-           const apontamentosAteData = apontamentosProcesso.filter(a => a.data_apontamento <= dataStr);
-           let realizado = 0;
+            // Calcular progresso real até esta data - soma dos pesos apontados
+            const apontamentosAteData = apontamentosProcesso.filter(a => {
+              if (!a.data_apontamento) return false;
+              const dataAptStr = typeof a.data_apontamento === 'string' ? a.data_apontamento.substring(0, 10) : '';
+              return dataAptStr <= dataStr;
+            });
+            let realizado = 0;
            apontamentosAteData.forEach(a => {
              let pesoUnitario = 0;
              
