@@ -1,17 +1,19 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { PrioridadesPDFTemplate } from './PrioridadesPDFTemplate';
 import { ItemPrioridade } from '@/hooks/useItensPrioridadeFabricacao';
-import { Download } from 'lucide-react';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import { Download, Loader2, Printer } from 'lucide-react';
+import { generateProfessionalPDF, printProfessionalPDF } from '@/utils/pdfGenerator';
+import { toast } from 'sonner';
 
 interface PrioridadesPDFProps {
   isOpen: boolean;
   onClose: () => void;
   itensPorPrioridade: { [key: string]: ItemPrioridade[] };
+  ofSelecionada?: string | null;
+  faseSelecionada?: string | null;
   versaoAtual?: {
     revisao: number;
     dataModificacao: string;
@@ -23,64 +25,66 @@ export const PrioridadesPDF: React.FC<PrioridadesPDFProps> = ({
   isOpen,
   onClose,
   itensPorPrioridade,
+  ofSelecionada,
+  faseSelecionada,
   versaoAtual
 }) => {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  const getNomeArquivo = () => {
+    let nomeArquivo = 'checklist-producao';
+    const todosItens = Object.values(itensPorPrioridade).flat();
+    const primeiroItem = todosItens[0];
+    const of = ofSelecionada || primeiroItem?.peca?.of_number || primeiroItem?.prioridade_fabricacao?.of_number;
+    const fase = faseSelecionada || primeiroItem?.peca?.etapa_fase || primeiroItem?.prioridade_fabricacao?.etapa_fase;
+
+    if (of && fase) {
+      nomeArquivo = `checklist-producao-${of}-${fase}`;
+      if (versaoAtual) {
+        nomeArquivo += `-rev${versaoAtual.revisao}`;
+      }
+    }
+    return nomeArquivo;
+  };
+
   const handleGerarPDF = async () => {
     const elemento = document.getElementById('prioridades-pdf-content');
     
     if (!elemento) {
-      console.error('Elemento não encontrado');
+      toast.error('Elemento do relatório não encontrado');
       return;
     }
 
     try {
-      const canvas = await html2canvas(elemento, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff'
-      });
-      
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      
-      const imgWidth = 210;
-      const pageHeight = 295;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-      
-      let position = 0;
-      
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-      
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-      
-      // Extrair OF e Fase para o nome do arquivo
-      const todosItens = Object.values(itensPorPrioridade).flat();
-      let nomeArquivo = 'checklist-producao';
-      
-      if (todosItens.length > 0) {
-        const primeiroItem = todosItens[0];
-        const of = primeiroItem?.peca?.of_number || primeiroItem?.prioridade_fabricacao?.of_number;
-        const fase = primeiroItem?.peca?.etapa_fase || primeiroItem?.prioridade_fabricacao?.etapa_fase;
-        
-        if (of && fase) {
-          nomeArquivo = `checklist-producao-${of}-${fase}`;
-          if (versaoAtual) {
-            nomeArquivo += `-rev${versaoAtual.revisao}`;
-          }
-        }
-      }
-      
-      pdf.save(`${nomeArquivo}.pdf`);
-    } catch (error) {
+      setIsGenerating(true);
+      const nomeArquivo = getNomeArquivo();
+      await generateProfessionalPDF('prioridades-pdf-content', `${nomeArquivo}.pdf`);
+      toast.success('PDF baixado com sucesso!');
+    } catch (error: any) {
       console.error('Erro ao gerar PDF:', error);
+      toast.error(error.message || 'Erro ao gerar PDF');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleImprimir = async () => {
+    const elemento = document.getElementById('prioridades-pdf-content');
+    if (!elemento) {
+      toast.error('Elemento do relatório não encontrado');
+      return;
+    }
+
+    try {
+      setIsPrinting(true);
+      await printProfessionalPDF('prioridades-pdf-content');
+      toast.success('Relatório enviado para impressão');
+    } catch (error: any) {
+      console.error('Erro ao imprimir:', error);
+      toast.error('Erro ao imprimir relatório');
+    } finally {
+      setIsPrinting(false);
     }
   };
 
@@ -88,18 +92,53 @@ export const PrioridadesPDF: React.FC<PrioridadesPDFProps> = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            Visualizar Checklist de Produção
-            <Button onClick={handleGerarPDF} className="ml-4">
-              <Download className="h-4 w-4 mr-2" />
-              Baixar PDF
-            </Button>
+          <DialogTitle className="flex flex-wrap items-center justify-between gap-2">
+            <span>Visualizar Checklist de Produção</span>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="outline"
+                size="sm"
+                onClick={handleImprimir}
+                disabled={isPrinting || isGenerating}
+              >
+                {isPrinting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Imprimindo...
+                  </>
+                ) : (
+                  <>
+                    <Printer className="h-4 w-4 mr-2" />
+                    Imprimir
+                  </>
+                )}
+              </Button>
+              <Button 
+                size="sm"
+                onClick={handleGerarPDF} 
+                disabled={isGenerating || isPrinting}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Gerando PDF...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Baixar PDF
+                  </>
+                )}
+              </Button>
+            </div>
           </DialogTitle>
         </DialogHeader>
 
         <div className="mt-4">
           <PrioridadesPDFTemplate 
             itensPorPrioridade={itensPorPrioridade} 
+            ofSelecionada={ofSelecionada}
+            faseSelecionada={faseSelecionada}
             versaoAtual={versaoAtual}
           />
         </div>

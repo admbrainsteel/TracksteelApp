@@ -2,75 +2,79 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
 export const generateProfessionalPDF = async (elementId: string, filename: string) => {
+  let tempContainer: HTMLElement | null = null;
+
   try {
     const element = document.getElementById(elementId);
     if (!element) {
-      throw new Error('Elemento não encontrado para gerar PDF');
+      throw new Error(`Elemento #${elementId} não encontrado para gerar PDF`);
     }
 
-    // Aguardar um pouco para garantir que o elemento esteja completamente renderizado
-    await new Promise(resolve => setTimeout(resolve, 200));
+    // Criar um container temporário isolado fora de modais/dialogs para evitar bugs de tamanho 0x0
+    tempContainer = document.createElement('div');
+    tempContainer.style.position = 'fixed';
+    tempContainer.style.left = '0';
+    tempContainer.style.top = '0';
+    tempContainer.style.width = '850px';
+    tempContainer.style.backgroundColor = '#ffffff';
+    tempContainer.style.zIndex = '-9999';
+    tempContainer.style.opacity = '1';
+    tempContainer.style.pointerEvents = 'none';
+    tempContainer.style.margin = '0';
+    tempContainer.style.padding = '20px';
+    tempContainer.style.boxSizing = 'border-box';
+    tempContainer.style.overflow = 'visible';
 
-    // Garantir que o elemento esteja visível e com dimensões corretas
-    const originalDisplay = element.style.display;
-    const originalVisibility = element.style.visibility;
-    const originalPosition = element.style.position;
-    
-    element.style.display = 'block';
-    element.style.visibility = 'visible';
-    element.style.position = 'relative';
-    
-    // Forçar um reflow
-    element.offsetHeight;
-    
-    // Aguardar mais um pouco após forçar o reflow
+    // Clonar o elemento para o container isolado
+    const clonedElement = element.cloneNode(true) as HTMLElement;
+    clonedElement.style.display = 'block';
+    clonedElement.style.visibility = 'visible';
+    clonedElement.style.position = 'static';
+    clonedElement.style.width = '100%';
+    clonedElement.style.maxWidth = '100%';
+    clonedElement.style.height = 'auto';
+    clonedElement.style.maxHeight = 'none';
+    clonedElement.style.overflow = 'visible';
+    clonedElement.style.transform = 'none';
+    clonedElement.style.backgroundColor = '#ffffff';
+    clonedElement.style.color = '#000000';
+
+    tempContainer.appendChild(clonedElement);
+    document.body.appendChild(tempContainer);
+
+    // Aguardar renderização e computação de layout
     await new Promise(resolve => setTimeout(resolve, 300));
 
-    console.log('Gerando PDF para elemento:', elementId);
-    console.log('Dimensões do elemento:', {
-      width: element.offsetWidth,
-      height: element.offsetHeight,
-      scrollWidth: element.scrollWidth,
-      scrollHeight: element.scrollHeight
-    });
-
-    // Se o elemento não tem dimensões, isso pode causar PDF em branco
-    if (element.offsetWidth === 0 || element.offsetHeight === 0) {
-      throw new Error('Elemento tem dimensões zero - não é possível gerar PDF');
-    }
+    // Elemento a ser renderizado pelo html2canvas
+    const targetElement = (clonedElement.offsetHeight > 0 && clonedElement.offsetWidth > 0)
+      ? clonedElement
+      : element;
 
     // Configurações otimizadas para html2canvas
-    const canvas = await html2canvas(element, {
+    const canvas = await html2canvas(targetElement, {
       scale: 2,
       useCORS: true,
-      allowTaint: false,
+      allowTaint: true,
       backgroundColor: '#ffffff',
-      width: element.scrollWidth,
-      height: element.scrollHeight,
-      scrollX: 0,
-      scrollY: 0,
-      windowWidth: Math.max(element.scrollWidth, 1200),
-      windowHeight: Math.max(element.scrollHeight, 800),
-      foreignObjectRendering: false,
-      removeContainer: false,
-      imageTimeout: 10000,
-      logging: false
+      logging: false,
+      windowWidth: 1024,
+      onclone: (clonedDoc) => {
+        const found = clonedDoc.getElementById(elementId) || clonedDoc.body;
+        if (found) {
+          (found as HTMLElement).style.display = 'block';
+          (found as HTMLElement).style.visibility = 'visible';
+        }
+      }
     });
 
-    console.log('Canvas criado com sucesso:', {
-      width: canvas.width,
-      height: canvas.height
-    });
-
-    // Verificar se o canvas foi criado corretamente
-    if (canvas.width === 0 || canvas.height === 0) {
-      throw new Error('Canvas criado com dimensões zero');
+    if (!canvas || canvas.width === 0 || canvas.height === 0) {
+      throw new Error('Não foi possível capturar o layout visual para o PDF');
     }
 
-    // Restaurar estilos originais
-    element.style.display = originalDisplay;
-    element.style.visibility = originalVisibility;
-    element.style.position = originalPosition;
+    const imgData = canvas.toDataURL('image/png', 1.0);
+    if (!imgData || !imgData.startsWith('data:image/png;base64,')) {
+      throw new Error('Falha ao processar os dados da imagem para o PDF');
+    }
 
     // Criar PDF com configurações otimizadas
     const pdf = new jsPDF({
@@ -85,10 +89,10 @@ export const generateProfessionalPDF = async (elementId: string, filename: strin
     const pageHeight = 297;
     
     // Margens adequadas
-    const marginTop = 15;
-    const marginBottom = 15;
-    const marginLeft = 15;
-    const marginRight = 15;
+    const marginTop = 12;
+    const marginBottom = 12;
+    const marginLeft = 12;
+    const marginRight = 12;
     
     // Área útil para conteúdo
     const contentWidth = pageWidth - marginLeft - marginRight;
@@ -98,103 +102,82 @@ export const generateProfessionalPDF = async (elementId: string, filename: strin
     const imgWidth = contentWidth;
     const imgHeight = (canvas.height * contentWidth) / canvas.width;
 
-    // Converter canvas para imagem
-    const imgData = canvas.toDataURL('image/png', 1.0);
-    
-    console.log('Adicionando imagem ao PDF:', {
-      imgWidth,
-      imgHeight,
-      contentHeight,
-      totalPages: Math.ceil(imgHeight / contentHeight)
-    });
-
-    // Verificar se os dados da imagem foram gerados
-    if (!imgData || imgData === 'data:,') {
-      throw new Error('Falha ao gerar dados da imagem do canvas');
-    }
-
     // Sistema de paginação
     let currentY = 0;
     let pageNumber = 1;
-    const totalPages = Math.ceil(imgHeight / contentHeight);
+    const totalPages = Math.max(1, Math.ceil(imgHeight / contentHeight));
 
     // Função para adicionar rodapé com numeração
-    const addFooter = (pageNum: number, totalPages: number) => {
+    const addFooter = (pageNum: number, totalPagesCount: number) => {
       pdf.setFontSize(8);
-      pdf.setTextColor(100, 100, 100);
-      const footerText = `Página ${pageNum} de ${totalPages}`;
+      pdf.setTextColor(120, 120, 120);
+      const footerText = `Página ${pageNum} de ${totalPagesCount}`;
       const textWidth = pdf.getTextWidth(footerText);
       const footerX = (pageWidth - textWidth) / 2;
-      const footerY = pageHeight - 8;
+      const footerY = pageHeight - 6;
       pdf.text(footerText, footerX, footerY);
     };
 
-    // Primeira página
     if (imgHeight <= contentHeight) {
       // Conteúdo cabe em uma página
-      pdf.addImage(imgData, 'PNG', marginLeft, marginTop, imgWidth, imgHeight);
+      pdf.addImage(imgData, 'PNG', marginLeft, marginTop, imgWidth, imgHeight, undefined, 'FAST');
       addFooter(1, 1);
     } else {
-      // Conteúdo precisa de múltiplas páginas
+      // Conteúdo precisa de múltiplas páginas com corte preciso
       while (currentY < imgHeight) {
         if (pageNumber > 1) {
           pdf.addPage();
         }
 
-        // Calcular a altura restante do conteúdo
         const remainingHeight = imgHeight - currentY;
         const currentPageHeight = Math.min(contentHeight, remainingHeight);
         
-        // Criar um canvas temporário para a seção atual
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
         
-        if (tempCtx) {
+        if (tempCtx && currentPageHeight > 0) {
+          const sliceHeight = Math.round((currentPageHeight * canvas.width) / imgWidth);
           tempCanvas.width = canvas.width;
-          tempCanvas.height = (currentPageHeight * canvas.width) / imgWidth;
+          tempCanvas.height = sliceHeight;
           
-          // Desenhar a seção atual do canvas original
+          tempCtx.fillStyle = '#ffffff';
+          tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+          
           tempCtx.drawImage(
             canvas,
             0,
-            (currentY * canvas.width) / imgWidth,
+            Math.round((currentY * canvas.width) / imgWidth),
             canvas.width,
-            tempCanvas.height,
+            sliceHeight,
             0,
             0,
             canvas.width,
-            tempCanvas.height
+            sliceHeight
           );
           
-          // Converter para dados de imagem
           const tempImgData = tempCanvas.toDataURL('image/png', 1.0);
-          
-          // Adicionar a seção ao PDF
-          pdf.addImage(tempImgData, 'PNG', marginLeft, marginTop, imgWidth, currentPageHeight);
+          if (tempImgData && tempImgData.startsWith('data:image/png;base64,')) {
+            pdf.addImage(tempImgData, 'PNG', marginLeft, marginTop, imgWidth, currentPageHeight, undefined, 'FAST');
+          }
         }
 
-        // Adicionar rodapé
         addFooter(pageNumber, totalPages);
-
-        // Preparar para próxima página
         currentY += contentHeight;
         pageNumber++;
       }
     }
 
-    // Forçar o download do PDF
-    console.log('Iniciando download do PDF:', filename);
+    // Salvar arquivo PDF
     pdf.save(filename);
-    
-    // Aguardar um momento para garantir que o download seja iniciado
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    console.log('PDF salvo com sucesso:', filename);
     return true;
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro detalhado ao gerar PDF:', error);
-    throw new Error(`Erro ao gerar PDF: ${error.message}`);
+    throw new Error(`Erro ao gerar PDF: ${error.message || error}`);
+  } finally {
+    if (tempContainer && tempContainer.parentNode) {
+      tempContainer.parentNode.removeChild(tempContainer);
+    }
   }
 };
 

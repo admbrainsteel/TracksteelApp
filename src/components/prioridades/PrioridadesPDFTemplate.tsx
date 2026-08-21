@@ -4,6 +4,8 @@ import { ItemPrioridade } from '@/hooks/useItensPrioridadeFabricacao';
 
 interface PrioridadesPDFTemplateProps {
   itensPorPrioridade: { [key: string]: ItemPrioridade[] };
+  ofSelecionada?: string | null;
+  faseSelecionada?: string | null;
   versaoAtual?: {
     revisao: number;
     dataModificacao: string;
@@ -13,13 +15,15 @@ interface PrioridadesPDFTemplateProps {
 
 export const PrioridadesPDFTemplate: React.FC<PrioridadesPDFTemplateProps> = ({ 
   itensPorPrioridade,
+  ofSelecionada,
+  faseSelecionada,
   versaoAtual
 }) => {
   const todosItens = Object.values(itensPorPrioridade).flat();
   
   const primeiroItem = todosItens[0];
-  const ofNumber = primeiroItem?.peca?.of_number || primeiroItem?.prioridade_fabricacao?.of_number || 'N/A';
-  const etapaFase = primeiroItem?.peca?.etapa_fase || primeiroItem?.prioridade_fabricacao?.etapa_fase || 'N/A';
+  const ofNumber = ofSelecionada || primeiroItem?.peca?.of_number || primeiroItem?.prioridade_fabricacao?.of_number || 'N/A';
+  const etapaFase = faseSelecionada || primeiroItem?.peca?.etapa_fase || primeiroItem?.prioridade_fabricacao?.etapa_fase || 'N/A';
   
   const dataAtual = new Date().toLocaleDateString('pt-BR');
 
