@@ -172,6 +172,7 @@ export const useDashboardProducao = (ofNumber: string) => {
 
   useEffect(() => {
     fetchDashboardData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ofNumber]);
 
   return {

@@ -163,15 +163,33 @@ export const useValidacaoSequencialProcessos = () => {
     return { valido: true };
   }, [historico, processos]);
 
+  // Função auxiliar para calcular quantidade disponível do processo anterior
+  const calcularQuantidadeDisponivelProcessoAnterior = useCallback(async (
+    marcaItem: string,
+    ordemProcessoAnterior: number,
+    ofNumber: string,
+    tipoItem: 'peca' | 'componente'
+  ): Promise<number> => {
+    const processoAnterior = processos.find(p => p.ordem === ordemProcessoAnterior);
+    if (!processoAnterior) return 0;
+
+    return await buscarQuantidadeProcessada(
+      marcaItem,
+      processoAnterior.id,
+      ofNumber,
+      tipoItem
+    );
+  }, [processos, buscarQuantidadeProcessada]);
+
   // Calcular itens disponíveis para um processo específico
   const calcularItensDisponiveis = useCallback(async (
     ofNumber: string,
     processoId: string,
-    pecas: any[],
-    componentes: any[]
+    pecas: Record<string, unknown>[],
+    componentes: Record<string, unknown>[]
   ): Promise<{
-    pecasDisponiveis: any[];
-    componentesDisponiveis: any[];
+    pecasDisponiveis: Record<string, unknown>[];
+    componentesDisponiveis: Record<string, unknown>[];
   }> => {
     const processoAtual = processos.find(p => p.id === processoId);
     if (!processoAtual) {
@@ -179,28 +197,31 @@ export const useValidacaoSequencialProcessos = () => {
     }
 
     const ordemAtual = processoAtual.ordem;
-    const pecasDisponiveis: any[] = [];
-    const componentesDisponiveis: any[] = [];
+    const pecasDisponiveis: Record<string, unknown>[] = [];
+    const componentesDisponiveis: Record<string, unknown>[] = [];
 
     // Processar peças
     for (const peca of pecas) {
+      const marcaPeca = String(peca.marca || '');
+      const qtdPeca = Number(peca.quantidade || 0);
+
       if (ordemAtual === 1) {
         // Primeiro processo: todas as peças estão disponíveis
         pecasDisponiveis.push({
           ...peca,
-          quantidade_disponivel: peca.quantidade || 0
+          quantidade_disponivel: qtdPeca
         });
       } else {
         // Calcular quantidade disponível baseada no processo anterior
         const quantidadeProcessadaAnterior = await calcularQuantidadeDisponivelProcessoAnterior(
-          peca.marca,
+          marcaPeca,
           ordemAtual - 1,
           ofNumber,
           'peca'
         );
 
         const quantidadeJaProcessadaAtual = await buscarQuantidadeProcessada(
-          peca.marca,
+          marcaPeca,
           processoId,
           ofNumber,
           'peca'
@@ -219,23 +240,26 @@ export const useValidacaoSequencialProcessos = () => {
 
     // Processar componentes
     for (const componente of componentes) {
+      const marcaComp = String(componente.marca_componente || '');
+      const qtdComp = Number(componente.quantidade_total || 0);
+
       if (ordemAtual === 1) {
         // Primeiro processo: todos os componentes estão disponíveis
         componentesDisponiveis.push({
           ...componente,
-          quantidade_disponivel: componente.quantidade_total || 0
+          quantidade_disponivel: qtdComp
         });
       } else {
         // Calcular quantidade disponível baseada no processo anterior
         const quantidadeProcessadaAnterior = await calcularQuantidadeDisponivelProcessoAnterior(
-          componente.marca_componente,
+          marcaComp,
           ordemAtual - 1,
           ofNumber,
           'componente'
         );
 
         const quantidadeJaProcessadaAtual = await buscarQuantidadeProcessada(
-          componente.marca_componente,
+          marcaComp,
           processoId,
           ofNumber,
           'componente'
@@ -253,25 +277,7 @@ export const useValidacaoSequencialProcessos = () => {
     }
 
     return { pecasDisponiveis, componentesDisponiveis };
-  }, [processos, buscarQuantidadeProcessada]);
-
-  // Função auxiliar para calcular quantidade disponível do processo anterior
-  const calcularQuantidadeDisponivelProcessoAnterior = async (
-    marcaItem: string,
-    ordemProcessoAnterior: number,
-    ofNumber: string,
-    tipoItem: 'peca' | 'componente'
-  ): Promise<number> => {
-    const processoAnterior = processos.find(p => p.ordem === ordemProcessoAnterior);
-    if (!processoAnterior) return 0;
-
-    return await buscarQuantidadeProcessada(
-      marcaItem,
-      processoAnterior.id,
-      ofNumber,
-      tipoItem
-    );
-  };
+  }, [processos, buscarQuantidadeProcessada, calcularQuantidadeDisponivelProcessoAnterior]);
 
   return {
     historico,

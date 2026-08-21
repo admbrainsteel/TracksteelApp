@@ -28,6 +28,25 @@ interface ItemDisponivel {
   processo_atual_permitido: number;
 }
 
+interface ComponenteItemData {
+  id: string;
+  marca_componente: string;
+  perfil?: string;
+  peso_unitario?: number;
+  quantidade_por_peca?: number;
+  descricao?: string;
+}
+
+interface ApontamentoPecaRecord {
+  id: string;
+  quantidade_produzida: number;
+  data_apontamento?: string;
+  created_at: string;
+  usuario_id?: string;
+  processo?: { nome?: string; ordem?: number } | null;
+  peca?: { marca?: string; of_number?: string } | null;
+}
+
 interface SeletorItensOtimizadoProps {
   pecasDisponiveis?: ItemDisponivel[];
   componentesDisponiveis?: ItemDisponivel[];
@@ -36,12 +55,13 @@ interface SeletorItensOtimizadoProps {
   onBatchSelect?: (items: ItemDisponivel[], tipo: 'peca' | 'componente') => Promise<void>;
   loading?: boolean;
   onSelectPeca?: (peca: PecaWithComponents) => void;
-  onSelectComponente?: (componente: any) => void;
+  onSelectComponente?: (componente: ComponenteItemData) => void;
   pecaId?: string | null;
 }
 
 interface PecaWithComponents extends Peca {
-  componentes?: any[];
+  componentes?: ComponenteItemData[];
+  processo_atual_permitido?: number;
 }
 
 export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
@@ -61,14 +81,14 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
   const [pecasFiltradas, setPecasFiltradas] = useState<PecaWithComponents[]>([]);
   const [loadingPecas, setLoadingPecas] = useState(false);
   const [loadingComponentes, setLoadingComponentes] = useState(false);
-  const [componentes, setComponentes] = useState<any[]>([]);
+  const [componentes, setComponentes] = useState<ComponenteItemData[]>([]);
   const [showComponentes, setShowComponentes] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Estados para funcionalidade administrativa
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [selectedPecaForAdmin, setSelectedPecaForAdmin] = useState<ItemDisponivel | null>(null);
-  const [apontamentosPeca, setApontamentosPeca] = useState<any[]>([]);
+  const [apontamentosPeca, setApontamentosPeca] = useState<ApontamentoPecaRecord[]>([]);
   const [loadingApontamentos, setLoadingApontamentos] = useState(false);
 
   const { isAdmin } = useUserRole();
@@ -158,18 +178,6 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
     }
   }, []);
 
-  useEffect(() => {
-    if (onSelectPeca) {
-      fetchPecas(debouncedSearchTerm);
-    }
-  }, [debouncedSearchTerm, fetchPecas, onSelectPeca]);
-
-  useEffect(() => {
-    if (pecaId && onSelectComponente) {
-      loadComponentes(pecaId);
-    }
-  }, [pecaId, onSelectComponente]);
-
   const loadComponentes = useCallback(async (pecaId: string) => {
     try {
       setLoadingComponentes(true);
@@ -184,6 +192,18 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
     }
   }, [fetchComponentesPeca]);
 
+  useEffect(() => {
+    if (onSelectPeca) {
+      fetchPecas(debouncedSearchTerm);
+    }
+  }, [debouncedSearchTerm, fetchPecas, onSelectPeca]);
+
+  useEffect(() => {
+    if (pecaId && onSelectComponente) {
+      loadComponentes(pecaId);
+    }
+  }, [pecaId, onSelectComponente, loadComponentes]);
+
   const handlePecaSelect = useCallback((peca: PecaWithComponents) => {
     if (onSelectPeca) {
       onSelectPeca(peca);
@@ -194,13 +214,13 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
         descricao: peca.descricao || '',
         tipo: 'peca',
         quantidade_disponivel: peca.quantidadeDisponivel || 0,
-        processo_atual_permitido: (peca as any).processo_atual_permitido || 0
+        processo_atual_permitido: peca.processo_atual_permitido || 0
       };
       onItemSelect(itemDisponivel);
     }
   }, [onSelectPeca, onItemSelect]);
 
-  const handleComponenteSelect = useCallback((componente: any) => {
+  const handleComponenteSelect = useCallback((componente: ComponenteItemData) => {
     if (onSelectComponente) {
       onSelectComponente(componente);
     }
@@ -601,7 +621,7 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
                           {apontamentosPeca.map((apontamento, index) => (
                             <div key={apontamento.id || index} className="bg-slate-800 p-3 rounded border border-slate-600">
                               <div className="grid grid-cols-2 gap-2 text-sm">
-                                <div><span className="text-slate-400">Processo:</span> <span className="text-blue-300">{apontamento.processos?.nome || 'N/A'}</span></div>
+                                <div><span className="text-slate-400">Processo:</span> <span className="text-blue-300">{apontamento.processo?.nome || 'N/A'}</span></div>
                                 <div><span className="text-slate-400">Quantidade:</span> <span className="text-green-400">{apontamento.quantidade_produzida}</span></div>
                                 <div><span className="text-slate-400">Data:</span> <span className="text-slate-300">{new Date(apontamento.created_at).toLocaleString('pt-BR')}</span></div>
                                 <div><span className="text-slate-400">Usuário:</span> <span className="text-slate-300">{apontamento.usuario_id}</span></div>

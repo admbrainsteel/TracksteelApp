@@ -216,6 +216,7 @@ export const useApontamentoDiarioChart = (periodo: PeriodoType) => {
 
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodo]);
 
   return { 

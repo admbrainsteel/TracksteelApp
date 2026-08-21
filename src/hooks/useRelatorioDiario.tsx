@@ -136,6 +136,7 @@ export const useRelatorioDiario = (selectedDate: string) => {
 
   useEffect(() => {
     fetchApontamentos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDate]);
 
   // Calcular resumo por processo
