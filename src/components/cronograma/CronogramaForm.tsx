@@ -31,6 +31,18 @@ const processosDefault = [
   'Aceite/DB'
 ];
 
+interface OFOption {
+  id: string;
+  num_of: string;
+  descritivo: string;
+}
+
+interface GestorOption {
+  id: string;
+  full_name: string;
+  email: string;
+}
+
 export const CronogramaForm: React.FC<CronogramaFormProps> = ({ cronograma, onClose, isOpen, onSaveSuccess }) => {
   const { saveCronograma, getCronogramaPorOf } = useCronogramaOperations();
   const [formData, setFormData] = useState({
@@ -45,8 +57,8 @@ export const CronogramaForm: React.FC<CronogramaFormProps> = ({ cronograma, onCl
     })) as ProcessoCronograma[]
   });
 
-  const [ofs, setOfs] = useState<any[]>([]);
-  const [gestores, setGestores] = useState<any[]>([]);
+  const [ofs, setOfs] = useState<OFOption[]>([]);
+  const [gestores, setGestores] = useState<GestorOption[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {

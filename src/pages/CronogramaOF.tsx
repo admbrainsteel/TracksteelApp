@@ -14,7 +14,7 @@ import { CronogramaGantt } from '@/components/cronograma/CronogramaGantt';
 import { CronogramaPDF } from '@/components/cronograma/CronogramaPDF';
 import { useMobileResponsive } from '@/hooks/useMobileResponsive';
 import { usePermissionControl } from '@/hooks/usePermissionControl';
-import { CronogramaOf } from '@/types/cronograma';
+import { CronogramaOf, ProcessoCronograma } from '@/types/cronograma';
 
 const CronogramaOF = () => {
   const { cronogramas, loading, loadCronogramas, deleteCronograma } = useCronogramas();
@@ -24,7 +24,7 @@ const CronogramaOF = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedOF, setSelectedOF] = useState<string>('');
   const [showCronogramaForm, setShowCronogramaForm] = useState(false);
-  const [selectedCronograma, setSelectedCronograma] = useState<any>(null);
+  const [selectedCronograma, setSelectedCronograma] = useState<CronogramaOf | null>(null);
   const [showGanttChart, setShowGanttChart] = useState(false);
   const [showPDFGenerator, setShowPDFGenerator] = useState(false);
   const [cronogramaForGantt, setCronogramaForGantt] = useState<CronogramaOf | null>(null);
@@ -42,7 +42,7 @@ const CronogramaOF = () => {
       return ofA.localeCompare(ofB);
     });
 
-  const handleEdit = (cronograma: any) => {
+  const handleEdit = (cronograma: CronogramaOf) => {
     if (!canEdit()) return;
     setSelectedCronograma(cronograma);
     setShowCronogramaForm(true);
@@ -83,7 +83,7 @@ const CronogramaOF = () => {
     setCronogramaForPDF(null);
   };
 
-  const MobileCronogramaCard = ({ cronograma }: { cronograma: any }) => (
+  const MobileCronogramaCard = ({ cronograma }: { cronograma: CronogramaOf }) => (
     <Card className="w-full mb-4 bg-card border-border">
       <CardHeader className="pb-3">
         <div className="flex justify-between items-start">
@@ -125,7 +125,7 @@ const CronogramaOF = () => {
             <div className="mt-1 text-card-foreground">
               {Array.isArray(cronograma.processos) && cronograma.processos.length > 0 ? (
                 <div className="text-xs">
-                  {cronograma.processos.map((processo: any, index: number) => (
+                  {cronograma.processos.map((processo: ProcessoCronograma, index: number) => (
                     <div key={index} className="py-1 border-b border-border last:border-0">
                       {processo.nome_processo || `Processo ${index + 1}`}
                     </div>
