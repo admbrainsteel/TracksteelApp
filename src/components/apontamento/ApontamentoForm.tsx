@@ -207,7 +207,7 @@ export const ApontamentoForm = () => {
     }
 
     return { pecasDisponiveis, componentesDisponiveis };
-  }, [formData.of_number, formData.fase, formData.processo_id, pecas, apontamentos, processoSelecionado, componentesAgrupados]);
+  }, [formData, pecas, apontamentos, processoSelecionado, componentesAgrupados, processos]);
 
   // Sincronizar item selecionado caso não exista mais na lista disponível
   useEffect(() => {
@@ -260,7 +260,7 @@ export const ApontamentoForm = () => {
     try {
       for (const item of items) {
         try {
-          const apontamentoData: any = {
+          const apontamentoData: Parameters<typeof criarApontamento>[0] = {
             of_number: formData.of_number,
             tipo_apontamento: item.tipo,
             processo_id: formData.processo_id,
@@ -392,13 +392,13 @@ export const ApontamentoForm = () => {
     setSaving(true);
     
     try {
-      const apontamentoData: any = {
+      const apontamentoData: Parameters<typeof criarApontamento>[0] = {
         of_number: formData.of_number,
         tipo_apontamento: itemSelecionado.tipo,
         processo_id: formData.processo_id,
         quantidade_produzida: quantidade,
         data_apontamento: formData.data_apontamento,
-        observacoes: formData.observacoes || null
+        observacoes: formData.observacoes || undefined
       };
 
       if (itemSelecionado.tipo === 'componente') {
