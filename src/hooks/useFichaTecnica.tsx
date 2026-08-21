@@ -77,6 +77,7 @@ export interface FichaTecnicaData {
   doc_catalogo?: boolean;
   doc_fotos?: boolean;
   
+  /* eslint-disable @typescript-eslint/no-explicit-any */
   // Informações do projeto
   info_calculo_estrutural?: any;
   info_projeto_basico?: any;
@@ -144,6 +145,7 @@ export interface FichaTecnicaData {
   visto_exp?: string;
   visto_qual?: string;
   visto_colunas?: any;
+  /* eslint-enable @typescript-eslint/no-explicit-any */
 }
 
 export function useFichaTecnica() {
