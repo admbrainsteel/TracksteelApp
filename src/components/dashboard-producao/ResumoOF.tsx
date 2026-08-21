@@ -61,10 +61,10 @@ export const ResumoOF: React.FC<ResumoOFProps> = ({ of, data, loading }) => {
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold text-card-foreground">
-            {(data.pesoTotalFabricado / 1000).toFixed(2)} t
+            {data.pesoTotalFabricado.toFixed(2)} kg
           </div>
           <p className="text-xs text-muted-foreground">
-            de {(data.tonelagem / 1000).toFixed(2)} t contratadas
+            de {data.tonelagem.toFixed(2)} kg contratadas
           </p>
         </CardContent>
       </Card>
