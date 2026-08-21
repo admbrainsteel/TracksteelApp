@@ -275,7 +275,7 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
     );
   };
 
-  const ComponenteItem = ({ componente }: { componente: any }) => (
+  const ComponenteItem = ({ componente }: { componente: ComponenteItemData }) => (
     <div
       className="p-2 border border-slate-600 rounded-md hover:bg-slate-700/50 cursor-pointer transition-colors"
       onClick={() => handleComponenteSelect(componente)}
