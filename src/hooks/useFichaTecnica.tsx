@@ -160,7 +160,6 @@ export function useFichaTecnica() {
       const { data, error } = await supabase
         .from('ficha_tecnica_contratos')
         .select('*')
-        .eq('user_id', user.id)
         .order('of_number', { ascending: true });
 
       if (error) {
@@ -182,7 +181,6 @@ export function useFichaTecnica() {
         .from('ficha_tecnica_contratos')
         .select('*')
         .eq('of_number', ofNumber.trim())
-        .eq('user_id', user.id)
         .maybeSingle();
 
       if (error) {
@@ -373,8 +371,7 @@ export function useFichaTecnica() {
         const { error } = await supabase
           .from('ficha_tecnica_contratos')
           .update(dataToSave)
-          .eq('id', data.id)
-          .eq('user_id', user.id);
+          .eq('id', data.id);
 
         if (error) {
           console.error('Erro ao atualizar ficha técnica:', error);
@@ -389,7 +386,6 @@ export function useFichaTecnica() {
           .from('ficha_tecnica_contratos')
           .select('id')
           .eq('of_number', data.of_number.trim())
-          .eq('user_id', user.id)
           .maybeSingle();
 
         if (existingFicha) {
@@ -397,8 +393,7 @@ export function useFichaTecnica() {
           const { error } = await supabase
             .from('ficha_tecnica_contratos')
             .update(dataToSave)
-            .eq('id', existingFicha.id)
-            .eq('user_id', user.id);
+            .eq('id', existingFicha.id);
 
           if (error) {
             console.error('Erro ao atualizar ficha técnica existente:', error);
