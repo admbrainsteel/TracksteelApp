@@ -68,6 +68,11 @@ const CronogramaOF = () => {
     setSelectedCronograma(null);
   };
 
+  const handleSaveSuccess = () => {
+    loadCronogramas();
+    setActiveTab('cronogramas');
+  };
+
   const handleCloseGanttChart = () => {
     setShowGanttChart(false);
     setCronogramaForGantt(null);
@@ -285,6 +290,7 @@ const CronogramaOF = () => {
           cronograma={selectedCronograma}
           onClose={handleCloseCronogramaForm}
           isOpen={showCronogramaForm}
+          onSaveSuccess={handleSaveSuccess}
         />
       )}
 

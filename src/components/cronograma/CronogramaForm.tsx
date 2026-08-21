@@ -20,6 +20,7 @@ interface CronogramaFormProps {
   cronograma?: CronogramaOf | null;
   onClose: () => void;
   isOpen: boolean;
+  onSaveSuccess?: () => void;
 }
 
 const processosDefault = [
@@ -30,7 +31,7 @@ const processosDefault = [
   'Aceite/DB'
 ];
 
-export const CronogramaForm: React.FC<CronogramaFormProps> = ({ cronograma, onClose, isOpen }) => {
+export const CronogramaForm: React.FC<CronogramaFormProps> = ({ cronograma, onClose, isOpen, onSaveSuccess }) => {
   const { saveCronograma, getCronogramaPorOf } = useCronogramaOperations();
   const [formData, setFormData] = useState({
     of_id: '',
@@ -228,6 +229,9 @@ export const CronogramaForm: React.FC<CronogramaFormProps> = ({ cronograma, onCl
     setLoading(false);
     
     if (success) {
+      if (onSaveSuccess) {
+        onSaveSuccess();
+      }
       onClose();
     }
   };

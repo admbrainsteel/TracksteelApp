@@ -37,7 +37,7 @@ export const useCronogramas = () => {
   const loadCronogramas = async () => {
     try {
       setLoading(true);
-      
+
       const { data: cronogramasData, error: cronogramasError } = await supabase
         .from('cronogramas_of')
         .select(`
@@ -47,7 +47,7 @@ export const useCronogramas = () => {
             descritivo,
             peso_total
           ),
-          profiles!gestor_id (
+          profiles!cronogramas_of_gestor_id_fkey (
             full_name,
             email
           )
@@ -89,24 +89,18 @@ export const useCronogramas = () => {
     }
   };
 
-  const saveCronograma = async (cronograma: Omit<CronogramaOf, 'id'>) => {
+  const saveCronograma = async (cronograma: Partial<CronogramaOf> & { processos: ProcessoCronograma[] }) => {
     try {
       if (!user) throw new Error('Usuário não autenticado');
-
-      // Verificar se já existe cronograma para esta OF
-      const { data: existingCronograma } = await supabase
-        .from('cronogramas_of')
-        .select('id, revisao')
-        .eq('of_id', cronograma.of_id)
-        .single();
+      if (!cronograma.of_id) throw new Error('Selecione uma Ordem de Fabricação');
+      if (!cronograma.gestor_id) throw new Error('Selecione o gestor responsável');
 
       let cronogramaId: string;
-      let novaRevisao = 1;
 
-      if (existingCronograma) {
-        // Atualizar cronograma existente
-        novaRevisao = existingCronograma.revisao + 1;
-        
+      if (cronograma.id) {
+        // Atualizar cronograma existente por ID
+        const novaRevisao = cronograma.revisao ? cronograma.revisao + 1 : 1;
+
         const { data: updatedCronograma, error: updateError } = await supabase
           .from('cronogramas_of')
           .update({
@@ -114,7 +108,7 @@ export const useCronogramas = () => {
             revisao: novaRevisao,
             updated_at: new Date().toISOString()
           })
-          .eq('id', existingCronograma.id)
+          .eq('id', cronograma.id)
           .select()
           .single();
 
@@ -129,43 +123,80 @@ export const useCronogramas = () => {
 
         if (deleteError) throw deleteError;
       } else {
-        // Criar novo cronograma
-        const { data: newCronograma, error: insertError } = await supabase
+        // Verificar se já existe cronograma para esta OF (usando maybeSingle para evitar erro PGRST116)
+        const { data: existingCronograma } = await supabase
           .from('cronogramas_of')
-          .insert({
-            of_id: cronograma.of_id,
-            gestor_id: cronograma.gestor_id,
-            revisao: 1,
-            created_by: user.id
-          })
-          .select()
-          .single();
+          .select('id, revisao')
+          .eq('of_id', cronograma.of_id)
+          .maybeSingle();
 
-        if (insertError) throw insertError;
-        cronogramaId = newCronograma.id;
+        if (existingCronograma) {
+          // Atualizar cronograma existente
+          const novaRevisao = (existingCronograma.revisao || 1) + 1;
+
+          const { data: updatedCronograma, error: updateError } = await supabase
+            .from('cronogramas_of')
+            .update({
+              gestor_id: cronograma.gestor_id,
+              revisao: novaRevisao,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', existingCronograma.id)
+            .select()
+            .single();
+
+          if (updateError) throw updateError;
+          cronogramaId = updatedCronograma.id;
+
+          // Deletar processos antigos
+          const { error: deleteError } = await supabase
+            .from('processos_cronograma')
+            .delete()
+            .eq('cronograma_id', cronogramaId);
+
+          if (deleteError) throw deleteError;
+        } else {
+          // Criar novo cronograma
+          const { data: newCronograma, error: insertError } = await supabase
+            .from('cronogramas_of')
+            .insert({
+              of_id: cronograma.of_id,
+              gestor_id: cronograma.gestor_id,
+              revisao: 1,
+              created_by: user.id
+            })
+            .select()
+            .single();
+
+          if (insertError) throw insertError;
+          cronogramaId = newCronograma.id;
+        }
       }
 
       // Inserir novos processos
-      const processosParaInserir = cronograma.processos.map(processo => ({
-        cronograma_id: cronogramaId,
-        nome_processo: processo.nome_processo,
-        data_inicio: processo.data_inicio,
-        data_fim: processo.data_fim,
-        ordem: processo.ordem
-      }));
+      if (cronograma.processos && cronograma.processos.length > 0) {
+        const processosParaInserir = cronograma.processos.map((processo, idx) => ({
+          cronograma_id: cronogramaId,
+          nome_processo: processo.nome_processo,
+          data_inicio: processo.data_inicio,
+          data_fim: processo.data_fim,
+          ordem: processo.ordem || idx + 1
+        }));
 
-      const { error: processosError } = await supabase
-        .from('processos_cronograma')
-        .insert(processosParaInserir);
+        const { error: processosError } = await supabase
+          .from('processos_cronograma')
+          .insert(processosParaInserir);
 
-      if (processosError) throw processosError;
+        if (processosError) throw processosError;
+      }
 
       toast.success('Cronograma salvo com sucesso!');
-      loadCronogramas();
+      await loadCronogramas();
       return true;
     } catch (error) {
       console.error('Erro ao salvar cronograma:', error);
-      toast.error('Erro ao salvar cronograma');
+      const errMsg = error instanceof Error ? error.message : 'Erro ao salvar cronograma';
+      toast.error(errMsg);
       return false;
     }
   };
@@ -180,7 +211,7 @@ export const useCronogramas = () => {
       if (error) throw error;
 
       toast.success('Cronograma removido com sucesso!');
-      loadCronogramas();
+      await loadCronogramas();
       return true;
     } catch (error) {
       console.error('Erro ao deletar cronograma:', error);
@@ -200,16 +231,15 @@ export const useCronogramas = () => {
             descritivo,
             peso_total
           ),
-          profiles!gestor_id (
+          profiles!cronogramas_of_gestor_id_fkey (
             full_name,
             email
           )
         `)
         .eq('of_id', ofId)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') throw error;
-
+      if (error) throw error;
       if (!cronograma) return null;
 
       const { data: processos, error: processosError } = await supabase
