@@ -13,7 +13,6 @@ import { usePecas } from '@/hooks/usePecas';
 import { useOFs } from '@/hooks/useOFs';
 import { useComponentesAgrupados } from '@/hooks/useComponentesAgrupados';
 import { SeletorItensOtimizado } from './SeletorItensOtimizado';
-import { useApontamentosValidacao } from '@/hooks/useApontamentosValidacao';
 import { toast } from 'sonner';
 
 interface ItemDisponivel {
@@ -25,20 +24,13 @@ interface ItemDisponivel {
   processo_atual_permitido: number;
 }
 
-// Cache para manter seleções do usuário
+// Cache local para manter seleções básicas do formulário
 const formCache = {
   of_number: '',
   fase: '',
   processo_id: '',
   data_apontamento: new Date().toISOString().split('T')[0]
 };
-
-// Cache para itens já processados
-const itensCache = new Map<string, {
-  pecasDisponiveis: ItemDisponivel[];
-  componentesDisponiveis: ItemDisponivel[];
-  timestamp: number;
-}>();
 
 export const ApontamentoForm = () => {
   const [formData, setFormData] = useState({
@@ -52,55 +44,40 @@ export const ApontamentoForm = () => {
   });
 
   const [itemSelecionado, setItemSelecionado] = useState<ItemDisponivel | null>(null);
-  const [itensDisponiveis, setItensDisponiveis] = useState<{
-    pecasDisponiveis: ItemDisponivel[];
-    componentesDisponiveis: ItemDisponivel[];
-  }>({ pecasDisponiveis: [], componentesDisponiveis: [] });
   const [saving, setSaving] = useState(false);
   const [cacheValido, setCacheValido] = useState(false);
-  const [loadingItens, setLoadingItens] = useState(false);
-  const [isProcessingItems, setIsProcessingItems] = useState(false);
 
-  const { criarApontamento, refetch, processos } = useApontamentosProducao();
-  const { pecas } = usePecas();
+  const { criarApontamento, refetch, processos, apontamentos, loading: loadingApontamentos } = useApontamentosProducao();
+  const { pecas, loading: loadingPecas } = usePecas();
   const { ofs } = useOFs();
-  const { componentesAgrupados } = useComponentesAgrupados(formData.of_number, formData.fase);
-  const { 
-    validarSequenciaProcessos,
-    precarregarDados,
-    limparCache: limparCacheValidacao
-  } = useApontamentosValidacao();
+  const { componentesAgrupados, loading: loadingComponentes } = useComponentesAgrupados(formData.of_number, formData.fase, pecas);
 
   // Buscar fases únicas da OF selecionada
-  const fasesDisponiveis = useMemo(() => 
-    pecas
-      .filter(peca => peca.of_number === formData.of_number)
-      .map(peca => peca.etapa_fase)
-      .filter((fase, index, array) => fase && array.indexOf(fase) === index)
-      .sort(),
-    [pecas, formData.of_number]
-  );
+  const fasesDisponiveis = useMemo(() => {
+    if (!formData.of_number || !pecas.length) return [];
+    return Array.from(
+      new Set(
+        pecas
+          .filter(peca => peca.of_number === formData.of_number)
+          .map(peca => peca.etapa_fase)
+          .filter(Boolean)
+      )
+    ).sort();
+  }, [pecas, formData.of_number]);
 
-  // Peças filtradas - memoizado para evite recálculos
-  const filteredPecas = useMemo(() => 
-    pecas.filter(peca => 
-      peca.of_number === formData.of_number && 
-      peca.etapa_fase === formData.fase &&
-      !peca.tem_componentes
-    ),
-    [pecas, formData.of_number, formData.fase]
-  );
-
-  // Chave única para cache
-  const cacheKey = useMemo(() => 
-    `${formData.of_number}_${formData.fase}_${formData.processo_id}`,
-    [formData.of_number, formData.fase, formData.processo_id]
-  );
+  // Processo selecionado atualmente
+  const processoSelecionado = useMemo(() => {
+    return processos.find(p => p.id === formData.processo_id) || null;
+  }, [processos, formData.processo_id]);
 
   // Salvar cache quando seleções básicas mudam
   const updateCache = useCallback((updates: Partial<typeof formData>) => {
     Object.assign(formCache, updates);
-    localStorage.setItem('apontamento_cache', JSON.stringify(formCache));
+    try {
+      localStorage.setItem('apontamento_cache', JSON.stringify(formCache));
+    } catch (e) {
+      console.warn('Erro ao salvar cache:', e);
+    }
   }, []);
 
   // Carregar cache inicial
@@ -124,120 +101,87 @@ export const ApontamentoForm = () => {
     }
   }, []);
 
-  // Função para processar itens com cache
-  const processarItensDisponiveis = useCallback(async () => {
+  // Cálculo reativo de peças e componentes disponíveis para o processo selecionado
+  const itensDisponiveis = useMemo(() => {
     const { of_number, fase, processo_id } = formData;
-    
-    if (!of_number || !fase || !processo_id) {
-      console.log('⚠️ Campos obrigatórios faltando para carregar itens');
-      setItensDisponiveis({ pecasDisponiveis: [], componentesDisponiveis: [] });
-      return;
+
+    if (!of_number || !fase || !processo_id || !pecas.length) {
+      return { pecasDisponiveis: [], componentesDisponiveis: [] };
     }
 
-    // Verificar se já temos no cache (válido por 30 segundos)
-    const cached = itensCache.get(cacheKey);
-    const now = Date.now();
-    if (cached && (now - cached.timestamp) < 30000) {
-      console.log('📦 Usando itens do cache');
-      setItensDisponiveis(cached);
-      return;
-    }
+    const ordemProcesso = processoSelecionado?.ordem || 1;
 
-    // Aguardar dados das peças e componentes
-    if (filteredPecas.length === 0 && componentesAgrupados.length === 0) {
-      console.log('⏳ Aguardando dados de peças e componentes...');
-      return;
-    }
+    // 1. Peças da OF e Fase selecionadas
+    const pecasDaFase = pecas.filter(
+      p => p.of_number === of_number && p.etapa_fase === fase
+    );
 
-    if (isProcessingItems) {
-      console.log('🔄 Já processando itens, aguardando...');
-      return;
-    }
+    const pecasDisponiveis: ItemDisponivel[] = [];
 
-    console.log('\n🚀 === PROCESSANDO ITENS COM CACHE ===');
-    console.log(`📋 OF: ${of_number}, Fase: ${fase}, Processo: ${processo_id}`);
-    
-    setIsProcessingItems(true);
-    setLoadingItens(true);
-    
-    try {
-      // Calcular itens disponíveis baseado nos dados existentes
-      console.log('🧮 Calculando itens disponíveis...');
-      const itens = {
-        pecasDisponiveis: filteredPecas.map(peca => ({
+    pecasDaFase.forEach(peca => {
+      // Calcular quanto já foi apontado desta peça neste processo
+      const totalApontado = apontamentos
+        .filter(a => a.tipo_apontamento === 'peca' && a.peca_id === peca.id && a.processo_id === processo_id)
+        .reduce((sum, a) => sum + (Number(a.quantidade_produzida) || 0), 0);
+
+      const saldoDisponivel = Math.max(0, (Number(peca.quantidade) || 0) - totalApontado);
+
+      if (saldoDisponivel > 0) {
+        pecasDisponiveis.push({
           id: peca.id,
           marca: peca.marca,
-          descricao: peca.descricao,
-          tipo: 'peca' as const,
-          quantidade_disponivel: peca.quantidade,
-          processo_atual_permitido: 1
-        })),
-        componentesDisponiveis: componentesAgrupados.map(comp => ({
-          id: comp.componente_ids[0] || '', // Use primeiro ID do array
-          marca: comp.marca_componente,
-          descricao: comp.descricao || '',
-          tipo: 'componente' as const,
-          quantidade_disponivel: comp.quantidade_total,
-          processo_atual_permitido: 1
-        }))
-      };
+          descricao: peca.descricao || '',
+          tipo: 'peca',
+          quantidade_disponivel: saldoDisponivel,
+          processo_atual_permitido: ordemProcesso
+        });
+      }
+    });
 
-      console.log('✅ Itens calculados:', {
-        pecas: itens.pecasDisponiveis.length,
-        componentes: itens.componentesDisponiveis.length
+    // 2. Componentes da OF e Fase selecionadas
+    const componentesDisponiveis: ItemDisponivel[] = [];
+
+    if (componentesAgrupados && componentesAgrupados.length > 0) {
+      componentesAgrupados.forEach(comp => {
+        // Calcular quanto já foi apontado deste componente neste processo
+        const totalApontadoComp = apontamentos
+          .filter(a => a.tipo_apontamento === 'componente' && comp.componente_ids.includes(a.componente_id || '') && a.processo_id === processo_id)
+          .reduce((sum, a) => sum + (Number(a.quantidade_produzida) || 0), 0);
+
+        const saldoComp = Math.max(0, (Number(comp.quantidade_total) || 0) - totalApontadoComp);
+
+        if (saldoComp > 0) {
+          componentesDisponiveis.push({
+            id: comp.componente_ids[0] || '',
+            marca: comp.marca_componente,
+            descricao: comp.descricao || comp.perfil || '',
+            tipo: 'componente',
+            quantidade_disponivel: saldoComp,
+            processo_atual_permitido: ordemProcesso
+          });
+        }
       });
-
-      // 4. Salvar no cache
-      itensCache.set(cacheKey, {
-        ...itens,
-        timestamp: now
-      });
-
-      // 5. Atualizar estado
-      setItensDisponiveis(itens);
-
-    } catch (error) {
-      console.error('❌ Erro ao processar itens:', error);
-      setItensDisponiveis({ pecasDisponiveis: [], componentesDisponiveis: [] });
-    } finally {
-      setLoadingItens(false);
-      setIsProcessingItems(false);
     }
-  }, [
-    formData.of_number, 
-    formData.fase, 
-    formData.processo_id
-  ]);
 
-  // Callback para atualizar dados
-  const updateData = useCallback(() => {
-    // 4. Atualizar dados para nova seleção
-    console.log('✅ Dados atualizados para nova seleção de OF/processo');
-  }, []);
+    return { pecasDisponiveis, componentesDisponiveis };
+  }, [formData.of_number, formData.fase, formData.processo_id, pecas, apontamentos, processoSelecionado, componentesAgrupados]);
 
-  // Efeito controlado para carregar itens
+  // Sincronizar item selecionado caso não exista mais na lista disponível
   useEffect(() => {
-    if (formData.of_number && formData.fase && formData.processo_id) {
-      // Usar timeout para evitar chamadas excessivas
-      const timeoutId = setTimeout(() => {
-        processarItensDisponiveis();
-      }, 300);
-
-      return () => clearTimeout(timeoutId);
-    } else {
-      setItensDisponiveis({ pecasDisponiveis: [], componentesDisponiveis: [] });
+    if (itemSelecionado) {
+      const listaAtual = itemSelecionado.tipo === 'peca' 
+        ? itensDisponiveis.pecasDisponiveis 
+        : itensDisponiveis.componentesDisponiveis;
+      
+      const itemAindaExiste = listaAtual.find(i => i.id === itemSelecionado.id);
+      if (!itemAindaExiste) {
+        setItemSelecionado(null);
+        setFormData(prev => ({ ...prev, quantidade_produzida: '', todas_disponiveis: false }));
+      } else if (itemAindaExiste.quantidade_disponivel !== itemSelecionado.quantidade_disponivel) {
+        setItemSelecionado(itemAindaExiste);
+      }
     }
-  }, [formData.of_number, formData.fase, formData.processo_id]);
-
-  // Reset do item selecionado quando dados mudam
-  useEffect(() => {
-    setItemSelecionado(null);
-    setFormData(prev => ({ 
-      ...prev, 
-      quantidade_produzida: '', 
-      todas_disponiveis: false 
-    }));
-  }, [formData.of_number, formData.fase, formData.processo_id]);
+  }, [itensDisponiveis, itemSelecionado]);
 
   // Auto-preenchimento da quantidade quando "todas disponíveis" é marcado
   useEffect(() => {
@@ -259,9 +203,9 @@ export const ApontamentoForm = () => {
     const tipoTexto = tipo === 'peca' ? 'peças' : 'componentes';
     
     const confirmacao = window.confirm(
-      `Deseja registrar ${totalItens} ${tipoTexto} com suas respectivas quantidades totais?\n\n` +
+      `Deseja registrar ${totalItens} ${tipoTexto} com suas respectivas quantidades totais disponíveis?\n\n` +
       `Total de itens: ${totalItens}\n` +
-      `Processo: ${formData.processo_id || 'N/A'}`
+      `Processo: ${processoSelecionado?.nome || 'N/A'}`
     );
 
     if (!confirmacao) return;
@@ -303,11 +247,8 @@ export const ApontamentoForm = () => {
 
       if (sucessos > 0) {
         toast.success(`${sucessos} ${tipoTexto} registradas com sucesso!${erros > 0 ? ` (${erros} com erro)` : ''}`);
-        
-        await Promise.all([
-          refetch(),
-          resetFormForNewEntry()
-        ]);
+        await refetch();
+        resetFormForNewEntry();
       } else {
         toast.error(`Erro ao registrar ${tipoTexto} em lote`);
       }
@@ -331,9 +272,6 @@ export const ApontamentoForm = () => {
     setFormData(prev => ({ ...prev, ...updates }));
     updateCache({ of_number: ofNumber, fase: '', processo_id: '' });
     setItemSelecionado(null);
-    setItensDisponiveis({ pecasDisponiveis: [], componentesDisponiveis: [] });
-    // Limpar cache relacionado
-    itensCache.clear();
   };
 
   const handleFaseChange = (fase: string) => {
@@ -346,9 +284,6 @@ export const ApontamentoForm = () => {
     setFormData(prev => ({ ...prev, ...updates }));
     updateCache({ fase: fase, processo_id: '' });
     setItemSelecionado(null);
-    setItensDisponiveis({ pecasDisponiveis: [], componentesDisponiveis: [] });
-    // Limpar cache relacionado
-    itensCache.clear();
   };
 
   const handleProcessoChange = (processoId: string) => {
@@ -360,7 +295,6 @@ export const ApontamentoForm = () => {
     setFormData(prev => ({ ...prev, ...updates }));
     updateCache({ processo_id: processoId });
     setItemSelecionado(null);
-    setItensDisponiveis({ pecasDisponiveis: [], componentesDisponiveis: [] });
   };
 
   const handleItemSelect = (item: ItemDisponivel) => {
@@ -387,10 +321,7 @@ export const ApontamentoForm = () => {
     }));
   };
 
-  // Função para resetar form e atualizar dados
-  const resetFormForNewEntry = async () => {
-    console.log('🔄 Resetando formulário e limpando cache...');
-    
+  const resetFormForNewEntry = () => {
     setItemSelecionado(null);
     setFormData(prev => ({
       ...prev,
@@ -398,9 +329,6 @@ export const ApontamentoForm = () => {
       observacoes: '',
       todas_disponiveis: false
     }));
-    
-    // Limpar cache e forçar recarregamento
-    itensCache.clear();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -413,7 +341,7 @@ export const ApontamentoForm = () => {
 
     const quantidade = parseInt(formData.quantidade_produzida);
     
-    if (quantidade <= 0 || quantidade > itemSelecionado.quantidade_disponivel) {
+    if (isNaN(quantidade) || quantidade <= 0 || quantidade > itemSelecionado.quantidade_disponivel) {
       toast.error('Quantidade inválida');
       return;
     }
@@ -421,9 +349,6 @@ export const ApontamentoForm = () => {
     setSaving(true);
     
     try {
-      // Validação básica - pode ser expandida depois
-      console.log('✅ Validação de sequência aprovada');
-
       const apontamentoData: any = {
         of_number: formData.of_number,
         tipo_apontamento: itemSelecionado.tipo,
@@ -443,11 +368,8 @@ export const ApontamentoForm = () => {
 
       if (result.success) {
         toast.success('Apontamento registrado com sucesso!');
-        
-        await Promise.all([
-          refetch(),
-          resetFormForNewEntry()
-        ]);
+        await refetch();
+        resetFormForNewEntry();
       }
     } catch (error) {
       console.error('Erro no submit:', error);
@@ -475,13 +397,11 @@ export const ApontamentoForm = () => {
       todas_disponiveis: false
     });
     setItemSelecionado(null);
-    setItensDisponiveis({ pecasDisponiveis: [], componentesDisponiveis: [] });
     setCacheValido(false);
-    itensCache.clear();
     toast.success('Cache limpo com sucesso!');
   };
 
-  const processoSelecionado = null;
+  const isLoadingItens = loadingPecas || loadingApontamentos || loadingComponentes;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -583,15 +503,12 @@ export const ApontamentoForm = () => {
             <Alert>
               <Info className="h-4 w-4" />
               <AlertDescription>
-                {processoSelecionado.ordem === 1 
-                  ? `Processo inicial: ${processoSelecionado.nome}. Todos os itens estão disponíveis.`
-                  : `Processo ${processoSelecionado.ordem}: ${processoSelecionado.nome}. Apenas itens que passaram pelos processos anteriores estão disponíveis.`
-                }
+                {`Processo: ${processoSelecionado.ordem}. ${processoSelecionado.nome}. Selecione as peças ou componentes com saldo pendente para apontar.`}
               </AlertDescription>
             </Alert>
           )}
 
-          {/* Seletor de itens otimizado com funcionalidade de lote - agora com scroll */}
+          {/* Seletor de itens otimizado com funcionalidade de lote */}
           {formData.processo_id && (
             <div className="max-h-96 overflow-y-auto">
               <SeletorItensOtimizado
@@ -600,7 +517,7 @@ export const ApontamentoForm = () => {
                 itemSelecionado={itemSelecionado}
                 onItemSelect={handleItemSelect}
                 onBatchSelect={handleBatchSelect}
-                loading={loadingItens || isProcessingItems}
+                loading={isLoadingItens}
               />
             </div>
           )}
@@ -660,7 +577,7 @@ export const ApontamentoForm = () => {
               </h4>
               {!itemSelecionado ? (
                 <div className="text-sm text-muted-foreground">
-                  Selecione um item para ver as informações ou use os checkboxes para registro em lote
+                  Selecione um item para ver as informações ou use os botões para registro em lote
                 </div>
               ) : (
                 <div className="space-y-2 text-sm">
@@ -668,7 +585,7 @@ export const ApontamentoForm = () => {
                   <div><strong>Marca:</strong> {itemSelecionado.marca}</div>
                   <div><strong>OF:</strong> {formData.of_number}</div>
                   <div><strong>Fase:</strong> {formData.fase}</div>
-                  <div><strong>Processo:</strong> {processoSelecionado?.nome || 'N/A'}</div>
+                  <div><strong>Processo:</strong> {processoSelecionado ? `${processoSelecionado.ordem}. ${processoSelecionado.nome}` : 'N/A'}</div>
                   <div><strong>Descrição:</strong> {itemSelecionado.descricao || 'N/A'}</div>
                   <div><strong>Quantidade Disponível:</strong> {itemSelecionado.quantidade_disponivel} unidades</div>
                 </div>
@@ -676,7 +593,7 @@ export const ApontamentoForm = () => {
             </CardContent>
           </Card>
 
-          {/* Botões movidos para baixo do card de informações */}
+          {/* Botões de ação */}
           <div className="flex justify-end space-x-2">
             {formData.of_number && formData.fase && formData.processo_id && (
               <Button 
@@ -690,7 +607,7 @@ export const ApontamentoForm = () => {
             )}
             <Button 
               type="submit" 
-              disabled={saving || !itemSelecionado || !formData.processo_id || loadingItens || isProcessingItems} 
+              disabled={saving || !itemSelecionado || !formData.processo_id || isLoadingItens} 
               className="min-w-32"
             >
               {saving ? 'Salvando...' : 'Registrar Apontamento'}
