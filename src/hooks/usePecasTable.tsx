@@ -177,7 +177,10 @@ export const usePecasTable = (pecas: Peca[]) => {
     }
     
     return pecasParaCalcular.reduce((total, peca) => {
-      return total + (peca.peso_total || 0);
+      const pTotal = (peca.peso_total && peca.peso_total > 0) 
+        ? peca.peso_total 
+        : (peca.quantidade || 1) * (peca.peso_unitario || 0);
+      return total + pTotal;
     }, 0);
   }, [filteredAndSortedPecas, selectedPecas]);
 

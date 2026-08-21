@@ -77,7 +77,7 @@ export function TableRow({
       </TableCell>
       
       <TableCell className="w-16 px-2 text-right font-medium text-foreground text-xs">
-        {(peca.quantidade * peca.peso_unitario).toFixed(2)} kg
+        {(peca.peso_total || (peca.quantidade * peca.peso_unitario)).toFixed(2)} kg
       </TableCell>
       
       <TableCell className="w-16 px-2 text-muted-foreground text-xs">

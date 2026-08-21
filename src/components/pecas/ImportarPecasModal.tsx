@@ -123,12 +123,7 @@ export function ImportarPecasModal({ open, onOpenChange, onImport, pecasExistent
           });
           convertedData[field] = 0;
         } else {
-          // Para peso_unitario e peso_total, arredondar para integer
-          if (field === 'peso_unitario' || field === 'peso_total') {
-            convertedData[field] = Math.round(numValue);
-          } else {
-            convertedData[field] = numValue;
-          }
+          convertedData[field] = numValue;
         }
       } else {
         convertedData[field] = field.includes('componente') ? 0 : (field === 'quantidade' ? 1 : 0);
