@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -44,7 +44,7 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
   const [dashboardData, setDashboardData] = useState<DashboardDataOtimizado | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     if (!ofNumber) {
       setDashboardData(null);
       return;
@@ -207,7 +207,7 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
         if (!cronogramaOf?.processos_cronograma) return 0;
 
         const hoje = new Date();
-        let processoCronograma = null;
+        let processoCronograma;
 
         // Mapear nomes dos processos para os do cronograma
         if (nomeProcesso.toLowerCase().includes('corte') || nomeProcesso.toLowerCase().includes('solda')) {
@@ -291,7 +291,7 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
         const progressoEsperado = calcularProgressoEsperado(processo.nome);
 
         // Determinar status baseado na comparação entre progresso real e esperado
-        let status: 'verde' | 'amarelo' | 'vermelho' | 'azul' = 'verde';
+        let status: 'verde' | 'amarelo' | 'vermelho' | 'azul';
         
         // Se o progresso esperado chegou a 100% (passou da data fim), usar cor vermelha na barra
         if (progressoEsperado >= 100) {
@@ -330,7 +330,7 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
          let dataFimProcesso: Date | null = null;
          
          if (cronogramaOf?.processos_cronograma) {
-           let processoCronograma = null;
+           let processoCronograma;
 
            // Mapear nomes dos processos para os do cronograma
            if (processo.nome.toLowerCase().includes('corte') || processo.nome.toLowerCase().includes('solda')) {
@@ -524,11 +524,11 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [ofNumber]);
 
   useEffect(() => {
     fetchDashboardData();
-  }, [ofNumber]);
+  }, [fetchDashboardData]);
 
   return {
     dashboardData,
