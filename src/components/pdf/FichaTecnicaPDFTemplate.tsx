@@ -192,7 +192,7 @@ export const FichaTecnicaPDFTemplate: React.FC<FichaTecnicaPDFTemplateProps> = (
               </div>
               <div style={{ padding: '5px', fontSize: '7.5pt' }}>
                 <div style={{ marginBottom: '4px' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '7pt' }}>QUANTIDADE (t):</span> <b style={{ fontSize: '8.5pt' }}>{data.quantidade != null && data.quantidade !== '' ? data.quantidade : '-'}</b>
+                  <span style={{ fontWeight: 'bold', fontSize: '7pt' }}>QUANTIDADE (t):</span> <b style={{ fontSize: '8.5pt' }}>{data.quantidade != null ? data.quantidade : '-'}</b>
                 </div>
                 <div>
                   <span style={{ fontWeight: 'bold', fontSize: '7pt' }}>DATA:</span> {formatDateBR(data.data_criacao) !== '-' ? formatDateBR(data.data_criacao) : new Date().toLocaleDateString('pt-BR')}
