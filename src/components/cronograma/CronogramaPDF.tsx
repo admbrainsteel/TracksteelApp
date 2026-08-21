@@ -1,5 +1,4 @@
-
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { CronogramaOf } from '@/hooks/useCronogramas';
 import { useBrandSettings } from '@/hooks/useBrandSettings';
 import jsPDF from 'jspdf';
@@ -15,30 +14,50 @@ export const CronogramaPDF: React.FC<CronogramaPDFProps> = ({ cronograma, onComp
   const { brandSettings } = useBrandSettings();
 
   const calcularDiasCorridos = (dataInicio: string, dataFim: string) => {
-    return differenceInDays(parseISO(dataFim), parseISO(dataInicio)) + 1;
+    try {
+      const inc = parseISO(dataInicio);
+      const fim = parseISO(dataFim);
+      const diff = differenceInDays(fim, inc);
+      return diff >= 0 ? diff + 1 : 1;
+    } catch {
+      return 1;
+    }
   };
 
-  const gerarPDF = async () => {
-    const doc = new jsPDF('portrait', 'mm', 'a4');
+  const gerarPDF = useCallback(async () => {
+    // Formato Paisagem A4 (297mm x 210mm) - Amplo espaço para gráfico Gantt e tabela
+    const doc = new jsPDF('landscape', 'mm', 'a4');
     
-    // Configurações de cores (tons profissionais em cinza)
-    const corCinzaClaro = [200, 200, 200]; // Cinza claro para cabeçalho
-    const corCinzaMedio = [150, 150, 150]; // Cinza médio
-    const corCinzaEscuro = [80, 80, 80]; // Cinza escuro para texto
-    const corBranco = [255, 255, 255]; // Branco
-    
-    const pageWidth = doc.internal.pageSize.width;
-    const pageHeight = doc.internal.pageSize.height;
-    const margin = 15;
-    const usableWidth = pageWidth - (margin * 2);
-    let yPosition = margin;
+    const pageWidth = doc.internal.pageSize.width;  // 297mm
+    const pageHeight = doc.internal.pageSize.height; // 210mm
+    const margin = 12;
+    const usableWidth = pageWidth - (margin * 2);   // 273mm
 
-    // CABEÇALHO COMPACTO
-    // Fundo do cabeçalho - altura reduzida para 25px
-    doc.setFillColor(corCinzaClaro[0], corCinzaClaro[1], corCinzaClaro[2]);
-    doc.rect(0, 0, pageWidth, 25, 'F');
+    // Palette de Cores Executiva Modern
+    const cPrimary = [15, 23, 42];      // Slate 900 (Fundo do cabeçalho)
+    const cSecondary = [30, 41, 59];    // Slate 800
+    const cAccent = [37, 99, 235];      // Royal Blue (Highlight)
+    const cAccentLight = [239, 246, 255];// Light Blue Tint
+    const cTextDark = [30, 41, 59];     // Slate 800 (Texto principal)
+    const cTextMuted = [100, 116, 139]; // Slate 500 (Subtítulos)
+    const cBorder = [226, 232, 240];    // Slate 200 (Bordas)
+    const cBgCard = [248, 250, 252];    // Slate 50 (Fundo de cards)
+    const cWhite = [255, 255, 255];
 
-    // Logo da empresa (tamanho reduzido)
+    // ----------------------------------------------------
+    // 1. CABEÇALHO EXECUTIVO (HEADER SLATE DARK BANNER)
+    // ----------------------------------------------------
+    const headerHeight = 28;
+    doc.setFillColor(cPrimary[0], cPrimary[1], cPrimary[2]);
+    doc.rect(0, 0, pageWidth, headerHeight, 'F');
+
+    // Accent line abaixo do cabeçalho
+    doc.setFillColor(cAccent[0], cAccent[1], cAccent[2]);
+    doc.rect(0, headerHeight, pageWidth, 1.5, 'F');
+
+    let headerTextX = margin;
+
+    // Logo da Empresa com proporção preservada (Sem distorção)
     if (brandSettings.logo_url) {
       try {
         const img = new Image();
@@ -49,237 +68,323 @@ export const CronogramaPDF: React.FC<CronogramaPDFProps> = ({ cronograma, onComp
           img.src = brandSettings.logo_url!;
         });
         
-        // Logo menor - 20x15
-        const logoWidth = 20;
-        const logoHeight = 15;
-        doc.addImage(img, 'PNG', margin, 5, logoWidth, logoHeight);
+        // Calcular aspect ratio para não espremer a imagem
+        const maxH = 16;
+        const maxW = 45;
+        let imgW = maxH * (img.naturalWidth / img.naturalHeight);
+        let imgH = maxH;
+        if (imgW > maxW) {
+          imgW = maxW;
+          imgH = maxW * (img.naturalHeight / img.naturalWidth);
+        }
+        
+        const logoY = (headerHeight - imgH) / 2;
+        doc.addImage(img, 'PNG', margin, logoY, imgW, imgH);
+        headerTextX = margin + imgW + 8;
       } catch (error) {
-        console.log('Erro ao carregar logo:', error);
+        console.log('Erro ao carregar logo no PDF:', error);
       }
     }
 
-    // Nome da empresa e título
-    doc.setTextColor(corCinzaEscuro[0], corCinzaEscuro[1], corCinzaEscuro[2]);
-    doc.setFontSize(14);
+    // Título da Empresa & Documento
+    doc.setTextColor(cWhite[0], cWhite[1], cWhite[2]);
+    doc.setFontSize(15);
     doc.setFont('helvetica', 'bold');
-    doc.text(brandSettings.company_name, brandSettings.logo_url ? margin + 25 : margin, 12);
+    doc.text(brandSettings.company_name || 'TrackSteel', headerTextX, 12);
 
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text('CRONOGRAMA DE PRODUÇÃO', brandSettings.logo_url ? margin + 25 : margin, 18);
-
-    yPosition = 35;
-
-    // TÍTULO DO CRONOGRAMA
-    doc.setFillColor(240, 240, 240);
-    doc.rect(margin, yPosition - 3, usableWidth, 12, 'F');
-    
-    doc.setTextColor(corCinzaEscuro[0], corCinzaEscuro[1], corCinzaEscuro[2]);
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    const titulo = `OF: ${cronograma.ordem_fabricacao?.num_of} - Revisão: ${cronograma.revisao}`;
-    doc.text(titulo, margin + 3, yPosition + 3);
-    
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`Gestor: ${cronograma.gestor_profile?.full_name || 'N/A'}`, margin + 3, yPosition + 8);
-    
-    yPosition += 18;
-
-    // RESUMO EXECUTIVO COMPACTO
-    const todasAsDatas = cronograma.processos.flatMap(p => [p.data_inicio, p.data_fim]);
-    const dataInicioTotal = new Date(Math.min(...todasAsDatas.map(d => new Date(d).getTime())));
-    const dataFimTotal = new Date(Math.max(...todasAsDatas.map(d => new Date(d).getTime())));
-    const duracaoTotal = differenceInDays(dataFimTotal, dataInicioTotal) + 1;
-
-    // Boxes do resumo em linha
-    const boxWidth = (usableWidth) / 3;
-    
-    doc.setFillColor(corBranco[0], corBranco[1], corBranco[2]);
-    doc.setDrawColor(corCinzaMedio[0], corCinzaMedio[1], corCinzaMedio[2]);
-    
-    // Box 1
-    doc.rect(margin, yPosition, boxWidth - 2, 15, 'FD');
-    doc.setTextColor(corCinzaEscuro[0], corCinzaEscuro[1], corCinzaEscuro[2]);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${cronograma.processos.length} Processos`, margin + 3, yPosition + 6);
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Total', margin + 3, yPosition + 11);
-
-    // Box 2
-    doc.rect(margin + boxWidth, yPosition, boxWidth - 2, 15, 'FD');
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${duracaoTotal} dias`, margin + boxWidth + 3, yPosition + 6);
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Duração', margin + boxWidth + 3, yPosition + 11);
-
-    // Box 3
-    doc.rect(margin + boxWidth * 2, yPosition, boxWidth - 2, 15, 'FD');
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`${format(dataInicioTotal, 'dd/MM', { locale: ptBR })} - ${format(dataFimTotal, 'dd/MM', { locale: ptBR })}`, margin + boxWidth * 2 + 3, yPosition + 6);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Período', margin + boxWidth * 2 + 3, yPosition + 11);
-
-    yPosition += 22;
-
-    // TABELA COMPACTA
-    doc.setFillColor(corCinzaClaro[0], corCinzaClaro[1], corCinzaClaro[2]);
-    doc.rect(margin, yPosition, usableWidth, 8, 'F');
-    
-    doc.setTextColor(corCinzaEscuro[0], corCinzaEscuro[1], corCinzaEscuro[2]);
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'bold');
-    doc.text('CRONOGRAMA DETALHADO', margin + 3, yPosition + 5);
-    
-    yPosition += 10;
-
-    // Cabeçalho da tabela - altura reduzida
-    const colWidths = [usableWidth * 0.4, usableWidth * 0.2, usableWidth * 0.2, usableWidth * 0.2];
-    const headers = ['Processo', 'Início', 'Fim', 'Duração'];
-    
-    doc.setFillColor(245, 245, 245);
-    doc.rect(margin, yPosition, usableWidth, 7, 'F');
-    
-    doc.setTextColor(corCinzaEscuro[0], corCinzaEscuro[1], corCinzaEscuro[2]);
+    doc.setTextColor(148, 163, 184); // Slate 400
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    
-    let xPosition = margin;
-    headers.forEach((header, index) => {
-      doc.text(header, xPosition + 2, yPosition + 5);
-      xPosition += colWidths[index];
-    });
-    
-    yPosition += 7;
+    doc.text('RELATÓRIO EXECUTIVO DE CRONOGRAMA DE PRODUÇÃO', headerTextX, 19);
 
-    // Linhas da tabela - altura reduzida em 40% (de 12 para 7.2)
-    doc.setFont('helvetica', 'normal');
+    // Badges no canto direito do cabeçalho
+    const badgeY = 8;
+    const badgeRight = pageWidth - margin;
+
+    // Pill de OF
+    const ofNum = cronograma.ordem_fabricacao?.num_of || 'N/A';
+    doc.setFillColor(cSecondary[0], cSecondary[1], cSecondary[2]);
+    doc.roundedRect(badgeRight - 65, badgeY, 35, 12, 2, 2, 'F');
+    doc.setTextColor(cWhite[0], cWhite[1], cWhite[2]);
     doc.setFontSize(8);
-    
-    cronograma.processos
-      .sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
-      .forEach((processo, index) => {
-        // Alternância de cores
-        if (index % 2 === 0) {
-          doc.setFillColor(250, 250, 250);
-          doc.rect(margin, yPosition, usableWidth, 7, 'F');
-        }
-
-        xPosition = margin;
-        const rowData = [
-          processo.nome_processo.length > 25 ? processo.nome_processo.substring(0, 25) + '...' : processo.nome_processo,
-          format(parseISO(processo.data_inicio), 'dd/MM', { locale: ptBR }),
-          format(parseISO(processo.data_fim), 'dd/MM', { locale: ptBR }),
-          `${calcularDiasCorridos(processo.data_inicio, processo.data_fim)}d`
-        ];
-
-        doc.setTextColor(corCinzaEscuro[0], corCinzaEscuro[1], corCinzaEscuro[2]);
-        rowData.forEach((data, colIndex) => {
-          doc.text(data, xPosition + 2, yPosition + 5);
-          xPosition += colWidths[colIndex];
-        });
-
-        yPosition += 7;
-      });
-
-    yPosition += 10;
-
-    // GRÁFICO DE GANTT VISUAL MELHORADO
-    doc.setFillColor(corCinzaClaro[0], corCinzaClaro[1], corCinzaClaro[2]);
-    doc.rect(margin, yPosition, usableWidth, 8, 'F');
-    
-    doc.setTextColor(corCinzaEscuro[0], corCinzaEscuro[1], corCinzaEscuro[2]);
-    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text('LINHA DO TEMPO VISUAL', margin + 3, yPosition + 5);
+    doc.text(`OF: ${ofNum}`, badgeRight - 47.5, badgeY + 7.5, { align: 'center' });
+
+    // Pill de Revisão
+    doc.setFillColor(cAccent[0], cAccent[1], cAccent[2]);
+    doc.roundedRect(badgeRight - 27, badgeY, 27, 12, 2, 2, 'F');
+    doc.text(`REV: ${cronograma.revisao || 1}`, badgeRight - 13.5, badgeY + 7.5, { align: 'center' });
+
+    let yPos = headerHeight + 8;
+
+    // ----------------------------------------------------
+    // 2. CARDS DE RESUMO / KPIS
+    // ----------------------------------------------------
+    const processos = (cronograma.processos || []).sort((a, b) => (a.ordem || 0) - (b.ordem || 0));
     
-    yPosition += 12;
+    // Cálculo das datas gerais
+    let dataInicioTotal = new Date();
+    let dataFimTotal = new Date();
+    let duracaoTotal = 0;
 
-    // Escala de tempo
-    doc.setTextColor(corCinzaMedio[0], corCinzaMedio[1], corCinzaMedio[2]);
-    doc.setFontSize(8);
-    doc.text(format(dataInicioTotal, 'dd/MM/yy', { locale: ptBR }), margin, yPosition - 2);
-    doc.text(format(dataFimTotal, 'dd/MM/yy', { locale: ptBR }), margin + usableWidth - 20, yPosition - 2);
-    doc.text(`${duracaoTotal} dias`, margin + usableWidth/2 - 10, yPosition - 2);
+    if (processos.length > 0) {
+      const datasInicio = processos.map(p => parseISO(p.data_inicio).getTime()).filter(t => !isNaN(t));
+      const datasFim = processos.map(p => parseISO(p.data_fim).getTime()).filter(t => !isNaN(t));
 
-    // Linha de base
-    doc.setDrawColor(corCinzaMedio[0], corCinzaMedio[1], corCinzaMedio[2]);
-    doc.line(margin, yPosition, margin + usableWidth, yPosition);
+      if (datasInicio.length > 0 && datasFim.length > 0) {
+        dataInicioTotal = new Date(Math.min(...datasInicio));
+        dataFimTotal = new Date(Math.max(...datasFim));
+        duracaoTotal = differenceInDays(dataFimTotal, dataInicioTotal) + 1;
+      }
+    }
 
-    yPosition += 3;
+    const cardGap = 5;
+    const cardWidth = (usableWidth - (cardGap * 3)) / 4;
+    const cardHeight = 18;
 
-    // Barras dos processos - área reservada para nomes maior
-    const cores = [
-      [52, 152, 219],   // Azul
-      [46, 204, 113],   // Verde
-      [241, 196, 15],   // Amarelo
-      [155, 89, 182],   // Roxo
-      [231, 76, 60],    // Vermelho
-      [230, 126, 34],   // Laranja
-      [26, 188, 156],   // Turquesa
-      [127, 140, 141]   // Cinza
+    const cardsData = [
+      {
+        title: 'ESTRUTURA / OF',
+        value: `${ofNum} - ${cronograma.ordem_fabricacao?.descritivo || 'Sem descrição'}`
+      },
+      {
+        title: 'GESTOR / RESPONSÁVEL',
+        value: cronograma.gestor_profile?.full_name || 'Não atribuído'
+      },
+      {
+        title: 'DURAÇÃO & PROCESSO',
+        value: `${duracaoTotal} Dias Corridos (${processos.length} etapas)`
+      },
+      {
+        title: 'PERÍODO PREVISTO',
+        value: `${format(dataInicioTotal, 'dd/MM/yyyy')} a ${format(dataFimTotal, 'dd/MM/yyyy')}`
+      }
     ];
 
-    const nomeAreaWidth = 60; // Área reservada para nomes dos processos
-    const graficoWidth = usableWidth - nomeAreaWidth - 5;
+    cardsData.forEach((card, idx) => {
+      const cardX = margin + idx * (cardWidth + cardGap);
+      
+      // Card Container
+      doc.setFillColor(cBgCard[0], cBgCard[1], cBgCard[2]);
+      doc.setDrawColor(cBorder[0], cBorder[1], cBorder[2]);
+      doc.roundedRect(cardX, yPos, cardWidth, cardHeight, 1.5, 1.5, 'FD');
 
-    cronograma.processos
-      .sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
-      .forEach((processo, index) => {
-        const diasDoInicio = differenceInDays(parseISO(processo.data_inicio), dataInicioTotal);
-        const duracaoProcesso = calcularDiasCorridos(processo.data_inicio, processo.data_fim);
-        
-        const barraInicio = margin + nomeAreaWidth + (diasDoInicio / duracaoTotal) * graficoWidth;
-        const barraLargura = Math.max(2, (duracaoProcesso / duracaoTotal) * graficoWidth);
-        
-        // Nome do processo na área reservada
-        doc.setTextColor(corCinzaEscuro[0], corCinzaEscuro[1], corCinzaEscuro[2]);
-        doc.setFontSize(7);
-        doc.setFont('helvetica', 'normal');
-        const nomeProcesso = processo.nome_processo.length > 20 ? 
-          processo.nome_processo.substring(0, 20) + '...' : 
-          processo.nome_processo;
-        doc.text(nomeProcesso, margin, yPosition + 2);
-        
-        // Barra colorida
-        const cor = cores[index % cores.length];
-        doc.setFillColor(cor[0], cor[1], cor[2]);
-        doc.rect(barraInicio, yPosition - 1, barraLargura, 6, 'F');
-        
-        // Duração na barra (se houver espaço)
-        if (barraLargura > 8) {
-          doc.setTextColor(255, 255, 255);
-          doc.setFontSize(6);
-          doc.setFont('helvetica', 'bold');
-          doc.text(`${duracaoProcesso}d`, barraInicio + barraLargura/2 - 2, yPosition + 2);
-        }
-        
-        yPosition += 8;
-      });
+      // Top Accent Line
+      doc.setFillColor(cAccent[0], cAccent[1], cAccent[2]);
+      doc.rect(cardX, yPos, cardWidth, 1, 'F');
 
-    // RODAPÉ COMPACTO
-    doc.setFillColor(corCinzaClaro[0], corCinzaClaro[1], corCinzaClaro[2]);
-    doc.rect(0, pageHeight - 15, pageWidth, 15, 'F');
-    
-    doc.setTextColor(corCinzaEscuro[0], corCinzaEscuro[1], corCinzaEscuro[2]);
+      // Card Title
+      doc.setTextColor(cTextMuted[0], cTextMuted[1], cTextMuted[2]);
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      doc.text(card.title, cardX + 3, yPos + 5.5);
+
+      // Card Value
+      doc.setTextColor(cTextDark[0], cTextDark[1], cTextDark[2]);
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'bold');
+      const textTruncated = card.value.length > 32 ? card.value.substring(0, 32) + '...' : card.value;
+      doc.text(textTruncated, cardX + 3, yPos + 12.5);
+    });
+
+    yPos += cardHeight + 8;
+
+    // ----------------------------------------------------
+    // 3. ESTRUTURA PRINCIPAL: TABELA (ESQUERDA) + GANTT (DIREITA)
+    // ----------------------------------------------------
+    const tableWidth = 110; // Tabela ocupa 110mm
+    const ganttWidth = usableWidth - tableWidth - 6; // Gantt ocupa o restante (~157mm)
+    const ganttX = margin + tableWidth + 6;
+
+    // TÍTULOS DAS SEÇÕES
+    doc.setFillColor(cSecondary[0], cSecondary[1], cSecondary[2]);
+    doc.roundedRect(margin, yPos, tableWidth, 7, 1, 1, 'F');
+    doc.setTextColor(cWhite[0], cWhite[1], cWhite[2]);
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('ETAPAS E CRONOGRAMA DETALHADO', margin + 4, yPos + 4.8);
+
+    doc.setFillColor(cSecondary[0], cSecondary[1], cSecondary[2]);
+    doc.roundedRect(ganttX, yPos, ganttWidth, 7, 1, 1, 'F');
+    doc.text('VISUALIZAÇÃO DE LINHA DO TEMPO (GANTT)', ganttX + 4, yPos + 4.8);
+
+    yPos += 9;
+
+    // --- TABELA DE PROCESSOS ---
+    const colWidths = [10, 48, 20, 20, 12]; // Total: 110mm
+    const headers = ['#', 'Processo / Etapa', 'Início', 'Fim', 'Dias'];
+
+    doc.setFillColor(cBgCard[0], cBgCard[1], cBgCard[2]);
+    doc.rect(margin, yPos, tableWidth, 6, 'F');
+    doc.setDrawColor(cBorder[0], cBorder[1], cBorder[2]);
+    doc.line(margin, yPos + 6, margin + tableWidth, yPos + 6);
+
+    doc.setTextColor(cTextMuted[0], cTextMuted[1], cTextMuted[2]);
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+
+    let colX = margin;
+    headers.forEach((h, i) => {
+      const align = i >= 2 ? 'center' : 'left';
+      const textPosX = align === 'center' ? colX + colWidths[i] / 2 : colX + 2;
+      doc.text(h, textPosX, yPos + 4.2, { align });
+      colX += colWidths[i];
+    });
+
+    let tableY = yPos + 6;
+    const rowHeight = 7.5;
+
+    // --- GRÁFICO GANTT (CABEÇALHO DE DATAS) ---
+    doc.setFillColor(cBgCard[0], cBgCard[1], cBgCard[2]);
+    doc.rect(ganttX, yPos, ganttWidth, 6, 'F');
+    doc.line(ganttX, yPos + 6, ganttX + ganttWidth, yPos + 6);
+
+    doc.setTextColor(cTextMuted[0], cTextMuted[1], cTextMuted[2]);
     doc.setFontSize(7);
-    doc.setFont('helvetica', 'normal');
-    doc.text(`${brandSettings.company_name} - Sistema de Gestão`, margin, pageHeight - 8);
-    doc.text(`${format(new Date(), 'dd/MM/yyyy HH:mm')}`, pageWidth - 35, pageHeight - 8);
+    doc.setFont('helvetica', 'bold');
 
-    // Download do PDF
-    const nomeArquivo = `cronograma_${cronograma.ordem_fabricacao?.num_of}_rev${cronograma.revisao}_${format(new Date(), 'ddMMyyyy')}.pdf`;
+    doc.text(format(dataInicioTotal, 'dd/MM'), ganttX + 2, yPos + 4.2);
+    doc.text(format(dataFimTotal, 'dd/MM'), ganttX + ganttWidth - 2, yPos + 4.2, { align: 'right' });
+    doc.text(`Total: ${duracaoTotal}d`, ganttX + ganttWidth / 2, yPos + 4.2, { align: 'center' });
+
+    // Paleta Elegante para as Barras de Gantt
+    const barColors = [
+      [37, 99, 235],   // Royal Blue
+      [16, 185, 129],  // Emerald Green
+      [245, 158, 11],  // Amber
+      [139, 92, 246],  // Purple
+      [236, 72, 153],  // Pink
+      [14, 165, 233],  // Sky Blue
+      [20, 184, 166],  // Teal
+      [249, 115, 22]   // Orange
+    ];
+
+    // RENDERIZAR LINHAS DA TABELA E BARRAS GANTT
+    processos.forEach((proc, idx) => {
+      // Alternância de cor da linha na tabela
+      if (idx % 2 === 0) {
+        doc.setFillColor(255, 255, 255);
+      } else {
+        doc.setFillColor(248, 250, 252);
+      }
+      doc.rect(margin, tableY, tableWidth, rowHeight, 'F');
+
+      // Borda inferior da linha
+      doc.setDrawColor(241, 245, 249);
+      doc.line(margin, tableY + rowHeight, margin + tableWidth, tableY + rowHeight);
+
+      // Dados da tabela
+      doc.setFontSize(7.5);
+      doc.setTextColor(cTextDark[0], cTextDark[1], cTextDark[2]);
+
+      let cX = margin;
+      
+      // Index #
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${idx + 1}`, cX + colWidths[0] / 2, tableY + 5, { align: 'center' });
+      cX += colWidths[0];
+
+      // Nome do Processo
+      doc.setFont('helvetica', 'normal');
+      const nomeProc = proc.nome_processo.length > 24 ? proc.nome_processo.substring(0, 24) + '...' : proc.nome_processo;
+      doc.text(nomeProc, cX + 2, tableY + 5);
+      cX += colWidths[1];
+
+      // Data Início
+      const dIncStr = format(parseISO(proc.data_inicio), 'dd/MM/yy');
+      doc.text(dIncStr, cX + colWidths[2] / 2, tableY + 5, { align: 'center' });
+      cX += colWidths[2];
+
+      // Data Fim
+      const dFimStr = format(parseISO(proc.data_fim), 'dd/MM/yy');
+      doc.text(dFimStr, cX + colWidths[3] / 2, tableY + 5, { align: 'center' });
+      cX += colWidths[3];
+
+      // Duração em Dias
+      const diasProc = calcularDiasCorridos(proc.data_inicio, proc.data_fim);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${diasProc}d`, cX + colWidths[4] / 2, tableY + 5, { align: 'center' });
+
+      // --- LINHA E BARRA DO GANTT ---
+      // Fundo e linha de grade do Gantt
+      if (idx % 2 === 0) {
+        doc.setFillColor(255, 255, 255);
+      } else {
+        doc.setFillColor(248, 250, 252);
+      }
+      doc.rect(ganttX, tableY, ganttWidth, rowHeight, 'F');
+      doc.setDrawColor(241, 245, 249);
+      doc.line(ganttX, tableY + rowHeight, ganttX + ganttWidth, tableY + rowHeight);
+
+      // Calcular posição da barra Gantt proporcional
+      const procStart = parseISO(proc.data_inicio).getTime();
+      const offsetDays = Math.max(0, differenceInDays(new Date(procStart), dataInicioTotal));
+      
+      const pxPerDay = ganttWidth / (duracaoTotal || 1);
+      const barX = ganttX + (offsetDays * pxPerDay);
+      const barW = Math.max(4, diasProc * pxPerDay);
+
+      // Desenhar Barra Arredondada Modern
+      const color = barColors[idx % barColors.length];
+      doc.setFillColor(color[0], color[1], color[2]);
+      doc.roundedRect(barX, tableY + 1.5, barW, rowHeight - 3, 1.2, 1.2, 'F');
+
+      // Texto dentro ou ao lado da barra
+      doc.setTextColor(cWhite[0], cWhite[1], cWhite[2]);
+      doc.setFontSize(6.5);
+      doc.setFont('helvetica', 'bold');
+
+      if (barW >= 15) {
+        doc.text(`${diasProc}d`, barX + (barW / 2), tableY + 5, { align: 'center' });
+      } else {
+        // Se a barra for pequena, desenha a tag fora
+        doc.setTextColor(cTextDark[0], cTextDark[1], cTextDark[2]);
+        doc.text(`${diasProc}d`, barX + barW + 2, tableY + 5);
+      }
+
+      tableY += rowHeight;
+    });
+
+    // Borda ao redor das caixas
+    doc.setDrawColor(cBorder[0], cBorder[1], cBorder[2]);
+    doc.rect(margin, yPos + 6, tableWidth, (processos.length + 1) * rowHeight, 'S');
+    doc.rect(ganttX, yPos + 6, ganttWidth, (processos.length + 1) * rowHeight, 'S');
+
+    // ----------------------------------------------------
+    // 4. RODAPÉ EXECUTIVO (FOOTER)
+    // ----------------------------------------------------
+    const footerY = pageHeight - 10;
+
+    doc.setDrawColor(cBorder[0], cBorder[1], cBorder[2]);
+    doc.line(margin, footerY - 3, pageWidth - margin, footerY - 3);
+
+    doc.setTextColor(cTextMuted[0], cTextMuted[1], cTextMuted[2]);
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    
+    doc.text(
+      `${brandSettings.company_name || 'TrackSteel'} — Sistema Integrado de Gestão Estrutural`,
+      margin,
+      footerY + 1
+    );
+
+    const nowFormatted = format(new Date(), 'dd/MM/yyyy HH:mm', { locale: ptBR });
+    doc.text(
+      `Documento Gerado em ${nowFormatted} | Página 1 de 1`,
+      pageWidth - margin,
+      footerY + 1,
+      { align: 'right' }
+    );
+
+    // Download automático do PDF
+    const safeOF = (cronograma.ordem_fabricacao?.num_of || 'OF').replace(/[^a-zA-Z0-9_-]/g, '');
+    const nomeArquivo = `cronograma_${safeOF}_rev${cronograma.revisao || 1}_${format(new Date(), 'ddMMyyyy')}.pdf`;
     doc.save(nomeArquivo);
     
     if (onComplete) {
       onComplete();
     }
-  };
+  }, [cronograma, onComplete, brandSettings]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -287,7 +392,7 @@ export const CronogramaPDF: React.FC<CronogramaPDFProps> = ({ cronograma, onComp
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [cronograma, onComplete, brandSettings]);
+  }, [gerarPDF]);
 
   return null;
 };
