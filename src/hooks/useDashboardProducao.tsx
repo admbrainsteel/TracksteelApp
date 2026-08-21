@@ -64,8 +64,8 @@ export const useDashboardProducao = (ofNumber: string) => {
         .from('apontamentos_producao')
         .select(`
           *,
-          peca:pecas!peca_id(peso_unitario),
-          processo:processos_fabricacao!processo_id(nome, ordem)
+          peca:pecas!apontamentos_producao_peca_id_fkey(peso_unitario),
+          processo:processos_fabricacao!apontamentos_producao_processo_id_fkey(nome, ordem)
         `)
         .eq('of_number', ofNumber);
 

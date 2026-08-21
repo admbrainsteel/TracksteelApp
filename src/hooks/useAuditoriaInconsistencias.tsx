@@ -50,9 +50,9 @@ export const useAuditoriaInconsistencias = () => {
           .from('apontamentos_producao')
           .select(`
             *,
-            processo:processos_fabricacao!processo_id(nome, ordem),
-            peca:pecas!peca_id(marca, etapa_fase, quantidade),
-            componente:componentes_peca!componente_id(marca_componente)
+            processo:processos_fabricacao!apontamentos_producao_processo_id_fkey(nome, ordem),
+            peca:pecas!apontamentos_producao_peca_id_fkey(marca, etapa_fase, quantidade),
+            componente:componentes_peca!apontamentos_producao_componente_id_fkey(marca_componente)
           `)
           .eq('of_number', ofNumber)
           .then(({ data }) => data || []),

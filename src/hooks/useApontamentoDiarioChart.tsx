@@ -86,9 +86,9 @@ export const useApontamentoDiarioChart = (periodo: PeriodoType) => {
           data_apontamento,
           quantidade_produzida,
           tipo_apontamento,
-          processo:processos_fabricacao!processo_id(nome, ordem),
-          peca:pecas!peca_id(peso_unitario),
-          componente:componentes_peca!componente_id(peso_unitario)
+          processo:processos_fabricacao!apontamentos_producao_processo_id_fkey(nome, ordem),
+          peca:pecas!apontamentos_producao_peca_id_fkey(peso_unitario),
+          componente:componentes_peca!apontamentos_producao_componente_id_fkey(peso_unitario)
         `)
         .gte('data_apontamento', dataInicio)
         .lte('data_apontamento', dataFim)

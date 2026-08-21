@@ -42,9 +42,9 @@ export const ApontamentosListOtimizado: React.FC = () => {
         .select(`
           of_number,
           quantidade_produzida,
-          peca:pecas!peca_id(marca),
-          componente:componentes_peca!componente_id(marca_componente),
-          processo:processos_fabricacao!processo_id(nome)
+          peca:pecas!apontamentos_producao_peca_id_fkey(marca),
+          componente:componentes_peca!apontamentos_producao_componente_id_fkey(marca_componente),
+          processo:processos_fabricacao!apontamentos_producao_processo_id_fkey(nome)
         `)
         .eq('id', apontamentoId)
         .single();

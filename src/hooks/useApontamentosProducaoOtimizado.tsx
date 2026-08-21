@@ -203,9 +203,9 @@ export const useApontamentosProducaoOtimizado = () => {
         .from('apontamentos_producao')
         .select(`
           *,
-          peca:pecas!peca_id(marca, descricao),
-          processo:processos_fabricacao!processo_id(nome, ordem),
-          componente:componentes_peca!componente_id(marca_componente, descricao)
+          peca:pecas!apontamentos_producao_peca_id_fkey(marca, descricao),
+          processo:processos_fabricacao!apontamentos_producao_processo_id_fkey(nome, ordem),
+          componente:componentes_peca!apontamentos_producao_componente_id_fkey(marca_componente, descricao)
         `)
         .eq('of_number', ofNumber)
         .order('created_at', { ascending: false });

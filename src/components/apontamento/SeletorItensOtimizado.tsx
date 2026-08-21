@@ -105,8 +105,8 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
           quantidade_produzida,
           data_apontamento,
           created_at,
-          processo:processos_fabricacao!processo_id(nome, ordem),
-          peca:pecas!peca_id(marca, of_number)
+          processo:processos_fabricacao!apontamentos_producao_processo_id_fkey(nome, ordem),
+          peca:pecas!apontamentos_producao_peca_id_fkey(marca, of_number)
         `)
         .eq('tipo_apontamento', 'peca')
         .eq('peca_id', peca.id)
