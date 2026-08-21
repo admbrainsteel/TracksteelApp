@@ -102,6 +102,26 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
         }, 0);
       }
 
+      // CORREÇÃO AUTOMÁTICA: Evita que erros de digitação (ex: digitar 1.856 ao invés de 1856 kg na OF)
+      // causem porcentagens irreais (ex: 100000%). Compara com a soma real das peças.
+      if (pesoTotalPlanejado > 0) {
+        const { data: pecasVerificar } = await supabase.from('pecas').select('peso_unitario, quantidade').eq('of_number', ofNumber);
+        if (pecasVerificar && pecasVerificar.length > 0) {
+          const pesoBrutoPecas = pecasVerificar.reduce((sum, p) => sum + ((p.peso_unitario || 0) * (p.quantidade || 0)), 0);
+          
+          if (pesoBrutoPecas > pesoTotalPlanejado * 50) {
+             console.log(`Corrigindo erro de digitação de peso da OF. Planejado original: ${pesoTotalPlanejado} kg, Soma das peças: ${pesoBrutoPecas} kg`);
+             // Se for um erro típico de 1000x (usou ponto para separar milhar)
+             if (pesoBrutoPecas <= pesoTotalPlanejado * 3000 && pesoBrutoPecas >= pesoTotalPlanejado * 500) {
+                pesoTotalPlanejado = pesoTotalPlanejado * 1000;
+             } else {
+                // Se for outro erro grosseiro, assume que o peso correto é o das peças
+                pesoTotalPlanejado = pesoBrutoPecas;
+             }
+          }
+        }
+      }
+
       console.log('Peso total planejado (BASE DE TODOS OS CÁLCULOS):', pesoTotalPlanejado, 'kg');
 
       // 4. Buscar apontamentos da OF com joins corretos
