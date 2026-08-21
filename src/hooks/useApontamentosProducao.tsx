@@ -84,16 +84,8 @@ export const useApontamentosProducao = () => {
       console.log('🔍 Iniciando busca COMPLETA de apontamentos...');
       
       // Verificar se o usuário está autenticado
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError) {
-        console.error('❌ Erro de autenticação:', authError);
-        toast.error('Erro de autenticação: ' + authError.message);
-        return;
-      }
-      
       if (!user) {
-        console.warn('⚠️ Usuário não autenticado');
-        toast.error('Usuário não autenticado');
+        console.warn('⚠️ Usuário não autenticado em useApontamentosProducao');
         return;
       }
       
@@ -121,7 +113,7 @@ export const useApontamentosProducao = () => {
       console.log(`📊 TOTAL DE REGISTROS NA TABELA: ${totalCount}`);
 
       // SEGUNDA VERIFICAÇÃO: Buscar TODOS os apontamentos sem qualquer limitação
-      let allApontamentos: any[] = [];
+      let allApontamentos: ApontamentoProducao[] = [];
       let pageNumber: number = 0;
       const itemsPerPage: number = 1000; // Buscar em lotes de 1000 para evitar timeout
       let hasMoreData: boolean = true;
@@ -156,7 +148,7 @@ export const useApontamentosProducao = () => {
           break;
         }
 
-        allApontamentos = [...allApontamentos, ...pageData];
+        allApontamentos = [...allApontamentos, ...(pageData as unknown as ApontamentoProducao[])];
         console.log(`✅ Página ${pageNumber + 1}: ${pageData.length} registros carregados. Total acumulado: ${allApontamentos.length}`);
 
         // Se retornou menos que o itemsPerPage, chegamos ao fim
@@ -220,7 +212,7 @@ export const useApontamentosProducao = () => {
         toast.error('Erro desconhecido ao carregar apontamentos');
       }
     }
-  }, []);
+  }, [user]);
 
   const fetchProcessos = useCallback(async () => {
     try {
