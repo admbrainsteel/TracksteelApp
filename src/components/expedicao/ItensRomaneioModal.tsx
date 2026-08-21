@@ -123,7 +123,28 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
         return;
       }
 
-      // Agrupar por peça e calcular quantidade disponível
+      // 2. Buscar quanto dessa OF já foi embalado em TODOS os romaneios da OF
+      const { data: expedidosData, error: expError } = await supabase
+        .from('itens_romaneio_pecas')
+        .select(`
+          peca_id,
+          quantidade_expedida,
+          romaneio:romaneios_expedicao!inner!itens_romaneio_pecas_romaneio_id_fkey(of_number)
+        `)
+        .eq('romaneio.of_number', romaneio.of_number);
+
+      const expedidosMap = new Map<string, number>();
+      if (!expError && expedidosData) {
+         // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         (expedidosData as any[]).forEach((item: any) => {
+            const pid = item.peca_id;
+            const qtd = item.quantidade_expedida || 0;
+            const current = expedidosMap.get(pid) || 0;
+            expedidosMap.set(pid, current + qtd);
+         });
+      }
+
+      // Agrupar por peça e calcular quantidade total produzida
       const pecasAgrupadas = new Map<string, PecaDisponivel>();
       
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -135,26 +156,39 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
         
         if (pecasAgrupadas.has(pecaId)) {
           const pecaExistente = pecasAgrupadas.get(pecaId)!;
-          pecaExistente.quantidade_disponivel += quantidade;
+          pecaExistente.quantidade_disponivel += quantidade; // Aqui salva o Bruto temporariamente
         } else {
           pecasAgrupadas.set(pecaId, {
             id: apontamento.peca.id,
             marca: apontamento.peca.marca,
             descricao: apontamento.peca.descricao || '',
             etapa_fase: apontamento.peca.etapa_fase || '',
-            quantidade_disponivel: quantidade,
+            quantidade_disponivel: quantidade, // Bruto temporário
             peso_unitario: apontamento.peca.peso_unitario || 0,
             prioridade: apontamento.peca.prioridade || 'P4'
           });
         }
       });
 
-      const pecasArray = Array.from(pecasAgrupadas.values());
-      setPecasDisponiveis(pecasArray);
+      // 4. Calcular o saldo Real (Produzido - Expedido) e limpar zerados
+      const pecasDisponiveisFinal: PecaDisponivel[] = [];
+      pecasAgrupadas.forEach((peca, pecaId) => {
+        const qtdExpedida = expedidosMap.get(pecaId) || 0;
+        const saldoReal = peca.quantidade_disponivel - qtdExpedida;
+        
+        if (saldoReal > 0) {
+          pecasDisponiveisFinal.push({
+            ...peca,
+            quantidade_disponivel: saldoReal // Retorna apenas o saldo disponível
+          });
+        }
+      });
+
+      setPecasDisponiveis(pecasDisponiveisFinal);
 
       // Extrair fases e marcas únicas
-      const fasesUnicas = [...new Set(pecasArray.map(p => p.etapa_fase).filter(Boolean))];
-      const marcasUnicas = [...new Set(pecasArray.map(p => p.marca).filter(Boolean))];
+      const fasesUnicas = [...new Set(pecasDisponiveisFinal.map(p => p.etapa_fase).filter(Boolean))];
+      const marcasUnicas = [...new Set(pecasDisponiveisFinal.map(p => p.marca).filter(Boolean))];
       
       setFasesDisponiveis(fasesUnicas);
       setMarcasDisponiveis(marcasUnicas);
