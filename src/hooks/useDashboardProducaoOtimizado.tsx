@@ -109,9 +109,9 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
         .from('apontamentos_producao')
         .select(`
           *,
-          peca:pecas(peso_unitario, marca),
-          processo:processos_fabricacao(nome, ordem, cor),
-          componente:componentes_peca(peso_unitario, marca_componente)
+          peca:pecas!apontamentos_producao_peca_id_fkey(peso_unitario, marca),
+          processo:processos_fabricacao!apontamentos_producao_processo_id_fkey(nome, ordem, cor),
+          componente:componentes_peca!apontamentos_producao_componente_id_fkey(peso_unitario, marca_componente)
         `)
         .eq('of_number', ofNumber);
 
