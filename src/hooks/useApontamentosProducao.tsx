@@ -129,9 +129,9 @@ export const useApontamentosProducao = () => {
             .from('apontamentos_producao')
             .select(`
               *,
-              peca:pecas(marca, descricao, peso_unitario, etapa_fase),
-              processo:processos_fabricacao(nome, ordem),
-              componente:componentes_peca(marca_componente, descricao, peso_unitario)
+              peca:pecas!peca_id(marca, descricao, peso_unitario, etapa_fase),
+              processo:processos_fabricacao!processo_id(nome, ordem),
+              componente:componentes_peca!componente_id(marca_componente, descricao, peso_unitario)
             `)
             .range(startIndex, endIndex)
             .order('created_at', { ascending: false });

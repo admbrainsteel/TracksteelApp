@@ -42,9 +42,9 @@ export const ApontamentosListOtimizado: React.FC = () => {
         .select(`
           of_number,
           quantidade_produzida,
-          peca:pecas(marca),
-          componente:componentes_peca(marca_componente),
-          processo:processos_fabricacao(nome)
+          peca:pecas!peca_id(marca),
+          componente:componentes_peca!componente_id(marca_componente),
+          processo:processos_fabricacao!processo_id(nome)
         `)
         .eq('id', apontamentoId)
         .single();
@@ -72,9 +72,10 @@ export const ApontamentosListOtimizado: React.FC = () => {
       await refetch();
       console.log('Lista de apontamentos atualizada');
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro completo ao reverter apontamento:', error);
-      toast.error(`Erro ao reverter apontamento: ${error.message || 'Erro desconhecido'}`);
+      const msg = error instanceof Error ? error.message : 'Erro desconhecido';
+      toast.error(`Erro ao reverter apontamento: ${msg}`);
     }
   };
 
