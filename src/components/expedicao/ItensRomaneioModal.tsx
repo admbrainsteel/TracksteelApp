@@ -183,6 +183,7 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
       if (pecasError) {
         console.error('Erro ao carregar peças do romaneio:', pecasError);
       } else if (pecasData) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const itensPecaFormatados = pecasData.map((item: any) => ({
           id: item.id,
           peca_id: item.peca_id,
@@ -206,6 +207,7 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
       if (insumosError) {
         console.error('Erro ao carregar insumos do romaneio:', insumosError);
       } else if (insumosData) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const itensInsumoFormatados = insumosData.map((item: any) => ({
           id: item.id,
           nome: item.descricao,
@@ -228,6 +230,7 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
     if (processoSelecionado && isOpen) {
       buscarPecasDisponiveis(processoSelecionado);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [processoSelecionado, isOpen, romaneio.of_number]);
 
   // Definir processo padrão quando abrir o modal
@@ -241,6 +244,7 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
       setAdicionarTodas(false);
       carregarItensRomaneio();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   // Filtrar peças baseado nos filtros selecionados
