@@ -347,6 +347,12 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
 
       try {
         const quantidade = parseInt(quantidadePeca);
+        
+        if (quantidade > pecaSelecionada.quantidade_disponivel) {
+          toast.error(`Quantidade não autorizada! Saldo disponível é ${pecaSelecionada.quantidade_disponivel}`);
+          return;
+        }
+
         const { error } = await supabase
           .from('itens_romaneio_pecas')
           .insert({
@@ -619,6 +625,7 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
                               <Input
                                 type="number"
                                 min="1"
+                                max={pecasDisponiveis.find(p => p.id === pecaDisponivel)?.quantidade_disponivel || 1}
                                 value={quantidadePeca}
                                 onChange={(e) => setQuantidadePeca(e.target.value)}
                                 placeholder="Quantidade"
