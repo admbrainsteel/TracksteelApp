@@ -1,10 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Upload, FileSpreadsheet, Download, RefreshCw, Check, AlertCircle, Terminal, FileText } from 'lucide-react';
+import { Upload, FileSpreadsheet, Download, RefreshCw, Terminal, FileText, Code2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
@@ -75,26 +75,30 @@ interface PdfJsLib {
   getDocument: (options: { data: ArrayBuffer }) => { promise: Promise<PdfDocument> };
 }
 
-// Carregador dinâmico do PDF.js
-const loadPdfJs = async (): Promise<PdfJsLib> => {
+// Carregador robusto do PDF.js
+const ensurePdfJs = async (): Promise<PdfJsLib> => {
   const win = window as unknown as { pdfjsLib?: PdfJsLib };
   if (win.pdfjsLib) {
+    win.pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     return win.pdfjsLib;
   }
 
   return new Promise((resolve, reject) => {
     const script = document.createElement('script');
+    script.id = 'pdfjs-script-cdn';
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
     script.onload = () => {
       const pdfjs = (window as unknown as { pdfjsLib?: PdfJsLib }).pdfjsLib;
       if (pdfjs) {
-        pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        pdfjs.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         resolve(pdfjs);
       } else {
-        reject(new Error('pdfjsLib não foi encontrado após o carregamento.'));
+        reject(new Error('pdfjsLib não foi encontrado após carregar a CDN.'));
       }
     };
-    script.onerror = () => reject(new Error('Falha ao carregar a biblioteca PDF.js via CDN.'));
+    script.onerror = () => reject(new Error('Falha ao carregar script PDF.js via CDN.'));
     document.head.appendChild(script);
   });
 };
@@ -104,14 +108,23 @@ const AdvanceSteelConverterContent: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedPiece[]>([]);
-  const [logs, setLogs] = useState<string[]>([]);
+  const [logs, setLogs] = useState<string[]>(['> Aguardando seleção do PDF...']);
   const [statusText, setStatusText] = useState<string>('Aguardando arquivo PDF...');
   const [currentFileName, setCurrentFileName] = useState<string>('Lista_Pecas');
+  const [useIframeMode, setUseIframeMode] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    ensurePdfJs().catch((err) => console.warn('Preload PDF.js notice:', err));
+  }, []);
 
   const addLog = (msg: string) => {
     setLogs((prev) => [...prev, `> ${msg}`]);
+    setTimeout(() => {
+      logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 50);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -185,7 +198,7 @@ const AdvanceSteelConverterContent: React.FC = () => {
     });
     if (currentLine.length > 0) lines.push(currentLine);
 
-    addLog(`Total de linhas identificadas: ${lines.length}`);
+    addLog(`Total de linhas identificadas no PDF: ${lines.length}`);
 
     let defaultOf = '';
     for (const line of lines) {
@@ -215,7 +228,20 @@ const AdvanceSteelConverterContent: React.FC = () => {
         continue;
       }
 
-      const firstToken = line[0].text;
+      let firstToken = line[0].text.trim();
+
+      // MONTAGEM INTELIGENTE DE TOKENS SEPARADOS (Ex: ["B132", "-", "1", "-", "1"] -> "B132-1-1")
+      if (!firstToken.includes('-') && line.length >= 3) {
+        let assembled = '';
+        for (let k = 0; k < Math.min(line.length, 6); k++) {
+          assembled += line[k].text.trim();
+          if (assembled.match(/^([A-Za-z0-9]+)-(\d+)-(\d+)$/) || assembled.match(/^([A-Za-z0-9]+)-(\d+)$/)) {
+            firstToken = assembled;
+            break;
+          }
+        }
+      }
+
       const markMatch = firstToken.match(/^([A-Za-z0-9]+)-(\d+)-(\d+)$/) || firstToken.match(/^([A-Za-z0-9]+)-(\d+)$/);
 
       if (markMatch) {
@@ -357,7 +383,7 @@ const AdvanceSteelConverterContent: React.FC = () => {
       }
     }
 
-    addLog(`Total de Peças Principais processadas: ${assemblies.length}`);
+    addLog(`Total de Peças Principais extraídas: ${assemblies.length}`);
 
     const finalPieces: ExtractedPiece[] = assemblies.map((asm) => {
       const hasComponents = asm.components.length > 0;
@@ -401,8 +427,16 @@ const AdvanceSteelConverterContent: React.FC = () => {
     });
 
     setExtractedData(finalPieces);
-    setStatusText(`${finalPieces.length} peças principais extraídas com sucesso!`);
-    addLog(`Tabela renderizada com ${finalPieces.length} registros.`);
+
+    if (finalPieces.length === 0) {
+      setStatusText('Nenhuma peça principal identificada.');
+      addLog('AVISO: Nenhuma peça bateu com a máscara (ex: B132-1 ou B132-4-1).');
+      toast.warning('PDF lido, mas nenhuma marca de peça foi reconhecida.');
+    } else {
+      setStatusText(`${finalPieces.length} peças principais extraídas com sucesso!`);
+      addLog(`Tabela renderizada com ${finalPieces.length} registros.`);
+      toast.success(`${finalPieces.length} peças extraídas do PDF!`);
+    }
   };
 
   const handleFile = async (file: File) => {
@@ -415,16 +449,14 @@ const AdvanceSteelConverterContent: React.FC = () => {
     const baseName = file.name.replace(/\.[^/.]+$/, '');
     setCurrentFileName(baseName);
     setStatusText(`Processando: ${file.name}...`);
-    setLogs([]);
+    setLogs([`> Carregando arquivo: ${file.name}`]);
     setIsProcessing(true);
 
-    addLog(`Carregando PDF: ${file.name}`);
-
     try {
-      const pdfjs = await loadPdfJs();
+      const pdfjs = await ensurePdfJs();
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-      addLog(`PDF carregado com sucesso! Total de páginas: ${pdf.numPages}`);
+      addLog(`PDF aberto! Total de páginas: ${pdf.numPages}`);
 
       const allItems: PdfItem[] = [];
       for (let p = 1; p <= pdf.numPages; p++) {
@@ -444,12 +476,11 @@ const AdvanceSteelConverterContent: React.FC = () => {
 
       addLog(`Total de elementos de texto extraídos: ${allItems.length}`);
       processPdfLines(allItems);
-      toast.success(`PDF processado com sucesso! ${allItems.length} elementos analisados.`);
     } catch (err) {
       console.error(err);
       const errMsg = err instanceof Error ? err.message : 'Erro desconhecido';
-      toast.error(`Erro ao processar o arquivo PDF: ${errMsg}`);
-      addLog(`ERRO: ${errMsg}`);
+      toast.error(`Erro ao processar PDF: ${errMsg}`);
+      addLog(`ERRO CRÍTICO: ${errMsg}`);
       setStatusText('Falha no processamento.');
     } finally {
       setIsProcessing(false);
@@ -495,12 +526,51 @@ const AdvanceSteelConverterContent: React.FC = () => {
     XLSX.utils.book_append_sheet(wb, ws, 'Lista_Pecas');
     const outFileName = `${currentFileName}_Corrigido.xlsx`;
     XLSX.writeFile(wb, outFileName);
-    addLog(`Arquivo Excel exportado: ${outFileName}`);
+    addLog(`Planilha Excel baixada: ${outFileName}`);
     toast.success(`Planilha Excel "${outFileName}" gerada com sucesso!`);
   };
 
+  if (useIframeMode) {
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center bg-slate-800 p-3 rounded-lg border border-slate-700">
+          <span className="text-xs text-slate-300 flex items-center gap-2">
+            <Code2 className="w-4 h-4 text-amber-400" />
+            Modo 100% HTML Original Ativo
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setUseIframeMode(false)}
+            className="text-xs bg-slate-700 border-slate-600 text-white"
+          >
+            Voltar ao Modo React
+          </Button>
+        </div>
+        <iframe
+          src="/conversor_relatorio_estruturas.html"
+          className="w-full h-[650px] border-0 rounded-xl bg-white shadow-2xl"
+          title="Conversor HTML Original"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Modos e Alternador */}
+      <div className="flex justify-end">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setUseIframeMode(true)}
+          className="text-xs text-slate-400 hover:text-sky-400 hover:bg-slate-800"
+        >
+          <Code2 className="w-3.5 h-3.5 mr-1" />
+          Usar Leitor HTML Puro (Modo Direct)
+        </Button>
+      </div>
+
       {/* Upload Zone */}
       <div
         className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200 ${
@@ -520,7 +590,7 @@ const AdvanceSteelConverterContent: React.FC = () => {
           onChange={handleFileInput}
           className="hidden"
         />
-        <Upload className="mx-auto h-12 w-12 text-slate-400 mb-3 animate-bounce-subtle" />
+        <Upload className="mx-auto h-12 w-12 text-slate-400 mb-3" />
         {selectedFile ? (
           <div>
             <p className="text-sm font-semibold text-sky-400 mb-1">Arquivo selecionado:</p>
@@ -580,7 +650,7 @@ const AdvanceSteelConverterContent: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <ScrollArea className="h-[420px] w-full">
+          <ScrollArea className="h-[400px] w-full">
             <table className="w-full text-xs text-left border-collapse">
               <thead className="bg-slate-950 text-slate-300 font-mono sticky top-0 z-10 shadow-sm">
                 <tr>
@@ -602,7 +672,17 @@ const AdvanceSteelConverterContent: React.FC = () => {
                 {extractedData.length === 0 ? (
                   <tr>
                     <td colSpan={12} className="py-12 text-center text-slate-500 font-medium">
-                      Nenhum dado extraído ainda. Carregue um PDF de Lista de Peças acima.
+                      {selectedFile ? (
+                        <div className="space-y-2">
+                          <AlertTriangle className="mx-auto h-8 w-8 text-amber-400/80" />
+                          <p className="text-slate-300">Nenhuma peça foi identificada no PDF.</p>
+                          <p className="text-xs text-slate-400">
+                            Verifique os logs abaixo ou clique em "Usar Leitor HTML Puro" no topo.
+                          </p>
+                        </div>
+                      ) : (
+                        'Nenhum dado extraído ainda. Carregue um PDF de Lista de Peças acima.'
+                      )}
                     </td>
                   </tr>
                 ) : (
@@ -640,26 +720,26 @@ const AdvanceSteelConverterContent: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Terminal Log Panel */}
-      {logs.length > 0 && (
-        <Card className="bg-slate-950 border-slate-800 font-mono text-xs overflow-hidden">
-          <CardHeader className="py-2 px-3 bg-slate-900/90 border-b border-slate-800 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
-              <Terminal className="h-3.5 w-3.5 text-sky-400" />
-              Log de Processamento
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-3">
-            <ScrollArea className="h-28 w-full">
-              <div className="space-y-1 text-sky-400/90 leading-relaxed">
-                {logs.map((logLine, idx) => (
-                  <div key={idx}>{logLine}</div>
-                ))}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-      )}
+      {/* Terminal Log Panel - SE MANTÉM VISÍVEL PARA DIAGNÓSTICO */}
+      <Card className="bg-slate-950 border-slate-800 font-mono text-xs overflow-hidden">
+        <CardHeader className="py-2 px-3 bg-slate-900/90 border-b border-slate-800 flex flex-row items-center justify-between">
+          <CardTitle className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
+            <Terminal className="h-3.5 w-3.5 text-sky-400" />
+            Log de Processamento e Diagnóstico
+          </CardTitle>
+          <span className="text-[10px] text-slate-500 font-normal">{logs.length} eventos</span>
+        </CardHeader>
+        <CardContent className="p-3">
+          <ScrollArea className="h-32 w-full">
+            <div className="space-y-1 text-sky-400/90 leading-relaxed">
+              {logs.map((logLine, idx) => (
+                <div key={idx}>{logLine}</div>
+              ))}
+              <div ref={logEndRef} />
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
     </div>
   );
 };
