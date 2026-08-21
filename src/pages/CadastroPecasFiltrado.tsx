@@ -240,6 +240,7 @@ export default function CadastroPecasFiltrado() {
             <CardContent>
               <PecaForm 
                 ofNumbers={[ofSelecionada]} // Apenas a OF selecionada
+                ofDefault={ofSelecionada}
                 onSave={handleSave}
                 onUpdate={handleUpdate}
                 onImportCSV={handleImportCSV}

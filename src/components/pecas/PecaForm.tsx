@@ -6,13 +6,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { Upload, FileText, Trash2, Download, Undo2 } from 'lucide-react';
+import { Upload, FileText, Trash2, Download, Undo2, FileSpreadsheet } from 'lucide-react';
 import { toast } from 'sonner';
 import { Peca } from '@/hooks/usePecas';
 import { ImportarPecasModal } from './ImportarPecasModal';
+import { ImportarXLSModal } from './ImportarXLSModal';
 
 interface PecaFormProps {
   ofNumbers: string[];
+  ofDefault?: string;
   onSave: (data: any) => Promise<boolean>;
   onUpdate: (id: string, data: any) => Promise<boolean>;
   onImportCSV: (file: File) => Promise<boolean>;
@@ -30,6 +32,7 @@ interface PecaFormProps {
 
 export function PecaForm({
   ofNumbers,
+  ofDefault,
   onSave,
   onUpdate,
   onImportCSV,
@@ -92,6 +95,7 @@ export function PecaForm({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showXLSModal, setShowXLSModal] = useState(false);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -361,6 +365,16 @@ export function PecaForm({
                   <Download className="h-4 w-4" />
                   Download Modelo CSV
                 </Button>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowXLSModal(true)}
+                  className="flex items-center gap-2 border-emerald-600 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 font-semibold"
+                >
+                  <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                  Importar de XLS
+                </Button>
               </div>
 
               <input
@@ -384,6 +398,13 @@ export function PecaForm({
           of_number: peca.of_number,
           etapa_fase: peca.etapa_fase
         }))}
+      />
+
+      <ImportarXLSModal
+        open={showXLSModal}
+        onOpenChange={setShowXLSModal}
+        onImport={onImportPecas}
+        ofDefault={formData.of_number || ofDefault || (ofNumbers && ofNumbers[0]) || ''}
       />
     </div>
   );
