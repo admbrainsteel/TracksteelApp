@@ -34,7 +34,7 @@ export interface PecaXLSData {
 interface ImportarXLSModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImport: (pecas: any[]) => Promise<void>;
+  onImport: (pecas: Omit<PecaXLSData, 'id'>[]) => Promise<void>;
   ofDefault?: string;
 }
 
@@ -70,7 +70,7 @@ export function ImportarXLSModal({
   };
 
   // Função auxiliar para converter valores para número seguro
-  const parseNumber = (val: any): number => {
+  const parseNumber = (val: unknown): number => {
     if (val === null || val === undefined || val === '') return 0;
     if (typeof val === 'number') return isNaN(val) ? 0 : val;
     
@@ -111,6 +111,7 @@ export function ImportarXLSModal({
       const worksheet = workbook.Sheets[firstSheetName];
 
       // Converte para matriz de linhas (array de arrays) para busca flexível do cabeçalho
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rawRows: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
 
       if (!rawRows || rawRows.length === 0) {
@@ -121,9 +122,9 @@ export function ImportarXLSModal({
 
       // 1. Procurar a linha de cabeçalho
       let headerRowIndex = -1;
-      let colMap: { [key: string]: number } = {};
+      const colMap: { [key: string]: number } = {};
 
-      const normalizeStr = (s: any) =>
+      const normalizeStr = (s: unknown) =>
         String(s || '')
           .toLowerCase()
           .normalize('NFD')
@@ -151,7 +152,7 @@ export function ImportarXLSModal({
 
       if (headerRowIndex !== -1) {
         // Mapeia colunas por nome
-        const headers = rawRows[headerRowIndex].map((h: any) => normalizeStr(h));
+        const headers = rawRows[headerRowIndex].map((h: unknown) => normalizeStr(h));
         headers.forEach((h: string, colIdx: number) => {
           if ((h === 'of' || h.includes('trabalho') || h.includes('numof') || h.includes('numeroof')) && colMap['of'] === undefined) colMap['of'] = colIdx;
           else if ((h.includes('fase') || h.includes('etapa')) && colMap['fase'] === undefined) colMap['fase'] = colIdx;
@@ -173,7 +174,7 @@ export function ImportarXLSModal({
           if (!row || row.length === 0) continue;
 
           // Se a linha estiver totalmente vazia
-          if (row.every((cell: any) => cell === '' || cell === null || cell === undefined)) continue;
+          if (row.every((cell: unknown) => cell === '' || cell === null || cell === undefined)) continue;
 
           const getColVal = (key: string, fallbackIdx?: number) => {
             if (colMap[key] !== undefined && row[colMap[key]] !== undefined) {
@@ -252,15 +253,15 @@ export function ImportarXLSModal({
           const rawMarca = String(row[2] || row[0]).trim();
           if (!rawMarca || rawMarca.toLowerCase().includes('marca') || rawMarca.toLowerCase().includes('total')) continue;
 
-          let ofNumber = String(row[0] || ofDefault || 'B132').trim().replace(/^B-(\d+)/i, 'B$1');
-          let etapaFase = String(row[1] || 'Fabricação').trim();
-          let rawDesc = String(row[3] || '').trim();
-          let quantidade = Math.max(1, Math.round(parseNumber(row[4]) || 1));
-          let pesoUnit = parseNumber(row[5]);
-          let pesoTot = parseNumber(row[6]) || (pesoUnit * quantidade);
-          let tratSuperficial = String(row[7] || 'pintura').trim() || 'pintura';
-          let material = String(row[8] || 'Aço A36').trim();
-          let perfilPrincipal = String(row[9] || rawDesc).trim();
+          const ofNumber = String(row[0] || ofDefault || 'B132').trim().replace(/^B-(\d+)/i, 'B$1');
+          const etapaFase = String(row[1] || 'Fabricação').trim();
+          const rawDesc = String(row[3] || '').trim();
+          const quantidade = Math.max(1, Math.round(parseNumber(row[4]) || 1));
+          const pesoUnit = parseNumber(row[5]);
+          const pesoTot = parseNumber(row[6]) || (pesoUnit * quantidade);
+          const tratSuperficial = String(row[7] || 'pintura').trim() || 'pintura';
+          const material = String(row[8] || 'Aço A36').trim();
+          const perfilPrincipal = String(row[9] || rawDesc).trim();
 
           pecasLidas.push({
             of_number: ofNumber,
@@ -287,9 +288,9 @@ export function ImportarXLSModal({
       setPecasProcessadas(pecasLidas);
       setStep('preview');
       toast.success(`${pecasLidas.length} peça(s) identificada(s) com sucesso no arquivo!`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Erro ao processar planilha:', err);
-      toast.error(`Falha ao ler o arquivo Excel: ${err.message || 'Formato não suportado'}`);
+      toast.error(`Falha ao ler o arquivo Excel: ${(err as Error).message || 'Formato não suportado'}`);
     } finally {
       setIsProcessing(false);
     }
@@ -345,9 +346,9 @@ export function ImportarXLSModal({
       await onImport(pecasPayload);
       toast.success(`${pecasProcessadas.length} peças importadas com sucesso para a OF!`);
       handleModalOpenChange(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Erro ao importar peças do Excel:', err);
-      toast.error(`Erro ao salvar peças: ${err.message || 'Falha de comunicação'}`);
+      toast.error(`Erro ao salvar peças: ${(err as Error).message || 'Falha de comunicação'}`);
     } finally {
       setIsImporting(false);
     }
