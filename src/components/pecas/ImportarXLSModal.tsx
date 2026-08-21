@@ -153,18 +153,18 @@ export function ImportarXLSModal({
         // Mapeia colunas por nome
         const headers = rawRows[headerRowIndex].map((h: any) => normalizeStr(h));
         headers.forEach((h: string, colIdx: number) => {
-          if (h.includes('of') || h.includes('trabalho') || h.includes('numof') || h.includes('numeroof')) colMap['of'] = colIdx;
-          else if (h.includes('fase') || h.includes('etapa')) colMap['fase'] = colIdx;
-          else if (h.includes('marca') || h.includes('posicao') || h.includes('item') || h.includes('pos')) colMap['marca'] = colIdx;
-          else if (h.includes('desc') || h.includes('nome')) colMap['descricao'] = colIdx;
-          else if (h.includes('comp') && (h.includes('componente') || h.includes('composto') || h.includes('con'))) colMap['componentes'] = colIdx;
-          else if (h.includes('quant') || h.includes('qtd')) colMap['quantidade'] = colIdx;
-          else if (h.includes('pesounit') || h.includes('pesodapeca') || (h.includes('unit') && h.includes('peso'))) colMap['peso_unitario'] = colIdx;
-          else if (h.includes('pesototal') || h.includes('totalpeso') || (h.includes('total') && h.includes('peso'))) colMap['peso_total'] = colIdx;
-          else if (h.includes('tratam') || h.includes('superf') || h.includes('pintura') || h.includes('acab')) colMap['tratamento'] = colIdx;
-          else if (h.includes('mat') || h.includes('qualidade') || h.includes('aco')) colMap['material'] = colIdx;
-          else if (h.includes('perfil') || h.includes('perfilprinc')) colMap['perfil_principal'] = colIdx;
-          else if (h.includes('compriment') || h.includes('comprmm') || h.includes('length')) colMap['comprimento'] = colIdx;
+          if ((h === 'of' || h.includes('trabalho') || h.includes('numof') || h.includes('numeroof')) && colMap['of'] === undefined) colMap['of'] = colIdx;
+          else if ((h.includes('fase') || h.includes('etapa')) && colMap['fase'] === undefined) colMap['fase'] = colIdx;
+          else if ((h.includes('marca') || h.includes('posicao') || h.includes('item') || h === 'pos') && colMap['marca'] === undefined) colMap['marca'] = colIdx;
+          else if ((h.includes('desc') || h.includes('nome')) && colMap['descricao'] === undefined) colMap['descricao'] = colIdx;
+          else if ((h.includes('comp') && (h.includes('componente') || h.includes('composto') || h.includes('con'))) && colMap['componentes'] === undefined) colMap['componentes'] = colIdx;
+          else if ((h.includes('quant') || h.includes('qtd')) && colMap['quantidade'] === undefined) colMap['quantidade'] = colIdx;
+          else if ((h.includes('pesounit') || h.includes('pesodapeca') || (h.includes('unit') && h.includes('peso'))) && colMap['peso_unitario'] === undefined) colMap['peso_unitario'] = colIdx;
+          else if ((h.includes('pesototal') || h.includes('totalpeso') || (h.includes('total') && h.includes('peso'))) && colMap['peso_total'] === undefined) colMap['peso_total'] = colIdx;
+          else if ((h.includes('tratam') || h.includes('superf') || h.includes('pintura') || h.includes('acab')) && colMap['tratamento'] === undefined) colMap['tratamento'] = colIdx;
+          else if ((h.includes('mat') || h.includes('qualidade') || h.includes('aco')) && colMap['material'] === undefined) colMap['material'] = colIdx;
+          else if ((h.includes('perfil') || h.includes('perfilprinc')) && colMap['perfil_principal'] === undefined) colMap['perfil_principal'] = colIdx;
+          else if ((h.includes('compriment') || h.includes('comprmm') || h.includes('length')) && colMap['comprimento'] === undefined) colMap['comprimento'] = colIdx;
         });
 
         // Itera sobre as linhas de dados após o cabeçalho
