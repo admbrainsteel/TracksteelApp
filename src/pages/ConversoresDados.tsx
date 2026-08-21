@@ -174,22 +174,7 @@ const ConversoresDados = () => {
     );
   }
 
-  if (showAdvanceSteelConverter) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            onClick={handleGoBack}
-            className="bg-slate-600 border-slate-500 text-white hover:bg-slate-500"
-          >
-            ← Voltar
-          </Button>
-        </div>
-        <AdvanceSteelConverter />
-      </div>
-    );
-  }
+
 
   return (
     <div className="space-y-6">
@@ -372,6 +357,12 @@ const ConversoresDados = () => {
       <ConversaoGenericaModal 
         open={showGenericConverter}
         onOpenChange={setShowGenericConverter}
+      />
+
+      {/* Modal de Conversão Advance Steel (PDF para Excel) */}
+      <AdvanceSteelConverter
+        open={showAdvanceSteelConverter}
+        onOpenChange={setShowAdvanceSteelConverter}
       />
     </div>
   );
