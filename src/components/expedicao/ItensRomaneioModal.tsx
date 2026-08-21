@@ -105,7 +105,7 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
           quantidade_produzida,
           processo_id,
           processos_fabricacao!inner(nome),
-          pecas!inner(
+          peca:pecas!inner!apontamentos_producao_peca_id_fkey(
             id,
             marca,
             descricao,
@@ -115,7 +115,7 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
             of_number
           )
         `)
-        .eq('pecas.of_number', romaneio.of_number)
+        .eq('peca.of_number', romaneio.of_number)
         .eq('processos_fabricacao.nome', processo);
 
       if (error) {
@@ -127,7 +127,7 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
       const pecasAgrupadas = new Map<string, PecaDisponivel>();
       
       apontamentosData?.forEach(apontamento => {
-        const pecaId = apontamento.pecas.id;
+        const pecaId = apontamento.peca.id;
         const quantidade = apontamento.quantidade_produzida || 0;
         
         if (pecasAgrupadas.has(pecaId)) {
@@ -135,13 +135,13 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
           pecaExistente.quantidade_disponivel += quantidade;
         } else {
           pecasAgrupadas.set(pecaId, {
-            id: apontamento.pecas.id,
-            marca: apontamento.pecas.marca,
-            descricao: apontamento.pecas.descricao || '',
-            etapa_fase: apontamento.pecas.etapa_fase || '',
+            id: apontamento.peca.id,
+            marca: apontamento.peca.marca,
+            descricao: apontamento.peca.descricao || '',
+            etapa_fase: apontamento.peca.etapa_fase || '',
             quantidade_disponivel: quantidade,
-            peso_unitario: apontamento.pecas.peso_unitario || 0,
-            prioridade: apontamento.pecas.prioridade || 'P4'
+            peso_unitario: apontamento.peca.peso_unitario || 0,
+            prioridade: apontamento.peca.prioridade || 'P4'
           });
         }
       });
