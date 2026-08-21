@@ -68,7 +68,7 @@ const PrioridadesFabricacao = () => {
         boxesHtml += `<div class="tick-box"></div>`;
       }
     }
-    return `<div class="flex items-center flex-wrap gap-1">${boxesHtml}</div>`;
+    return `<div class="tick-boxes-wrapper">${boxesHtml}</div>`;
   };
 
   const handleImprimirRelatorio = async () => {
@@ -141,13 +141,13 @@ const PrioridadesFabricacao = () => {
             
             itemsContent += `
               <div class="item-card">
-                <div class="flex items-center flex-wrap gap-2 mb-2">
-                  <span class="font-semibold text-sm whitespace-nowrap">${marca} (${quantidade})</span>
-                  <span class="text-xs font-medium text-gray-500">${infoType}</span>
+                <div class="item-header">
+                  <span class="item-marca">${marca} (${quantidade})</span>
+                  <span class="item-tipo">${infoType}</span>
                   ${tickBoxes}
                 </div>
-                <div class="mt-2 text-xs">
-                  <div class="border-b border-gray-400 pb-1 h-5">Data/Operador:</div>
+                <div class="item-signature">
+                  Data/Operador:
                 </div>
               </div>
             `;
@@ -176,19 +176,135 @@ const PrioridadesFabricacao = () => {
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Checklist de Produção por Prioridade</title>
             <script src="https://cdn.tailwindcss.com"></script>
-            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
             <style>
                 body {
                     font-family: 'Inter', sans-serif;
                     -webkit-print-color-adjust: exact;
                     print-color-adjust: exact;
                 }
+                .process-group {
+                  display: flex;
+                  align-items: center;
+                  flex-wrap: wrap;
+                  gap: 16px;
+                  margin-top: 4px;
+                }
+                .process-item {
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 6px;
+                  vertical-align: middle;
+                }
+                .process-checkbox {
+                  width: 14px;
+                  height: 14px;
+                  min-width: 14px;
+                  min-height: 14px;
+                  border: 1.5px solid #4b5563;
+                  border-radius: 2px;
+                  display: inline-block;
+                  vertical-align: middle;
+                  box-sizing: border-box;
+                  background-color: #ffffff;
+                }
+                .process-label {
+                  font-size: 13px;
+                  font-weight: 600;
+                  color: #374151;
+                  line-height: 14px;
+                  display: inline-block;
+                  vertical-align: middle;
+                }
+                .tick-boxes-wrapper {
+                  display: inline-flex;
+                  align-items: center;
+                  flex-wrap: wrap;
+                  gap: 3px;
+                  vertical-align: middle;
+                }
+                .tick-box {
+                  width: 13px;
+                  height: 13px;
+                  min-width: 13px;
+                  min-height: 13px;
+                  border: 1px solid #4b5563;
+                  border-radius: 2px;
+                  display: inline-block;
+                  vertical-align: middle;
+                  box-sizing: border-box;
+                  background-color: #ffffff;
+                }
+                .tick-box-large {
+                  width: 13px;
+                  height: 13px;
+                  min-width: 13px;
+                  min-height: 13px;
+                  border: 1px solid #4b5563;
+                  border-radius: 2px;
+                  display: inline-flex;
+                  align-items: center;
+                  justify-content: center;
+                  vertical-align: middle;
+                  box-sizing: border-box;
+                  background-color: #f3f4f6;
+                  text-align: center;
+                  line-height: 1;
+                }
+                .tick-box-large span {
+                  color: #6b7280;
+                  font-size: 8.5px;
+                  font-weight: 700;
+                  line-height: 13px;
+                  display: block;
+                  width: 100%;
+                  height: 100%;
+                  text-align: center;
+                }
+                .item-card {
+                  border: 1px solid #e5e7eb;
+                  padding: 8px 10px;
+                  border-radius: 6px;
+                  background-color: #ffffff;
+                  box-sizing: border-box;
+                }
+                .item-header {
+                  display: flex;
+                  align-items: center;
+                  flex-wrap: wrap;
+                  gap: 6px;
+                  min-height: 18px;
+                }
+                .item-marca {
+                  font-size: 13px;
+                  font-weight: 700;
+                  color: #111827;
+                  line-height: 14px;
+                  white-space: nowrap;
+                  display: inline-block;
+                  vertical-align: middle;
+                }
+                .item-tipo {
+                  font-size: 11px;
+                  font-weight: 600;
+                  color: #6b7280;
+                  line-height: 14px;
+                  white-space: nowrap;
+                  display: inline-block;
+                  vertical-align: middle;
+                }
+                .item-signature {
+                  margin-top: 6px;
+                  font-size: 11px;
+                  color: #4b5563;
+                  border-bottom: 1px solid #9ca3af;
+                  padding-bottom: 2px;
+                  height: 18px;
+                  line-height: 14px;
+                }
                 @media print {
                     body {
                         font-size: 9px;
-                    }
-                    .check-box-print {
-                        border: 1px solid #333 !important;
                     }
                     .page-break {
                         page-break-before: always;
@@ -200,85 +316,58 @@ const PrioridadesFabricacao = () => {
                         page-break-inside: avoid;
                     }
                 }
-                .item-card {
-                    border: 1px solid #e5e7eb;
-                    padding: 8px;
-                    border-radius: 6px;
-                }
-                .tick-box {
-                    width: 12px;
-                    height: 12px;
-                    border: 1px solid #6b7280;
-                    display: inline-block;
-                    flex-shrink: 0;
-                }
-                .tick-box-large {
-                    width: 16px;
-                    height: 16px;
-                    border: 1px solid #6b7280;
-                    display: inline-flex;
-                    align-items: center;
-                    justify-content: center;
-                    position: relative;
-                    flex-shrink: 0;
-                }
-                .tick-box-large span {
-                    color: #d1d5db;
-                    font-size: 10px;
-                    font-weight: 600;
-                }
             </style>
         </head>
         <body class="bg-white">
             <div class="max-w-4xl mx-auto p-6 sm:p-8">
                 <!-- Cabeçalho do Relatório -->
-                <div class="flex justify-between items-center border-b-2 border-gray-800 pb-4 mb-4">
+                <div class="flex justify-between items-center border-b-2 border-gray-800 pb-3 mb-4">
                     <div>
-                        <h1 class="text-2xl font-bold text-gray-900">Checklist de Produção</h1>
-                        <p class="text-gray-600">Formulário para apontamento da fabricação.</p>
+                        <h1 class="text-2xl font-bold text-gray-900 leading-tight">Checklist de Produção</h1>
+                        <p class="text-xs text-gray-600">Formulário para apontamento da fabricação.</p>
                     </div>
                     <div class="text-right">
-                        <p class="font-semibold">Data de Emissão: <span class="font-normal">${dataAtual}</span>
-                        ${versaoAtual ? `<span class="ml-2 text-gray-500">Rev. ${versaoAtual.revisao}</span>` : ''}
+                        <p class="font-semibold text-sm">Data de Emissão: <span class="font-normal">${dataAtual}</span>
+                        ${versaoAtual ? `<span class="ml-2 text-gray-500 font-medium">Rev. ${versaoAtual.revisao}</span>` : ''}
                         </p>
                     </div>
                 </div>
                 
-                <!-- Informações da OF e Fase (Layout Melhorado) -->
-                <div class="border border-gray-200 bg-white p-4 rounded-lg mb-2">
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-x-6 gap-y-4">
+                <!-- Informações da OF e Fase -->
+                <div class="border border-gray-200 bg-white p-3.5 rounded-lg mb-3">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-x-6 gap-y-3">
                         <!-- Coluna OF -->
                         <div>
                             <p class="text-xs font-medium text-gray-500">Ordem de Fabricação (OF)</p>
-                            <p class="text-base font-bold text-gray-800">${ofSelecionada}</p>
+                            <p class="text-base font-bold text-gray-800 leading-snug">${ofSelecionada}</p>
                         </div>
                         <!-- Coluna Fase -->
                         <div>
                             <p class="text-xs font-medium text-gray-500">Fase</p>
-                            <p class="text-base font-bold text-gray-800">${faseSelecionada}</p>
+                            <p class="text-base font-bold text-gray-800 leading-snug">${faseSelecionada}</p>
                         </div>
                         <!-- Coluna Processo -->
                         <div class="md:col-span-2">
                             <p class="text-xs font-medium text-gray-500">PROCESSO</p>
-                            <div class="flex items-center flex-wrap gap-x-4 gap-y-1 mt-1">
-                                <div class="flex items-center gap-1"><div class="w-4 h-4 border-2 border-gray-500 check-box-print"></div><span class="text-sm font-semibold text-gray-700">Corte</span></div>
-                                <div class="flex items-center gap-1"><div class="w-4 h-4 border-2 border-gray-500 check-box-print"></div><span class="text-sm font-semibold text-gray-700">Solda</span></div>
-                                <div class="flex items-center gap-1"><div class="w-4 h-4 border-2 border-gray-500 check-box-print"></div><span class="text-sm font-semibold text-gray-700">Pintura</span></div>
-                                <div class="flex items-center gap-1"><div class="w-4 h-4 border-2 border-gray-500 check-box-print"></div><span class="text-sm font-semibold text-gray-700">Expedição</span></div>
+                            <div class="process-group">
+                              <div class="process-item"><span class="process-checkbox"></span><span class="process-label">Corte</span></div>
+                              <div class="process-item"><span class="process-checkbox"></span><span class="process-label">Solda</span></div>
+                              <div class="process-item"><span class="process-checkbox"></span><span class="process-label">Pintura</span></div>
+                              <div class="process-item"><span class="process-checkbox"></span><span class="process-label">Expedição</span></div>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Legenda -->
-                <div class="text-xs text-gray-600 mb-6 flex items-center flex-wrap gap-x-3">
+                <div class="text-xs text-gray-600 mb-5 flex items-center flex-wrap gap-x-2.5">
                     <span class="font-semibold">Legenda:</span>
                     <span>Marca (Qtd)</span>
                     <span class="font-medium text-gray-500">(S/M)</span>
                     <span>= Sem Montagem,</span>
                     <span class="font-medium text-gray-500">(C/M)</span>
                     <span>= Com Montagem. Os quadrados</span>
-                    <div class="tick-box inline-block"></div>
+                    <span class="tick-box"></span>
                     <span>indicam o controle de peças fabricadas.</span>
                 </div>
                 
