@@ -317,7 +317,19 @@ export const useApontamentosProducao = () => {
 
       console.log('🔄 Criando apontamento:', apontamento);
 
-      const insertData: any = {
+interface InsertApontamentoData {
+  of_number: string;
+  tipo_apontamento: 'peca' | 'componente';
+  processo_id: string;
+  quantidade_produzida: number;
+  data_apontamento: string;
+  observacoes?: string | null;
+  created_by?: string;
+  peca_id?: string | null;
+  componente_id?: string | null;
+}
+
+      const insertData: InsertApontamentoData = {
         of_number: apontamento.of_number,
         tipo_apontamento: apontamento.tipo_apontamento,
         processo_id: apontamento.processo_id,
@@ -371,7 +383,8 @@ export const useApontamentosProducao = () => {
       return { success: true };
     } catch (error) {
       console.error('❌ Erro ao criar apontamento:', error);
-      toast.error('Erro ao registrar apontamento: ' + (error as any).message);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error('Erro ao registrar apontamento: ' + errorMessage);
       return { success: false, error };
     }
   }, [user, fetchApontamentos]);
