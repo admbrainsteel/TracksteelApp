@@ -83,7 +83,7 @@ export const TabelaResumoProcessos: React.FC<TabelaResumoProcessosProps> = ({ da
                 {getStatusBadge(processo.status)}
               </TableCell>
               <TableCell className="text-right py-2">
-                {processo.pesoFabricado.toFixed(3)} kg
+                {processo.pesoFabricado.toFixed(1)} kg
               </TableCell>
             </TableRow>
           ))}
