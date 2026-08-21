@@ -54,7 +54,7 @@ export const useItensPrioridadeFabricacaoFiltrado = () => {
           .select(`
             revisao,
             data_ultima_modificacao,
-            profiles:modificado_por(full_name)
+            profiles:prioridades_fabricacao_modificado_por_profiles_fkey(full_name)
           `)
           .eq('of_number', ofSelecionada)
           .eq('etapa_fase', faseSelecionada)
@@ -71,7 +71,7 @@ export const useItensPrioridadeFabricacaoFiltrado = () => {
           setVersaoAtual({
             revisao: data.revisao || 0,
             dataModificacao: data.data_ultima_modificacao || new Date().toISOString(),
-            modificadoPor: (data.profiles as any)?.full_name
+            modificadoPor: (data.profiles as { full_name?: string } | null)?.full_name
           });
         } else {
           setVersaoAtual({

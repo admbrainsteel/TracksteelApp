@@ -44,14 +44,14 @@ export const useItensPrioridadeFabricacao = () => {
         .from('itens_prioridade_fabricacao')
         .select(`
           *,
-          peca:pecas(marca, descricao, peso_unitario, quantidade, tem_componentes, of_number, etapa_fase),
-          prioridade_fabricacao:prioridades_fabricacao(
+          peca:pecas!itens_prioridade_fabricacao_peca_id_fkey(marca, descricao, peso_unitario, quantidade, tem_componentes, of_number, etapa_fase),
+          prioridade_fabricacao:prioridades_fabricacao!itens_prioridade_fabricacao_prioridade_fabricacao_id_fkey(
             of_number,
             etapa_fase,
             revisao,
             data_ultima_modificacao,
             modificado_por,
-            prioridade_config:prioridades_config(codigo, nome, cor)
+            prioridade_config:prioridades_config!prioridades_fabricacao_prioridade_id_fkey(codigo, nome, cor)
           )
         `)
         .order('ordem_fabricacao', { ascending: true });
@@ -124,8 +124,8 @@ export const useItensPrioridadeFabricacao = () => {
         .from('itens_prioridade_fabricacao')
         .select(`
           *,
-          peca:pecas(of_number, etapa_fase, marca),
-          prioridade_fabricacao:prioridades_fabricacao(of_number, etapa_fase)
+          peca:pecas!itens_prioridade_fabricacao_peca_id_fkey(of_number, etapa_fase, marca),
+          prioridade_fabricacao:prioridades_fabricacao!itens_prioridade_fabricacao_prioridade_fabricacao_id_fkey(of_number, etapa_fase)
         `)
         .eq('id', itemId)
         .single();
@@ -215,8 +215,8 @@ export const useItensPrioridadeFabricacao = () => {
           .select(`
             id,
             prioridade_fabricacao_id,
-            peca:pecas(of_number, etapa_fase, marca),
-            prioridade_fabricacao:prioridades_fabricacao(of_number, etapa_fase)
+            peca:pecas!itens_prioridade_fabricacao_peca_id_fkey(of_number, etapa_fase, marca),
+            prioridade_fabricacao:prioridades_fabricacao!itens_prioridade_fabricacao_prioridade_fabricacao_id_fkey(of_number, etapa_fase)
           `)
           .in('id', idsParaRemover);
 
@@ -341,7 +341,7 @@ export const useItensPrioridadeFabricacao = () => {
         .from('itens_prioridade_fabricacao')
         .select(`
           *,
-          prioridade_fabricacao:prioridades_fabricacao(
+          prioridade_fabricacao:prioridades_fabricacao!itens_prioridade_fabricacao_prioridade_fabricacao_id_fkey(
             of_number,
             etapa_fase
           )
