@@ -104,7 +104,7 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
           peca_id,
           quantidade_produzida,
           processo_id,
-          processos_fabricacao!inner(nome),
+          processo:processos_fabricacao!inner!apontamentos_producao_processo_id_fkey(nome),
           peca:pecas!inner!apontamentos_producao_peca_id_fkey(
             id,
             marca,
@@ -116,7 +116,7 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
           )
         `)
         .eq('peca.of_number', romaneio.of_number)
-        .eq('processos_fabricacao.nome', processo);
+        .eq('processo.nome', processo);
 
       if (error) {
         console.error('Erro ao buscar peças disponíveis:', error);
