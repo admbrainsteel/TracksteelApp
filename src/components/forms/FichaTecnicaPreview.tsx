@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Printer, Download } from 'lucide-react';
 import { FichaTecnicaData } from '@/hooks/useFichaTecnica';
 import { supabase } from '@/integrations/supabase/client';
+import { useBrandSettings } from '@/hooks/useBrandSettings';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -19,6 +20,7 @@ interface ProcessoCronogramaItem {
 }
 
 export function FichaTecnicaPreview({ isOpen, onClose, data }: FichaTecnicaPreviewProps) {
+  const { brandSettings } = useBrandSettings();
   const [cronogramaEtapas, setCronogramaEtapas] = useState<ProcessoCronogramaItem[]>([]);
   const [prazosCronograma, setPrazosCronograma] = useState<{
     fabricacaoPintura?: string;
@@ -439,13 +441,30 @@ export function FichaTecnicaPreview({ isOpen, onClose, data }: FichaTecnicaPrevi
               {/* 1. HEADER */}
               <tbody>
                 <tr>
-                  <td style={{ width: '22%', border: '1px solid #000', padding: '4px', textAlign: 'center', verticalAlign: 'middle' }}>
-                    <div style={{ fontSize: '13pt', fontWeight: 900, fontStyle: 'italic', color: '#0b3b60', fontFamily: "'Arial Black', Arial, sans-serif" }}>
-                      TrackSteel
-                    </div>
-                    <div style={{ fontSize: '5pt', color: '#555', letterSpacing: '1px' }}>
-                      ESTRUTURAS METÁLICAS
-                    </div>
+                  <td style={{ width: '22%', border: '1px solid #000', padding: '4px', textAlign: 'center', verticalAlign: 'middle', backgroundColor: '#ffffff' }}>
+                    {brandSettings.logo_url ? (
+                      <img 
+                        src={brandSettings.logo_url} 
+                        alt={brandSettings.company_name || 'Logo'} 
+                        style={{ 
+                          maxHeight: '36px', 
+                          maxWidth: '100%', 
+                          objectFit: 'contain', 
+                          display: 'block', 
+                          margin: '0 auto', 
+                          backgroundColor: '#ffffff' 
+                        }} 
+                      />
+                    ) : (
+                      <>
+                        <div style={{ fontSize: '13pt', fontWeight: 900, fontStyle: 'italic', color: '#0b3b60', fontFamily: "'Arial Black', Arial, sans-serif" }}>
+                          {brandSettings.company_name || 'TrackSteel'}
+                        </div>
+                        <div style={{ fontSize: '5pt', color: '#555', letterSpacing: '1px' }}>
+                          ESTRUTURAS METÁLICAS
+                        </div>
+                      </>
+                    )}
                   </td>
                   <td style={{ width: '50%', border: '1px solid #000', padding: '4px', textAlign: 'center', verticalAlign: 'middle' }}>
                     <div style={{ fontSize: '11pt', fontWeight: 'bold', letterSpacing: '0.5px' }}>
@@ -862,7 +881,7 @@ export function FichaTecnicaPreview({ isOpen, onClose, data }: FichaTecnicaPrevi
                           </td>
                           <td style={{ borderRight: '1px solid #000', borderTop: '1px solid #ccc', verticalAlign: 'bottom', padding: '2px' }}>
                             <span style={{ fontSize: '7.2pt', fontWeight: 'bold', color: '#1a5276' }}>
-                              {data.visto_eng ? `✓ ${data.visto_eng}` : (data.eng_responsavel ? `✓ ${data.eng_responsavel}` : '')}
+                              {data.visto_eng ? `✓ ${data.visto_eng}` : ''}
                             </span>
                           </td>
                           <td style={{ borderRight: '1px solid #000', borderTop: '1px solid #ccc', verticalAlign: 'bottom', padding: '2px' }}>
