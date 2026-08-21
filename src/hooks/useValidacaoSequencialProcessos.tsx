@@ -41,8 +41,8 @@ export const useValidacaoSequencialProcessos = () => {
           quantidade_produzida,
           processo_id,
           tipo_apontamento,
-          peca:pecas(marca),
-          processo:processos_fabricacao(ordem)
+          peca:pecas!peca_id(marca),
+          processo:processos_fabricacao!processo_id(ordem)
         `)
         .eq('of_number', ofNumber)
         .eq('tipo_apontamento', 'peca');
@@ -54,8 +54,8 @@ export const useValidacaoSequencialProcessos = () => {
           quantidade_produzida,
           processo_id,
           tipo_apontamento,
-          componente:componentes_peca(marca_componente),
-          processo:processos_fabricacao(ordem)
+          componente:componentes_peca!componente_id(marca_componente),
+          processo:processos_fabricacao!processo_id(ordem)
         `)
         .eq('of_number', ofNumber)
         .eq('tipo_apontamento', 'componente');

@@ -45,20 +45,20 @@ export const useRelatorioDiario = (selectedDate: string) => {
           data_apontamento,
           created_at,
           tipo_apontamento,
-          peca:pecas(
+          peca:pecas!peca_id(
             id,
             marca,
             descricao,
             etapa_fase,
             peso_unitario
           ),
-          componente:componentes_peca(
+          componente:componentes_peca!componente_id(
             id,
             marca_componente,
             descricao,
             peso_unitario
           ),
-          processo:processos_fabricacao(
+          processo:processos_fabricacao!processo_id(
             nome
           )
         `)
