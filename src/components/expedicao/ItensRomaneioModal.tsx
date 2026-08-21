@@ -126,8 +126,11 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
       // Agrupar por peça e calcular quantidade disponível
       const pecasAgrupadas = new Map<string, PecaDisponivel>();
       
-      apontamentosData?.forEach(apontamento => {
-        const pecaId = apontamento.peca.id;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (apontamentosData as any[])?.forEach((apontamento: any) => {
+        const pecaId = apontamento.peca?.id;
+        if (!pecaId) return;
+
         const quantidade = apontamento.quantidade_produzida || 0;
         
         if (pecasAgrupadas.has(pecaId)) {
