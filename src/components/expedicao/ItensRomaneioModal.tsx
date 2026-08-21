@@ -370,6 +370,9 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
     
     // Recarregar itens e limpar formulário
     carregarItensRomaneio();
+    if (processoSelecionado) {
+      buscarPecasDisponiveis(processoSelecionado);
+    }
     setPecaDisponivel('');
     setQuantidadePeca('');
     setAdicionarTodas(false);
@@ -415,6 +418,9 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
       if (error) throw error;
       toast.success('Item removido do romaneio');
       carregarItensRomaneio();
+      if (processoSelecionado) {
+        buscarPecasDisponiveis(processoSelecionado);
+      }
     } catch (error) {
       console.error('Erro ao remover item:', error);
       toast.error('Erro ao remover item do romaneio');
