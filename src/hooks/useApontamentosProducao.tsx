@@ -381,9 +381,12 @@ interface InsertApontamentoData {
       toast.success('Apontamento registrado com sucesso!');
       
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erro ao criar apontamento:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isConflict = error?.status === 409 || error?.code === '23505' || String(error?.message || '').includes('409');
+      const errorMessage = isConflict 
+        ? 'Este item ou processo já teve o apontamento registrado por outro usuário ou os dados em cache estão desatualizados. Por favor, clique em "Limpar" no cache e atualize a página.'
+        : (error instanceof Error ? error.message : String(error));
       toast.error('Erro ao registrar apontamento: ' + errorMessage);
       return { success: false, error };
     }
