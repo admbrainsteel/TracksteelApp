@@ -94,7 +94,7 @@ export const useRelatorioPecasProcesso = (ofNumber: string) => {
             peca_id,
             processo_id,
             quantidade_produzida,
-            processos_fabricacao!inner(nome)
+            processos_fabricacao!apontamentos_producao_processo_id_fkey(nome)
           `)
           .eq('of_number', ofNumber)
           .in('peca_id', pecaIds);

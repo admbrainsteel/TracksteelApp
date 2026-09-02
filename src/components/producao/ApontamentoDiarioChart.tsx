@@ -319,7 +319,7 @@ export const ApontamentoDiarioChart = () => {
                             >
                               {alturaPixels > 20 && (
                                 <span className="transform rotate-90 whitespace-nowrap">
-                                  {Math.round(ofData.peso).toLocaleString('pt-BR')} Kg
+                                  {Math.round(ofData.peso).toLocaleString('pt-BR')}
                                 </span>
                               )}
                             </div>

@@ -47,14 +47,8 @@ export const RelatorioPecasProcessoModal: React.FC<RelatorioPecasProcessoModalPr
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto bg-card border-border">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between text-card-foreground">
-            <span>Relatório de Peças por Processo</span>
-            <button
-              onClick={onClose}
-              className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-            >
-              <X className="h-4 w-4" />
-            </button>
+          <DialogTitle className="text-card-foreground">
+            Relatório de Peças por Processo
           </DialogTitle>
         </DialogHeader>
 
