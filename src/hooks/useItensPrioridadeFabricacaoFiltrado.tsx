@@ -92,12 +92,49 @@ export const useItensPrioridadeFabricacaoFiltrado = () => {
     setFaseSelecionada(novaFase);
   };
 
+  const incrementarRevisao = async () => {
+    if (!ofSelecionada || !faseSelecionada) return false;
+
+    try {
+      const novaRevisao = (versaoAtual?.revisao || 0) + 1;
+      const dataModificacao = new Date().toISOString();
+
+      const { error } = await supabase
+        .from('prioridades_fabricacao')
+        .update({ 
+          revisao: novaRevisao, 
+          data_ultima_modificacao: dataModificacao 
+        })
+        .eq('of_number', ofSelecionada)
+        .eq('etapa_fase', faseSelecionada);
+
+      if (error) {
+        console.error('Erro ao incrementar revisão no DB:', error);
+        toast.error('Erro ao registrar nova revisão.');
+        return false;
+      }
+
+      setVersaoAtual(prev => ({
+        ...prev!,
+        revisao: novaRevisao,
+        dataModificacao: dataModificacao
+      }));
+      
+      toast.success(`Revisão atualizada para ${novaRevisao}`);
+      return true;
+    } catch (error) {
+      console.error('Erro ao incrementar revisão:', error);
+      return false;
+    }
+  };
+
   return {
     ...hookOriginal,
     itensPorPrioridade: itensFiltrados,
     ofSelecionada,
     faseSelecionada,
     versaoAtual,
-    onFiltroChange: handleFiltroChange
+    onFiltroChange: handleFiltroChange,
+    incrementarRevisao
   };
 };

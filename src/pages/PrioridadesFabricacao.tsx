@@ -24,7 +24,8 @@ const PrioridadesFabricacao = () => {
     ofSelecionada,
     faseSelecionada,
     versaoAtual,
-    onFiltroChange
+    onFiltroChange,
+    incrementarRevisao
   } = useItensPrioridadeFabricacaoFiltrado();
   
   const [showPecaSelector, setShowPecaSelector] = useState(false);
@@ -88,6 +89,14 @@ const PrioridadesFabricacao = () => {
     if (!ofSelecionada || !faseSelecionada) {
       toast.error('Selecione uma OF e Fase para imprimir o relatório');
       return;
+    }
+
+    let revisaoParaImprimir = versaoAtual?.revisao || 0;
+    if (window.confirm(`Deseja gerar uma nova revisão (Rev. ${(versaoAtual?.revisao || 0) + 1}) para esta impressão?`)) {
+      const sucesso = await incrementarRevisao();
+      if (sucesso) {
+        revisaoParaImprimir += 1;
+      }
     }
 
     try {
@@ -238,7 +247,7 @@ const PrioridadesFabricacao = () => {
                     </div>
                     <div class="text-right">
                         <p class="font-semibold text-sm">Data de Emissão: <span class="font-normal">${dataAtual}</span>
-                        ${versaoAtual ? `<span class="ml-2 text-gray-500 font-medium">Rev. ${versaoAtual.revisao}</span>` : ''}
+                        <span class="ml-2 text-gray-500 font-medium">Rev. ${revisaoParaImprimir}</span>
                         </p>
                     </div>
                 </div>
@@ -390,7 +399,12 @@ const PrioridadesFabricacao = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setShowPrioridadesPDF(true)}
+              onClick={async () => {
+                if (window.confirm(`Deseja gerar uma nova revisão (Rev. ${(versaoAtual?.revisao || 0) + 1}) para este PDF?`)) {
+                  await incrementarRevisao();
+                }
+                setShowPrioridadesPDF(true);
+              }}
               disabled={!ofSelecionada || !faseSelecionada}
             >
               <FileText className="h-4 w-4 mr-2" />
