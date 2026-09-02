@@ -78,22 +78,26 @@ export const ApontamentoDiarioChart = () => {
     return { valorMaximo, linhasGrid: linhas };
   }, [dadosProcessados]);
 
-  // Cores para cada OF
-  const coresOF = {
-    'B114': 'bg-blue-500',
-    'B117': 'bg-amber-500', 
-    'B118': 'bg-emerald-500',
-    'B119': 'bg-purple-500',
-    'B120': 'bg-pink-500',
-    'B121': 'bg-indigo-500',
-    'B122': 'bg-cyan-500',
-    'B123': 'bg-teal-500',
-    'B124': 'bg-lime-500',
-    'B125': 'bg-red-500',
-  };
+  // Array de cores profissionais e vibrantes para as OFs
+  const availableColors = [
+    'bg-blue-500',
+    'bg-emerald-500',
+    'bg-violet-500',
+    'bg-amber-500', 
+    'bg-rose-500',
+    'bg-cyan-500',
+    'bg-fuchsia-500',
+    'bg-lime-500',
+    'bg-indigo-500',
+    'bg-orange-500',
+    'bg-teal-500',
+    'bg-pink-500'
+  ];
 
   const getCorOF = (ofNumber: string) => {
-    return coresOF[ofNumber as keyof typeof coresOF] || 'bg-gray-500';
+    const index = ofsUnicas.indexOf(ofNumber);
+    if (index === -1) return 'bg-gray-500';
+    return availableColors[index % availableColors.length];
   };
 
   const buttons = [
@@ -222,19 +226,19 @@ export const ApontamentoDiarioChart = () => {
         </CardHeader>
         <CardContent>
           {/* Legenda interativa */}
-          <div className="flex justify-center flex-wrap gap-4 mb-8">
+          <div className="flex justify-center flex-wrap gap-3 mb-8">
             {ofsUnicas.map((ofNumber) => (
               <button
                 key={ofNumber}
                 onClick={() => setSelectedOF(selectedOF === ofNumber ? null : ofNumber)}
-                className={`flex items-center gap-2 px-3 py-1 rounded-md transition-all ${
+                className={`flex items-center gap-2 px-4 py-1.5 rounded-full border shadow-sm transition-all duration-200 ${
                   selectedOF === ofNumber 
-                    ? 'bg-primary text-primary-foreground' 
-                    : 'hover:bg-muted'
+                    ? 'bg-primary text-primary-foreground border-primary scale-105 shadow-md' 
+                    : 'bg-card text-muted-foreground border-border hover:bg-muted hover:text-foreground'
                 }`}
               >
-                <div className={`w-4 h-4 rounded-sm ${getCorOF(ofNumber)}`} />
-                <span className="text-sm font-medium">OF {ofNumber}</span>
+                <div className={`w-3 h-3 rounded-full shadow-inner ${getCorOF(ofNumber)}`} />
+                <span className="text-sm font-semibold">OF {ofNumber}</span>
               </button>
             ))}
             {selectedOF && (
