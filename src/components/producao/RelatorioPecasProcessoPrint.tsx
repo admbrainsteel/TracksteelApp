@@ -41,15 +41,18 @@ export const RelatorioPecasProcessoPrint: React.FC<RelatorioPecasProcessoPrintPr
       printTemplate.innerHTML = `
         <style>
           @media print {
+            @page { size: A4 portrait; margin: 1cm; }
             body {
               margin: 0;
               font-family: 'Inter', sans-serif;
               background: white;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
             .a4-page {
               width: 100%;
               margin: 0;
-              padding: 1.5cm;
+              padding: 0;
               background: white;
             }
             table {
@@ -58,18 +61,19 @@ export const RelatorioPecasProcessoPrint: React.FC<RelatorioPecasProcessoPrintPr
               page-break-inside: auto;
             }
             th, td {
-              border: 1px solid #ccc;
-              padding: 4px 8px;
-              font-size: 9pt;
+              border: 1px solid #e5e7eb;
+              padding: 3px 6px;
+              font-size: 8pt;
               text-align: center;
             }
             th {
-              background-color: #e9ecef;
+              background-color: #f3f4f6;
+              color: #374151;
               font-weight: 600;
             }
             .text-left { text-align: left; }
             .text-right { text-align: right; }
-            .header-info, .summary-info { font-size: 10pt; }
+            .header-info, .summary-info { font-size: 9pt; }
             tr { page-break-inside: avoid; }
             thead { display: table-header-group; }
           }
@@ -81,7 +85,7 @@ export const RelatorioPecasProcessoPrint: React.FC<RelatorioPecasProcessoPrintPr
           .a4-page {
             width: 21cm;
             min-height: 29.7cm;
-            padding: 1.5cm;
+            padding: 1cm;
             margin: 1cm auto;
             background: white;
             box-shadow: 0 0 10px rgba(0,0,0,0.1);
@@ -91,44 +95,43 @@ export const RelatorioPecasProcessoPrint: React.FC<RelatorioPecasProcessoPrintPr
             border-collapse: collapse;
           }
           th, td {
-            border: 1px solid #ccc;
-            padding: 4px 8px;
-            font-size: 9pt;
+            border: 1px solid #e5e7eb;
+            padding: 3px 6px;
+            font-size: 8pt;
             text-align: center;
           }
           th {
-            background-color: #e9ecef;
+            background-color: #f3f4f6;
+            color: #374151;
             font-weight: 600;
           }
           .text-left { text-align: left; }
           .text-right { text-align: right; }
-          .header-info, .summary-info { font-size: 10pt; }
+          .header-info, .summary-info { font-size: 9pt; }
         </style>
         
         <div class="a4-page">
           <!-- Cabeçalho -->
-          <header style="margin-bottom: 16px;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #ccc; padding-bottom: 8px;">
+          <header style="margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid #ccc; padding-bottom: 4px;">
               <div>
-                <h1 style="font-size: 20px; font-weight: bold; color: #1f2937; margin: 0 0 4px 0;">Relatório de Status</h1>
-                <p style="font-size: 14px; color: #6b7280; margin: 0;" class="header-info">Ordem de Fabricação: <span style="font-weight: 600;">${selectedOF}${faseText}</span></p>
+                <h1 style="font-size: 18px; font-weight: bold; color: #1f2937; margin: 0 0 2px 0;">Relatório de Status de Produção</h1>
+                <p style="font-size: 12px; color: #6b7280; margin: 0;" class="header-info">OF: <span style="font-weight: 600;">${selectedOF}${faseText}</span></p>
               </div>
               <div style="text-align: right;">
-                <p style="font-size: 14px; color: #6b7280; margin: 0;" class="header-info">Gerado em:</p>
-                <p style="font-size: 14px; color: #9ca3af; margin: 0;" class="header-info">${currentDate}</p>
+                <p style="font-size: 11px; color: #9ca3af; margin: 0;" class="header-info">Gerado em: ${currentDate}</p>
               </div>
             </div>
           </header>
 
           <!-- Resumo -->
-          <section style="margin-bottom: 16px;">
-            <h2 style="font-size: 16px; font-weight: 600; margin-bottom: 8px; color: #374151;">Resumo por Processo</h2>
-            <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; font-size: 12px; color: #6b7280; padding: 8px; border: 1px solid #e5e7eb; border-radius: 8px; background-color: #f9fafb;" class="summary-info">
-              <div><strong>Total de Peças:</strong> <span style="font-family: monospace;">${estatisticas.totalPecas}</span></div>
-              <div><strong>Peso Corte:</strong> <span style="font-family: monospace;">${estatisticas.pesoTotalCorte.toFixed(2)} kg</span></div>
-              <div><strong>Peso Solda:</strong> <span style="font-family: monospace;">${estatisticas.pesoTotalSolda.toFixed(2)} kg</span></div>
-              <div><strong>Peso Pintura:</strong> <span style="font-family: monospace;">${estatisticas.pesoTotalPintura.toFixed(2)} kg</span></div>
-              <div><strong>Peso Expedição:</strong> <span style="font-family: monospace;">${estatisticas.pesoTotalExpedicao.toFixed(2)} kg</span></div>
+          <section style="margin-bottom: 12px;">
+            <div style="display: flex; flex-wrap: wrap; justify-content: space-between; font-size: 11px; color: #4b5563; padding: 6px 12px; border: 1px solid #e5e7eb; border-radius: 6px; background-color: #f9fafb;" class="summary-info">
+              <div><strong>Total Peças:</strong> ${estatisticas.totalPecas}</div>
+              <div><strong>Corte:</strong> ${estatisticas.pesoTotalCorte.toFixed(0)} kg</div>
+              <div><strong>Solda:</strong> ${estatisticas.pesoTotalSolda.toFixed(0)} kg</div>
+              <div><strong>Pintura:</strong> ${estatisticas.pesoTotalPintura.toFixed(0)} kg</div>
+              <div><strong>Expedição:</strong> ${estatisticas.pesoTotalExpedicao.toFixed(0)} kg</div>
             </div>
           </section>
 

@@ -33,37 +33,50 @@ export const RelatorioPecasProcessoPDF: React.FC<RelatorioPecasProcessoPDFProps>
     }
 
     try {
-      const doc = new jsPDF('l', 'mm', 'a4'); // Landscape orientation
+      const doc = new jsPDF('p', 'mm', 'a4'); // Portrait orientation para otimizar espaço
       
       const faseText = selectedFase === 'todas' ? '' : ` - Fase ${selectedFase}`;
       
       // Título
-      doc.setFontSize(20);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Relatório de Status', 20, 20);
-      
-      // Subtítulo
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Ordem de Fabricação: ${selectedOF}${faseText}`, 20, 30);
-      
-      // Data/hora
-      doc.setFontSize(10);
-      doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 20, 40);
-      
-      // Resumo por Processo
       doc.setFontSize(16);
       doc.setFont('helvetica', 'bold');
-      doc.text('Resumo por Processo', 20, 55);
+      doc.text('Relatório de Status de Produção', 14, 16);
       
+      // Subtítulo e Data
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
-      let yPos = 65;
-      doc.text(`Total de Peças: ${estatisticas.totalPecas}`, 20, yPos);
-      doc.text(`Peso Corte: ${estatisticas.pesoTotalCorte.toFixed(2)} kg`, 80, yPos);
-      doc.text(`Peso Solda: ${estatisticas.pesoTotalSolda.toFixed(2)} kg`, 140, yPos);
-      doc.text(`Peso Pintura: ${estatisticas.pesoTotalPintura.toFixed(2)} kg`, 200, yPos);
-      doc.text(`Peso Expedição: ${estatisticas.pesoTotalExpedicao.toFixed(2)} kg`, 260, yPos);
+      doc.text(`OF: ${selectedOF}${faseText}   |   Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 23);
+      
+      // Resumo por Processo em linha mais compacta
+      let yPos = 32;
+      doc.setFontSize(9);
+      
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Total Peças:`, 14, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${estatisticas.totalPecas}`, 36, yPos);
+
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Corte:`, 50, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${estatisticas.pesoTotalCorte.toFixed(0)} kg`, 62, yPos);
+
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Solda:`, 90, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${estatisticas.pesoTotalSolda.toFixed(0)} kg`, 102, yPos);
+
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Pintura:`, 130, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${estatisticas.pesoTotalPintura.toFixed(0)} kg`, 145, yPos);
+
+      doc.setFont('helvetica', 'bold');
+      doc.text(`Expedição:`, 175, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`${estatisticas.pesoTotalExpedicao.toFixed(0)} kg`, 192, yPos);
+      
+      yPos = 38; // Ajusta yPos para o início da tabela
       
       // Preparar dados para a tabela
       const tableData = pecasComStatus.map(peca => [
@@ -88,36 +101,35 @@ export const RelatorioPecasProcessoPDF: React.FC<RelatorioPecasProcessoPDFProps>
       autoTable(doc, {
         head: headers,
         body: tableData,
-        startY: yPos + 15,
+        startY: yPos,
         styles: {
-          fontSize: 9,
-          cellPadding: 2,
-          lineColor: [204, 204, 204],
-          lineWidth: 0.5,
+          fontSize: 8,
+          cellPadding: 1.5,
+          lineColor: [210, 210, 210],
+          lineWidth: 0.1,
         },
         headStyles: {
-          fillColor: [233, 236, 239],
-          textColor: 0,
+          fillColor: [240, 240, 240],
+          textColor: [40, 40, 40],
           fontStyle: 'bold',
-          lineColor: [204, 204, 204],
-          lineWidth: 0.5,
+          lineWidth: 0.1,
         },
         alternateRowStyles: {
-          fillColor: [248, 249, 250],
+          fillColor: [250, 250, 250],
         },
         columnStyles: {
-          0: { cellWidth: 25, halign: 'center' }, // OF
-          1: { cellWidth: 20, halign: 'center' }, // Fase
-          2: { cellWidth: 25, halign: 'center' }, // Marca
-          3: { cellWidth: 15, halign: 'center' }, // Qtd
-          4: { cellWidth: 25, halign: 'right' }, // Peso Unit
-          5: { cellWidth: 25, halign: 'right' }, // Peso Total
-          6: { cellWidth: 20, halign: 'center' }, // Corte
-          7: { cellWidth: 20, halign: 'center' }, // Solda
-          8: { cellWidth: 25, halign: 'center' }, // Pint/Galv
-          9: { cellWidth: 25, halign: 'center' }, // Expedição
+          0: { cellWidth: 18, halign: 'center' }, // OF
+          1: { cellWidth: 12, halign: 'center' }, // Fase
+          2: { cellWidth: 20, halign: 'center' }, // Marca
+          3: { cellWidth: 10, halign: 'center' }, // Qtd
+          4: { cellWidth: 22, halign: 'right' }, // Peso Unit
+          5: { cellWidth: 22, halign: 'right' }, // Peso Total
+          6: { cellWidth: 16, halign: 'center' }, // Corte
+          7: { cellWidth: 16, halign: 'center' }, // Solda
+          8: { cellWidth: 22, halign: 'center' }, // Pint/Galv
+          9: { cellWidth: 22, halign: 'center' }, // Expedição
         },
-        margin: { left: 20, right: 20 },
+        margin: { left: 14, right: 14, top: 20, bottom: 20 },
         tableWidth: 'auto',
       });
       
