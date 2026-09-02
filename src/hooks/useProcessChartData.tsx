@@ -44,22 +44,27 @@ export const useProcessChartData = (ofNumber: string) => {
       console.log(`Processo ${processName} encontrado com ID:`, processo.id);
 
       const hoje = new Date();
+      hoje.setHours(23, 59, 59, 999);
+      
       const seteDiasAtras = new Date(hoje);
       seteDiasAtras.setDate(hoje.getDate() - 7);
+      seteDiasAtras.setHours(0, 0, 0, 0);
       
       const quatorzeDiasAtras = new Date(hoje);
       quatorzeDiasAtras.setDate(hoje.getDate() - 14);
+      quatorzeDiasAtras.setHours(0, 0, 0, 0);
 
       const seisDiasAtras = new Date(hoje);
       seisDiasAtras.setDate(hoje.getDate() - 6);
+      seisDiasAtras.setHours(0, 0, 0, 0);
 
       // Buscar apontamentos completos para obter o total fabricado
       const { data: apontamentos, error: apontamentosError } = await supabase
         .from('apontamentos_producao')
         .select(`
           *,
-          peca:pecas(peso_unitario),
-          componente:componentes_peca(peso_unitario)
+          peca:pecas!apontamentos_producao_peca_id_fkey(peso_unitario),
+          componente:componentes_peca!apontamentos_producao_componente_id_fkey(peso_unitario)
         `)
         .eq('of_number', ofNumber)
         .eq('processo_id', processo.id);
@@ -87,7 +92,13 @@ export const useProcessChartData = (ofNumber: string) => {
           pesoTotalProcessado += pesoTotal;
 
           if (apontamento.data_apontamento) {
-            const dataApontamento = new Date(apontamento.data_apontamento + 'T12:00:00'); // Evitar problemas de fuso
+            // Se data_apontamento for apenas a data (YYYY-MM-DD), setamos pra meio dia pra evitar bugs de fuso
+            const dateStr = typeof apontamento.data_apontamento === 'string' && apontamento.data_apontamento.length <= 10 
+                ? apontamento.data_apontamento + 'T12:00:00' 
+                : apontamento.data_apontamento;
+                
+            const dataApontamento = new Date(dateStr); 
+
             // Período de 7-14 dias atrás
             if (dataApontamento >= quatorzeDiasAtras && dataApontamento < seteDiasAtras) {
               peso7a14Dias += pesoTotal;
