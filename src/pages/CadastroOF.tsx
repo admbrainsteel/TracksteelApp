@@ -488,7 +488,7 @@ const CadastroOF = () => {
                 />
               </div>
               <div>
-                <Label htmlFor="quantidade" className="text-sm font-medium text-muted-foreground">Quantidade (t)</Label>
+                <Label htmlFor="quantidade" className="text-sm font-medium text-muted-foreground">Quantidade (kg)</Label>
                 <Input
                   id="quantidade"
                   type="number"
