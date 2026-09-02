@@ -33,15 +33,14 @@ export const CronogramaPDF: React.FC<CronogramaPDFProps> = ({ cronograma, onComp
     const margin = 12;
     const usableWidth = pageWidth - (margin * 2);   // 273mm
 
-    // Palette de Cores Executiva Modern
-    const cPrimary = [15, 23, 42];      // Slate 900 (Fundo do cabeçalho)
-    const cSecondary = [30, 41, 59];    // Slate 800
-    const cAccent = [37, 99, 235];      // Royal Blue (Highlight)
-    const cAccentLight = [239, 246, 255];// Light Blue Tint
-    const cTextDark = [30, 41, 59];     // Slate 800 (Texto principal)
-    const cTextMuted = [100, 116, 139]; // Slate 500 (Subtítulos)
-    const cBorder = [226, 232, 240];    // Slate 200 (Bordas)
-    const cBgCard = [248, 250, 252];    // Slate 50 (Fundo de cards)
+    // Palette de Cores Executiva Modern (Otimizada para Impressora Monocromática)
+    const cPrimary = [241, 245, 249];   // Slate 100 (Fundo do cabeçalho)
+    const cSecondary = [226, 232, 240]; // Slate 200
+    const cAccent = [71, 85, 105];      // Slate 600 (Highlight)
+    const cTextDark = [15, 23, 42];     // Slate 900 (Texto principal)
+    const cTextMuted = [71, 85, 105];   // Slate 600 (Subtítulos)
+    const cBorder = [203, 213, 225];    // Slate 300 (Bordas)
+    const cBgCard = [255, 255, 255];    // Branco (Fundo de cards, economiza tinta)
     const cWhite = [255, 255, 255];
 
     // ----------------------------------------------------
@@ -87,12 +86,12 @@ export const CronogramaPDF: React.FC<CronogramaPDFProps> = ({ cronograma, onComp
     }
 
     // Título da Empresa & Documento
-    doc.setTextColor(cWhite[0], cWhite[1], cWhite[2]);
+    doc.setTextColor(cTextDark[0], cTextDark[1], cTextDark[2]);
     doc.setFontSize(15);
     doc.setFont('helvetica', 'bold');
     doc.text(brandSettings.company_name || 'TrackSteel', headerTextX, 12);
 
-    doc.setTextColor(148, 163, 184); // Slate 400
+    doc.setTextColor(cTextMuted[0], cTextMuted[1], cTextMuted[2]);
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
     doc.text('RELATÓRIO EXECUTIVO DE CRONOGRAMA DE PRODUÇÃO', headerTextX, 19);
@@ -104,15 +103,18 @@ export const CronogramaPDF: React.FC<CronogramaPDFProps> = ({ cronograma, onComp
     // Pill de OF
     const ofNum = cronograma.ordem_fabricacao?.num_of || 'N/A';
     doc.setFillColor(cSecondary[0], cSecondary[1], cSecondary[2]);
-    doc.roundedRect(badgeRight - 65, badgeY, 35, 12, 2, 2, 'F');
-    doc.setTextColor(cWhite[0], cWhite[1], cWhite[2]);
+    doc.setDrawColor(cBorder[0], cBorder[1], cBorder[2]);
+    doc.roundedRect(badgeRight - 65, badgeY, 35, 12, 2, 2, 'FD');
+    doc.setTextColor(cTextDark[0], cTextDark[1], cTextDark[2]);
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.text(`OF: ${ofNum}`, badgeRight - 47.5, badgeY + 7.5, { align: 'center' });
 
     // Pill de Revisão
-    doc.setFillColor(cAccent[0], cAccent[1], cAccent[2]);
-    doc.roundedRect(badgeRight - 27, badgeY, 27, 12, 2, 2, 'F');
+    doc.setFillColor(cBgCard[0], cBgCard[1], cBgCard[2]);
+    doc.setDrawColor(cBorder[0], cBorder[1], cBorder[2]);
+    doc.roundedRect(badgeRight - 27, badgeY, 27, 12, 2, 2, 'FD');
+    doc.setTextColor(cTextDark[0], cTextDark[1], cTextDark[2]);
     doc.text(`REV: ${cronograma.revisao || 1}`, badgeRight - 13.5, badgeY + 7.5, { align: 'center' });
 
     let yPos = headerHeight + 8;
@@ -198,14 +200,16 @@ export const CronogramaPDF: React.FC<CronogramaPDFProps> = ({ cronograma, onComp
 
     // TÍTULOS DAS SEÇÕES
     doc.setFillColor(cSecondary[0], cSecondary[1], cSecondary[2]);
-    doc.roundedRect(margin, yPos, tableWidth, 7, 1, 1, 'F');
-    doc.setTextColor(cWhite[0], cWhite[1], cWhite[2]);
+    doc.setDrawColor(cBorder[0], cBorder[1], cBorder[2]);
+    doc.roundedRect(margin, yPos, tableWidth, 7, 1, 1, 'FD');
+    doc.setTextColor(cTextDark[0], cTextDark[1], cTextDark[2]);
     doc.setFontSize(8.5);
     doc.setFont('helvetica', 'bold');
     doc.text('ETAPAS E CRONOGRAMA DETALHADO', margin + 4, yPos + 4.8);
 
     doc.setFillColor(cSecondary[0], cSecondary[1], cSecondary[2]);
-    doc.roundedRect(ganttX, yPos, ganttWidth, 7, 1, 1, 'F');
+    doc.setDrawColor(cBorder[0], cBorder[1], cBorder[2]);
+    doc.roundedRect(ganttX, yPos, ganttWidth, 7, 1, 1, 'FD');
     doc.text('VISUALIZAÇÃO DE LINHA DO TEMPO (GANTT)', ganttX + 4, yPos + 4.8);
 
     yPos += 9;
@@ -247,16 +251,12 @@ export const CronogramaPDF: React.FC<CronogramaPDFProps> = ({ cronograma, onComp
     doc.text(format(dataFimTotal, 'dd/MM'), ganttX + ganttWidth - 2, yPos + 4.2, { align: 'right' });
     doc.text(`Total: ${duracaoTotal}d`, ganttX + ganttWidth / 2, yPos + 4.2, { align: 'center' });
 
-    // Paleta Elegante para as Barras de Gantt
+    // Paleta Elegante para as Barras de Gantt (Tons de Cinza/Escuros para impressão monocromática)
     const barColors = [
-      [37, 99, 235],   // Royal Blue
-      [16, 185, 129],  // Emerald Green
-      [245, 158, 11],  // Amber
-      [139, 92, 246],  // Purple
-      [236, 72, 153],  // Pink
-      [14, 165, 233],  // Sky Blue
-      [20, 184, 166],  // Teal
-      [249, 115, 22]   // Orange
+      [71, 85, 105],   // Slate 600
+      [51, 65, 85],    // Slate 700
+      [100, 116, 139], // Slate 500
+      [15, 23, 42]     // Slate 900
     ];
 
     // RENDERIZAR LINHAS DA TABELA E BARRAS GANTT
