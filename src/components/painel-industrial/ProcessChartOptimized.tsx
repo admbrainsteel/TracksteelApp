@@ -53,163 +53,69 @@ export const ProcessChartOptimized: React.FC<ProcessChartOptimizedProps> = ({
   const normalizedMontagemData = normalizeData(montagemData);
 
   return (
-    <div style={{ fontFamily: 'Inter, sans-serif' }} className="h-full">
+    <div style={{ fontFamily: 'Inter, sans-serif' }} className="h-full flex flex-col pt-2 pb-3">
+      {/* Legenda Global */}
+      <div className="flex justify-center gap-4 text-[10px] sm:text-xs text-muted-foreground mb-4">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 bg-[#f97316] rounded-sm shadow-sm"></div> 
+          <span className="font-medium">7 a 15 dias</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 bg-[#10b981] rounded-sm shadow-sm"></div> 
+          <span className="font-medium">Últimos 7 dias</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 bg-[#ec4899] rounded-sm shadow-sm"></div> 
+          <span className="font-medium">Meta (Próx. 7d)</span>
+        </div>
+      </div>
+
       <div 
-        className="flex justify-evenly items-end h-full p-4 pt-6 pb-6 rounded-lg"
-        style={{ height: '200px' }}
+        className="flex justify-evenly items-end h-full px-2"
+        style={{ minHeight: '130px' }}
       >
-        {/* Grupo Corte */}
-        <div className="flex flex-col justify-end items-center h-full flex-1">
-          <div 
-            className="flex items-end justify-center w-full gap-1"
-            style={{ height: '120px' }}
-          >
-            {normalizedCorteData.map((data, index) => {
-              const colors = ['#f97316', '#10b981', '#ec4899']; // orange, green, pink
-              const labels = ['7-15d', 'ult.7d', 'prev.7d'];
-              return (
-                <div
-                  key={index}
-                  className="relative transition-all duration-500"
-                  style={{
-                    width: '20px',
-                    height: `${calculateHeight(data.weight)}%`,
-                    backgroundColor: colors[index],
-                    borderRadius: '4px 4px 0 0'
-                  }}
-                >
-                  <div 
-                    className="absolute w-full text-center text-xs font-semibold text-foreground"
-                    style={{ 
-                      top: '-20px',
-                      fontSize: '10px',
-                      lineHeight: '1.2'
+        {[
+          { title: 'Corte', data: normalizedCorteData },
+          { title: 'Solda', data: normalizedSoldaData },
+          { title: 'Montagem', data: normalizedMontagemData }
+        ].map((group, groupIdx) => (
+          <div key={groupIdx} className="flex flex-col justify-end items-center h-full flex-1">
+            <div 
+              className="flex items-end justify-center w-full gap-1.5 sm:gap-2"
+              style={{ height: '100px' }}
+            >
+              {group.data.map((data, index) => {
+                const colors = ['#f97316', '#10b981', '#ec4899']; // orange, green, pink
+                return (
+                  <div
+                    key={index}
+                    className="relative transition-all duration-500 shadow-sm"
+                    style={{
+                      width: '24px',
+                      height: `${calculateHeight(data.weight)}%`,
+                      backgroundColor: colors[index],
+                      borderRadius: '4px 4px 0 0'
                     }}
                   >
-                    {formatValue(data.weight)}
+                    <div 
+                      className="absolute w-full text-center font-bold text-foreground"
+                      style={{ 
+                        top: '-22px',
+                        fontSize: '11px',
+                        lineHeight: '1.2'
+                      }}
+                    >
+                      {formatValue(data.weight)}
+                    </div>
                   </div>
-                  <div 
-                    className="absolute w-full text-center text-foreground whitespace-nowrap"
-                    style={{ 
-                      bottom: '-18px',
-                      fontSize: '9px'
-                    }}
-                  >
-                    {labels[index]}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+            <div className="mt-4 text-foreground font-semibold text-xs sm:text-sm border-t border-border pt-2 w-4/5 text-center">
+              {group.title}
+            </div>
           </div>
-          <div 
-            className="mt-4 text-muted-foreground font-medium"
-            style={{ fontSize: '11px' }}
-          >
-            Corte
-          </div>
-        </div>
-
-        {/* Grupo Solda */}
-        <div className="flex flex-col justify-end items-center h-full flex-1">
-          <div 
-            className="flex items-end justify-center w-full gap-1"
-            style={{ height: '120px' }}
-          >
-            {normalizedSoldaData.map((data, index) => {
-              const colors = ['#f97316', '#10b981', '#ec4899']; // orange, green, pink
-              const labels = ['7-15d', 'ult.7d', 'prev.7d'];
-              return (
-                <div
-                  key={index}
-                  className="relative transition-all duration-500"
-                  style={{
-                    width: '20px',
-                    height: `${calculateHeight(data.weight)}%`,
-                    backgroundColor: colors[index],
-                    borderRadius: '4px 4px 0 0'
-                  }}
-                >
-                  <div 
-                    className="absolute w-full text-center text-xs font-semibold text-foreground"
-                    style={{ 
-                      top: '-20px',
-                      fontSize: '10px',
-                      lineHeight: '1.2'
-                    }}
-                  >
-                    {formatValue(data.weight)}
-                  </div>
-                  <div 
-                    className="absolute w-full text-center text-foreground whitespace-nowrap"
-                    style={{ 
-                      bottom: '-18px',
-                      fontSize: '9px'
-                    }}
-                  >
-                    {labels[index]}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div 
-            className="mt-4 text-muted-foreground font-medium"
-            style={{ fontSize: '11px' }}
-          >
-            Solda
-          </div>
-        </div>
-
-        {/* Grupo Montagem */}
-        <div className="flex flex-col justify-end items-center h-full flex-1">
-          <div 
-            className="flex items-end justify-center w-full gap-1"
-            style={{ height: '120px' }}
-          >
-            {normalizedMontagemData.map((data, index) => {
-              const colors = ['#f97316', '#10b981', '#ec4899']; // orange, green, pink
-              const labels = ['7-15d', 'ult.7d', 'prev.7d'];
-              return (
-                <div
-                  key={index}
-                  className="relative transition-all duration-500"
-                  style={{
-                    width: '20px',
-                    height: `${calculateHeight(data.weight)}%`,
-                    backgroundColor: colors[index],
-                    borderRadius: '4px 4px 0 0'
-                  }}
-                >
-                  <div 
-                    className="absolute w-full text-center text-xs font-semibold text-foreground"
-                    style={{ 
-                      top: '-20px',
-                      fontSize: '10px',
-                      lineHeight: '1.2'
-                    }}
-                  >
-                    {formatValue(data.weight)}
-                  </div>
-                  <div 
-                    className="absolute w-full text-center text-foreground whitespace-nowrap"
-                    style={{ 
-                      bottom: '-18px',
-                      fontSize: '9px'
-                    }}
-                  >
-                    {labels[index]}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div 
-            className="mt-4 text-muted-foreground font-medium"
-            style={{ fontSize: '11px' }}
-          >
-            Mont. Obra
-          </div>
-        </div>
+        ))}
       </div>
     </div>
   );
