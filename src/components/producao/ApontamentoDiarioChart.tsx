@@ -266,7 +266,7 @@ export const ApontamentoDiarioChart = () => {
                     style={{ bottom: `${linha.porcentagem}%`, transform: 'translateY(50%)' }}
                   >
                     <span className="text-xs text-muted-foreground mr-2">
-                      {linha.valor >= 1000 ? `${(linha.valor/1000).toFixed(0)}t` : `${linha.valor}kg`}
+                      {Math.round(linha.valor).toLocaleString('pt-BR')} Kg
                     </span>
                     <div className="w-2 h-px bg-border"></div>
                   </div>
@@ -319,7 +319,7 @@ export const ApontamentoDiarioChart = () => {
                             >
                               {alturaPixels > 20 && (
                                 <span className="transform rotate-90 whitespace-nowrap">
-                                  {ofData.peso > 999 ? `${Math.round(ofData.peso/1000)}t` : `${ofData.peso}kg`}
+                                  {Math.round(ofData.peso).toLocaleString('pt-BR')} Kg
                                 </span>
                               )}
                             </div>
