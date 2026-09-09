@@ -215,6 +215,7 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
         .from('cronogramas_of')
         .select(`
           id,
+          defasagem_solda,
           processos_cronograma:processos_cronograma(
             nome_processo,
             data_inicio,
@@ -285,6 +286,27 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
           console.log(`Data atual passou da data fim - Progresso esperado mantido em: 100%`);
         } else {
           console.log(`Processo ${nomeProcesso}: ${diasDecorridos}/${diasTotais} dias = ${percentualEsperado.toFixed(2)}%`);
+        }
+
+        // Se for o processo de Solda, aplicar o fator de defasagem configurado em relação ao Corte
+        if (nomeProcesso.toLowerCase().includes('solda')) {
+          const defasagem = cronogramaOf?.defasagem_solda !== undefined && cronogramaOf?.defasagem_solda !== null
+            ? Number(cronogramaOf.defasagem_solda)
+            : 10;
+
+          if (percentualEsperado <= defasagem) {
+            console.log(`Processo Solda: Fabricação esperada (${percentualEsperado.toFixed(2)}%) <= defasagem (${defasagem}%) -> Progresso esperado Solda: 0%`);
+            return 0;
+          }
+
+          if (hoje > dataFim) {
+            return 100;
+          }
+
+          // Escalonamento suave proporcional: de defasagem% até 100%
+          const progressoSolda = ((percentualEsperado - defasagem) / (100 - defasagem)) * 100;
+          console.log(`Processo Solda: Fabricação (${percentualEsperado.toFixed(2)}%) com defasagem (${defasagem}%) -> Solda esperada: ${progressoSolda.toFixed(2)}%`);
+          return Math.min(100, Math.max(0, progressoSolda));
         }
 
         return Math.min(100, Math.max(0, percentualEsperado));

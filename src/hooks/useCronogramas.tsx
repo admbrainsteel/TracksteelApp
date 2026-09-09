@@ -72,6 +72,7 @@ export const useCronogramas = () => {
             of_id: cronograma.of_id,
             gestor_id: cronograma.gestor_id,
             revisao: cronograma.revisao,
+            defasagem_solda: cronograma.defasagem_solda ?? 10,
             processos: processos || [],
             peso_total: cronograma.ordens_fabricacao?.peso_total,
             ordem_fabricacao: cronograma.ordens_fabricacao,
@@ -106,6 +107,7 @@ export const useCronogramas = () => {
           .update({
             gestor_id: cronograma.gestor_id,
             revisao: novaRevisao,
+            defasagem_solda: cronograma.defasagem_solda !== undefined ? cronograma.defasagem_solda : 10,
             updated_at: new Date().toISOString()
           })
           .eq('id', cronograma.id)
@@ -139,6 +141,7 @@ export const useCronogramas = () => {
             .update({
               gestor_id: cronograma.gestor_id,
               revisao: novaRevisao,
+              defasagem_solda: cronograma.defasagem_solda !== undefined ? cronograma.defasagem_solda : 10,
               updated_at: new Date().toISOString()
             })
             .eq('id', existingCronograma.id)
@@ -163,6 +166,7 @@ export const useCronogramas = () => {
               of_id: cronograma.of_id,
               gestor_id: cronograma.gestor_id,
               revisao: 1,
+              defasagem_solda: cronograma.defasagem_solda !== undefined ? cronograma.defasagem_solda : 10,
               created_by: user.id
             })
             .select()
@@ -255,6 +259,7 @@ export const useCronogramas = () => {
         of_id: cronograma.of_id,
         gestor_id: cronograma.gestor_id,
         revisao: cronograma.revisao,
+        defasagem_solda: cronograma.defasagem_solda ?? 10,
         processos: processos || [],
         peso_total: cronograma.ordens_fabricacao?.peso_total,
         ordem_fabricacao: cronograma.ordens_fabricacao,

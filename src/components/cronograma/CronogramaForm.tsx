@@ -49,6 +49,7 @@ export const CronogramaForm: React.FC<CronogramaFormProps> = ({ cronograma, onCl
     of_id: '',
     gestor_id: '',
     revisao: 1,
+    defasagem_solda: 10,
     processos: processosDefault.map((nome, index) => ({
       nome_processo: nome,
       data_inicio: '',
@@ -75,6 +76,7 @@ export const CronogramaForm: React.FC<CronogramaFormProps> = ({ cronograma, onCl
         of_id: cronograma.of_id,
         gestor_id: cronograma.gestor_id,
         revisao: cronograma.revisao,
+        defasagem_solda: cronograma.defasagem_solda !== undefined ? Number(cronograma.defasagem_solda) : 10,
         processos: cronograma.processos.length > 0 ? cronograma.processos.map(p => ({
           id: p.id,
           nome_processo: p.nome_processo,
@@ -134,6 +136,7 @@ export const CronogramaForm: React.FC<CronogramaFormProps> = ({ cronograma, onCl
         of_id: ofId,
         gestor_id: cronogramaExistente.gestor_id,
         revisao: cronogramaExistente.revisao,
+        defasagem_solda: cronogramaExistente.defasagem_solda !== undefined ? Number(cronogramaExistente.defasagem_solda) : 10,
         processos: cronogramaExistente.processos.length > 0 ? cronogramaExistente.processos.map(p => ({
           id: p.id,
           nome_processo: p.nome_processo,
@@ -154,6 +157,7 @@ export const CronogramaForm: React.FC<CronogramaFormProps> = ({ cronograma, onCl
         ...prev,
         gestor_id: '',
         revisao: 1,
+        defasagem_solda: 10,
         processos: processosDefault.map((nome, index) => ({
           nome_processo: nome,
           data_inicio: '',
@@ -413,6 +417,38 @@ export const CronogramaForm: React.FC<CronogramaFormProps> = ({ cronograma, onCl
                           />
                         </div>
                       </div>
+
+                      {/* Defasagem entre Corte e Solda - Exclusivo para o processo de Fabricação */}
+                      {(processo.nome_processo.toLowerCase().includes('fabricação') || 
+                        processo.nome_processo.toLowerCase().includes('fabricacao')) && (
+                        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-50/80 dark:bg-slate-900/50 p-2.5 rounded-lg border border-slate-200/60 dark:border-slate-800">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase tracking-wide">
+                              DEFASAGEM ENTRE CORTE E SOLDA:
+                            </span>
+                            <span className="text-[11px] text-slate-500 dark:text-slate-400 hidden sm:inline">
+                              (espera inicial da solda)
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Input
+                              type="number"
+                              min={0}
+                              max={100}
+                              value={formData.defasagem_solda}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                setFormData(prev => ({ 
+                                  ...prev, 
+                                  defasagem_solda: isNaN(val) ? 0 : Math.max(0, Math.min(100, val)) 
+                                }));
+                              }}
+                              className="w-20 h-8 text-xs font-bold text-center bg-white dark:bg-slate-950 border-slate-300 dark:border-slate-700"
+                            />
+                            <span className="text-xs font-bold text-slate-600 dark:text-slate-300">%</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Botão de remoção */}

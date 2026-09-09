@@ -12,6 +12,7 @@ export interface CronogramaOf {
   of_id: string;
   gestor_id: string;
   revisao: number;
+  defasagem_solda?: number;
   processos: ProcessoCronograma[];
   peso_total?: number;
   ordem_fabricacao?: {
