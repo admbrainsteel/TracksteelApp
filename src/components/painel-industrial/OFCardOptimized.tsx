@@ -185,9 +185,17 @@ export const OFCardOptimized: React.FC<OFCardOptimizedProps> = ({ ofData }) => {
 
         {/* Resumo Comparativo dos Processos - Layout Responsivo com espaçamento reduzido */}
         <div className="space-y-2">
-          <h3 className="text-base sm:text-lg font-semibold text-foreground border-b border-border pb-1" style={{ fontSize: 'clamp(1rem, 2.5vw, 1.125rem)' }}>
-            Resumo Comparativo dos Processos
-          </h3>
+          <div className="flex items-center justify-between border-b border-border pb-1">
+            <h3 className="text-base sm:text-lg font-semibold text-foreground" style={{ fontSize: 'clamp(1rem, 2.5vw, 1.125rem)' }}>
+              Resumo Comparativo dos Processos
+            </h3>
+            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground" title="Legenda: Azul = Adiantado | Verde = No Prazo/Concluído | Amarelo = Atenção | Vermelho = Atrasado">
+              <span className="w-2 h-2 rounded-full bg-blue-500" />
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="w-2 h-2 rounded-full bg-amber-500" />
+              <span className="w-2 h-2 rounded-full bg-rose-500" />
+            </div>
+          </div>
           {/* Grid responsivo: 1 coluna em mobile, 2 colunas em telas maiores */}
           <div className="
             grid grid-cols-1 

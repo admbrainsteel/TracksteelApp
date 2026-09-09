@@ -86,7 +86,7 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
       // 3. Buscar peças cadastradas para calcular peso total e peso soldável (peças com componentes)
       const { data: pecasData, error: pecasError } = await supabase
         .from('pecas')
-        .select('peso_unitario, quantidade, tem_componentes')
+        .select('id, peso_unitario, quantidade, tem_componentes')
         .eq('of_number', ofNumber);
 
       if (pecasError) {
@@ -150,36 +150,64 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
 
       console.log('Apontamentos encontrados:', apontamentosData);
 
-      // 5. Calcular peso total fabricado - apenas processo de solda
+      // 5. Calcular peso total fabricado:
+      // - Para peças com componentes (tem_componentes = true): são finalizadas na SOLDA
+      // - Para peças soltas (tem_componentes = false): são finalizadas no CORTE (não passam por solda)
       let pesoTotalFabricado = 0;
       
-      // Buscar ID do processo de solda
       const processoSolda = await supabase
         .from('processos_fabricacao')
         .select('id')
         .ilike('nome', '%solda%')
         .single();
 
-      if (!processoSolda.error && processoSolda.data) {
-        const apontamentosSolda = apontamentosData.filter(a => a.processo_id === processoSolda.data.id);
-        
+      const processoCorte = await supabase
+        .from('processos_fabricacao')
+        .select('id')
+        .ilike('nome', '%corte%')
+        .single();
+
+      const processoSoldaId = processoSolda.data?.id;
+      const processoCorteId = processoCorte.data?.id;
+      const pecasInfoMap = new Map((pecasData || []).map(p => [p.id, p]));
+
+      // 1. Somar peças com componentes apontadas na Solda
+      if (processoSoldaId) {
+        const apontamentosSolda = apontamentosData.filter(a => a.processo_id === processoSoldaId);
         apontamentosSolda.forEach(apontamento => {
           let pesoUnitario = 0;
-          
           if (apontamento.tipo_apontamento === 'componente' && apontamento.componente?.peso_unitario) {
             pesoUnitario = Number(apontamento.componente.peso_unitario);
           } else if (apontamento.tipo_apontamento === 'peca' && apontamento.peca?.peso_unitario) {
             pesoUnitario = Number(apontamento.peca.peso_unitario);
           }
-          
-          const pesoApontamento = pesoUnitario * Number(apontamento.quantidade_produzida);
+          const pesoApontamento = pesoUnitario * Number(apontamento.quantidade_produzida || 0);
           pesoTotalFabricado += pesoApontamento;
-          
-          console.log(`Apontamento Solda ID: ${apontamento.id}, Tipo: ${apontamento.tipo_apontamento}, Peso unitário: ${pesoUnitario} kg, Quantidade: ${apontamento.quantidade_produzida}, Peso total: ${pesoApontamento} kg`);
         });
       }
 
-      console.log('Peso total fabricado (apenas solda):', pesoTotalFabricado, 'kg');
+      // 2. Somar peças SOLTAS (sem componentes) apontadas no Corte
+      if (processoCorteId) {
+        const apontamentosCorte = apontamentosData.filter(a => a.processo_id === processoCorteId);
+        apontamentosCorte.forEach(apontamento => {
+          if (apontamento.tipo_apontamento === 'peca' && apontamento.peca_id) {
+            const peca = pecasInfoMap.get(apontamento.peca_id);
+            const temComponentes = peca?.tem_componentes === true;
+            if (!temComponentes && apontamento.peca?.peso_unitario) {
+              const pesoUnitario = Number(apontamento.peca.peso_unitario);
+              const pesoApontamento = pesoUnitario * Number(apontamento.quantidade_produzida || 0);
+              pesoTotalFabricado += pesoApontamento;
+            }
+          }
+        });
+      }
+
+      // Evita que ultrapasse o planejado por arredondamento
+      if (pesoTotalPlanejado > 0) {
+        pesoTotalFabricado = Math.min(pesoTotalFabricado, pesoTotalPlanejado);
+      }
+
+      console.log('Peso total fabricado (Solda p/ compostas + Corte p/ soltas):', pesoTotalFabricado, 'kg');
 
       // 6. Calcular progresso geral - será recalculado após processar todos os processos
       let progressoGeral = 0;
@@ -219,7 +247,7 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
       }
 
       // 10. Buscar cronograma da OF para calcular progresso esperado correto
-      const { data: cronogramaOf } = await supabase
+      const { data: cronogramaRaw } = await supabase
         .from('cronogramas_of')
         .select(`
           id,
@@ -233,19 +261,22 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
         .eq('of_id', ofData.id)
         .maybeSingle();
 
+      const cronogramaOf = cronogramaRaw as any;
       console.log('Cronograma da OF encontrado:', cronogramaOf);
 
-      // Função para obter percentual esperado baseado nas datas do cronograma
+      // Função auxiliar para calcular progresso esperado baseado no cronograma
       const calcularProgressoEsperado = (nomeProcesso: string): number => {
-        if (!cronogramaOf?.processos_cronograma) return 0;
+        if (!cronogramaOf?.processos_cronograma || cronogramaOf.processos_cronograma.length === 0) {
+          console.log(`Cronograma não encontrado para processo ${nomeProcesso}`);
+          return 0;
+        }
 
         const hoje = new Date();
         let processoCronograma;
 
         // Mapear nomes dos processos para os do cronograma
         if (nomeProcesso.toLowerCase().includes('corte') || nomeProcesso.toLowerCase().includes('solda')) {
-          // Usar datas do processo "Fabricação"
-          processoCronograma = cronogramaOf.processos_cronograma.find(p => 
+          processoCronograma = cronogramaOf.processos_cronograma.find((p: any) => 
             p.nome_processo.toLowerCase().includes('fabricação') || 
             p.nome_processo.toLowerCase().includes('fabricacao')
           );
@@ -253,13 +284,13 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
                    nomeProcesso.toLowerCase().includes('expedição') || nomeProcesso.toLowerCase().includes('expedicao') ||
                    nomeProcesso.toLowerCase().includes('montagem')) {
           // Usar datas do processo "Instalação" (incluindo "montagem")
-          processoCronograma = cronogramaOf.processos_cronograma.find(p => 
+          processoCronograma = cronogramaOf.processos_cronograma.find((p: any) => 
             p.nome_processo.toLowerCase().includes('instalação') || 
             p.nome_processo.toLowerCase().includes('instalacao')
           );
         } else {
           // Buscar processo com nome exato ou similar
-          processoCronograma = cronogramaOf.processos_cronograma.find(p => 
+          processoCronograma = cronogramaOf.processos_cronograma.find((p: any) => 
             p.nome_processo.toLowerCase().includes(nomeProcesso.toLowerCase()) ||
             nomeProcesso.toLowerCase().includes(p.nome_processo.toLowerCase())
           );
@@ -350,13 +381,20 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
         // Determinar status baseado na comparação entre progresso real e esperado
         let status: 'verde' | 'amarelo' | 'vermelho' | 'azul';
         
-        // Se o progresso esperado chegou a 100% (passou da data fim), usar cor vermelha na barra
-        if (progressoEsperado >= 100) {
-          if (progressoReal >= 100) {
-            status = 'verde'; // Concluído no prazo
+        // Tolerância de conclusão: 99.5% ou mais é considerado 100% concluído (evita erros por dízimas em somas de peso)
+        const isConcluido = progressoReal >= 99.5;
+
+        if (isConcluido) {
+          // Se já concluiu 100%:
+          // Se concluiu antes do prazo final (progressoEsperado < 100), fica azul (Adiantado), senão verde (Concluído)
+          if (progressoEsperado < 100) {
+            status = 'azul'; // Adiantado
           } else {
-            status = 'vermelho'; // Atrasado (passou da data fim mas não concluído)
+            status = 'verde'; // Concluído no prazo
           }
+        } else if (progressoEsperado >= 100) {
+          // Passou da data fim e ainda não concluiu: Atrasado
+          status = 'vermelho';
         } else if (progressoEsperado > 0) {
           // Comparar progresso real com esperado
           if (progressoReal > progressoEsperado) {
@@ -391,19 +429,19 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
 
            // Mapear nomes dos processos para os do cronograma
            if (processo.nome.toLowerCase().includes('corte') || processo.nome.toLowerCase().includes('solda')) {
-             processoCronograma = cronogramaOf.processos_cronograma.find(p => 
+             processoCronograma = cronogramaOf.processos_cronograma.find((p: any) => 
                p.nome_processo.toLowerCase().includes('fabricação') || 
                p.nome_processo.toLowerCase().includes('fabricacao')
              );
            } else if (processo.nome.toLowerCase().includes('pint') || processo.nome.toLowerCase().includes('galv') || 
                       processo.nome.toLowerCase().includes('expedição') || processo.nome.toLowerCase().includes('expedicao') ||
                       processo.nome.toLowerCase().includes('montagem')) {
-             processoCronograma = cronogramaOf.processos_cronograma.find(p => 
+             processoCronograma = cronogramaOf.processos_cronograma.find((p: any) => 
                p.nome_processo.toLowerCase().includes('instalação') || 
                p.nome_processo.toLowerCase().includes('instalacao')
              );
            } else {
-             processoCronograma = cronogramaOf.processos_cronograma.find(p => 
+             processoCronograma = cronogramaOf.processos_cronograma.find((p: any) => 
                p.nome_processo.toLowerCase().includes(processo.nome.toLowerCase()) ||
                processo.nome.toLowerCase().includes(p.nome_processo.toLowerCase())
              );
@@ -537,7 +575,11 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
           }
           
           // Recalcular status do processo "Concluído"
-          if (processo.progressoEsperado > 0) {
+          if (processo.progressoReal >= 99.5) {
+            processo.status = 'verde'; // Concluído
+          } else if (processo.progressoEsperado >= 100) {
+            processo.status = 'vermelho'; // Atrasado (prazo expirou e ainda não finalizou)
+          } else if (processo.progressoEsperado > 0) {
             if (processo.progressoReal > processo.progressoEsperado) {
               processo.status = 'azul'; // Adiantado
             } else {
