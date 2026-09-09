@@ -2,6 +2,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { validarRomaneioParaEntrega } from '@/utils/validacaoRomaneio';
 
 export interface RomaneioExpedicao {
   id: string;
@@ -275,6 +276,19 @@ export const useAtualizarRomaneio = () => {
       console.log('📋 Status atual do romaneio:', romaneioAtual?.status);
       console.log('📋 Novo status a ser definido:', romaneio.status);
 
+      // Validação rigorosa: Não permitir passar para Entregue se houver pendências nos processos anteriores
+      if (romaneio.status === 'Entregue') {
+        const validacao = await validarRomaneioParaEntrega(id, romaneio.of_number || romaneioAtual?.of_number);
+        if (!validacao.valido) {
+          const msg = validacao.mensagem || (
+            validacao.pendencias && validacao.pendencias.length > 0
+              ? `Não é possível marcar como "Entregue": existem ${validacao.pendencias.length} peça(s) com apontamentos pendentes nos processos anteriores.`
+              : 'Não é possível marcar como "Entregue": pendências encontradas.'
+          );
+          throw new Error(msg);
+        }
+      }
+
       const { data, error } = await supabase
         .from('romaneios_expedicao')
         .update(romaneio)
@@ -352,9 +366,9 @@ export const useAtualizarRomaneio = () => {
       queryClient.invalidateQueries({ queryKey: ['romaneios'] });
       toast.success('Romaneio atualizado com sucesso!');
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Erro ao atualizar romaneio:', error);
-      toast.error('Erro ao atualizar romaneio');
+      toast.error(error?.message || 'Erro ao atualizar romaneio');
     },
   });
 };
