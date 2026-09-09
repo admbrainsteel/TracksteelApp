@@ -157,11 +157,11 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
         peca.marca.toLowerCase().includes(filtroNumeroPeca.toLowerCase())
       );
     }
-    return pecasFiltradas.sort((a, b) => a.marca.localeCompare(b.marca));
+    return pecasFiltradas.sort((a, b) => a.marca.localeCompare(b.marca, undefined, { numeric: true, sensitivity: 'base' }));
   }, [pecasDisponiveis, filtroNumeroPeca]);
 
   const componentesOrdenados = useMemo(() => {
-    return componentesDisponiveis.sort((a, b) => a.marca.localeCompare(b.marca));
+    return componentesDisponiveis.sort((a, b) => a.marca.localeCompare(b.marca, undefined, { numeric: true, sensitivity: 'base' }));
   }, [componentesDisponiveis]);
 
   const fetchPecas = useCallback(async (term: string) => {

@@ -88,7 +88,7 @@ export const RomaneioReportModal: React.FC<RomaneioReportModalProps> = ({
         if (typeof marcaA === 'number' && typeof marcaB === 'number') {
           return marcaA - marcaB;
         }
-        return String(marcaA).localeCompare(String(marcaB));
+        return String(marcaA).localeCompare(String(marcaB), undefined, { numeric: true, sensitivity: 'base' });
       });
     });
     

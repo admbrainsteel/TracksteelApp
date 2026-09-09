@@ -120,12 +120,17 @@ export const usePecasTable = (pecas: Peca[]) => {
       }
       
       if (typeof aValue === 'string' && typeof bValue === 'string') {
-        const comparison = aValue.localeCompare(bValue);
+        const comparison = aValue.localeCompare(bValue, undefined, { numeric: true, sensitivity: 'base' });
         return sortOrder === 'asc' ? comparison : -comparison;
       }
       
       if (typeof aValue === 'number' && typeof bValue === 'number') {
         return sortOrder === 'asc' ? aValue - bValue : bValue - aValue;
+      }
+
+      if (aValue != null && bValue != null) {
+        const comparison = String(aValue).localeCompare(String(bValue), undefined, { numeric: true, sensitivity: 'base' });
+        return sortOrder === 'asc' ? comparison : -comparison;
       }
       
       return 0;

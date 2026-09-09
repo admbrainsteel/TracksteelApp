@@ -303,7 +303,7 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
         return parseInt(aNum[0]) - parseInt(bNum[0]);
       }
       
-      return a.marca.localeCompare(b.marca);
+      return a.marca.localeCompare(b.marca, undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [pecasDisponiveis, faseFilter, marcaFilter]);
 
