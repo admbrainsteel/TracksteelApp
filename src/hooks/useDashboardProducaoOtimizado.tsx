@@ -83,46 +83,54 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
         }
       }
 
-      // 3. Se ainda não temos peso, calcular das peças cadastradas
+      // 3. Buscar peças cadastradas para calcular peso total e peso soldável (peças com componentes)
+      const { data: pecasData, error: pecasError } = await supabase
+        .from('pecas')
+        .select('peso_unitario, quantidade, tem_componentes')
+        .eq('of_number', ofNumber);
+
+      if (pecasError) {
+        console.error('Erro ao buscar peças:', pecasError);
+        throw pecasError;
+      }
+
+      const pesoBrutoPecas = (pecasData || []).reduce((total, peca) => {
+        const pesoUnitario = peca.peso_unitario || 0;
+        const quantidade = peca.quantidade || 0;
+        return total + (pesoUnitario * quantidade);
+      }, 0);
+
+      // Peso soldável: apenas peças que possuem componentes (peças soltas não vão para solda)
+      let pesoTotalSoldavel = (pecasData || []).filter(p => p.tem_componentes === true).reduce((total, peca) => {
+        const pesoUnitario = peca.peso_unitario || 0;
+        const quantidade = peca.quantidade || 0;
+        return total + (pesoUnitario * quantidade);
+      }, 0);
+
       if (!pesoTotalPlanejado) {
-        const { data: pecasData, error: pecasError } = await supabase
-          .from('pecas')
-          .select('peso_unitario, quantidade')
-          .eq('of_number', ofNumber);
-
-        if (pecasError) {
-          console.error('Erro ao buscar peças:', pecasError);
-          throw pecasError;
-        }
-
-        pesoTotalPlanejado = pecasData.reduce((total, peca) => {
-          const pesoUnitario = peca.peso_unitario || 0;
-          const quantidade = peca.quantidade || 0;
-          return total + (pesoUnitario * quantidade);
-        }, 0);
+        pesoTotalPlanejado = pesoBrutoPecas;
       }
 
       // CORREÇÃO AUTOMÁTICA: Evita que erros de digitação (ex: digitar 1.856 ao invés de 1856 kg na OF)
       // causem porcentagens irreais (ex: 100000%). Compara com a soma real das peças.
-      if (pesoTotalPlanejado > 0) {
-        const { data: pecasVerificar } = await supabase.from('pecas').select('peso_unitario, quantidade').eq('of_number', ofNumber);
-        if (pecasVerificar && pecasVerificar.length > 0) {
-          const pesoBrutoPecas = pecasVerificar.reduce((sum, p) => sum + ((p.peso_unitario || 0) * (p.quantidade || 0)), 0);
-          
-          if (pesoBrutoPecas > pesoTotalPlanejado * 50) {
-             console.log(`Corrigindo erro de digitação de peso da OF. Planejado original: ${pesoTotalPlanejado} kg, Soma das peças: ${pesoBrutoPecas} kg`);
-             // Se for um erro típico de 1000x (usou ponto para separar milhar)
-             if (pesoBrutoPecas <= pesoTotalPlanejado * 3000 && pesoBrutoPecas >= pesoTotalPlanejado * 500) {
-                pesoTotalPlanejado = pesoTotalPlanejado * 1000;
-             } else {
-                // Se for outro erro grosseiro, assume que o peso correto é o das peças
-                pesoTotalPlanejado = pesoBrutoPecas;
-             }
-          }
+      if (pesoTotalPlanejado > 0 && pesoBrutoPecas > 0) {
+        if (pesoBrutoPecas > pesoTotalPlanejado * 50) {
+           console.log(`Corrigindo erro de digitação de peso da OF. Planejado original: ${pesoTotalPlanejado} kg, Soma das peças: ${pesoBrutoPecas} kg`);
+           if (pesoBrutoPecas <= pesoTotalPlanejado * 3000 && pesoBrutoPecas >= pesoTotalPlanejado * 500) {
+              pesoTotalPlanejado = pesoTotalPlanejado * 1000;
+           } else {
+              pesoTotalPlanejado = pesoBrutoPecas;
+           }
         }
       }
 
+      // Se todas as peças têm componentes ou nenhuma tem flag marcada, fallback para o peso total
+      if (pesoTotalSoldavel <= 0 && pesoTotalPlanejado > 0) {
+        pesoTotalSoldavel = pesoTotalPlanejado;
+      }
+
       console.log('Peso total planejado (BASE DE TODOS OS CÁLCULOS):', pesoTotalPlanejado, 'kg');
+      console.log('Peso total soldável (apenas peças com componentes):', pesoTotalSoldavel, 'kg');
 
       // 4. Buscar apontamentos da OF com joins corretos
       const { data: apontamentosData, error: apontamentosError } = await supabase
@@ -329,9 +337,12 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
           pesoFabricadoProcesso += pesoUnitario * Number(a.quantidade_produzida);
         });
 
-        const progressoReal = pesoTotalPlanejado > 0 ? (pesoFabricadoProcesso / pesoTotalPlanejado) * 100 : 0;
+        const isProcessoSolda = processo.nome.toLowerCase().includes('solda');
+        const pesoBaseProcesso = isProcessoSolda && pesoTotalSoldavel > 0 ? pesoTotalSoldavel : pesoTotalPlanejado;
+
+        const progressoReal = pesoBaseProcesso > 0 ? (pesoFabricadoProcesso / pesoBaseProcesso) * 100 : 0;
         
-        console.log(`PROCESSO ${processo.nome}: ${pesoFabricadoProcesso} kg fabricado / ${pesoTotalPlanejado} kg planejado = ${progressoReal.toFixed(2)}%`);
+        console.log(`PROCESSO ${processo.nome}: ${pesoFabricadoProcesso} kg fabricado / ${pesoBaseProcesso} kg planejado (base ${isProcessoSolda ? 'soldável' : 'total'}) = ${progressoReal.toFixed(2)}%`);
         
         // Calcular progresso esperado usando as datas do cronograma
         const progressoEsperado = calcularProgressoEsperado(processo.nome);
@@ -444,10 +455,10 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
             if (data >= dataInicioProcesso && data <= dataFimProcesso) {
               const diasDecorridos = Math.floor((Math.min(data.getTime(), dataFimProcesso.getTime()) - dataInicioProcesso.getTime()) / MS_PER_DAY) + 1;
               const percentualDias = diasDecorridos / diasTotaisProcesso;
-              planejado = percentualDias * pesoTotalPlanejado;
+              planejado = percentualDias * pesoBaseProcesso;
             } else if (data > dataFimProcesso) {
-              // Após o fim planejado, manter o peso total planejado
-              planejado = pesoTotalPlanejado;
+              // Após o fim planejado, manter o peso base do processo
+              planejado = pesoBaseProcesso;
             }
             // Antes do início planejado, o planejado fica 0
            
@@ -480,7 +491,7 @@ export const useDashboardProducaoOtimizado = (ofNumber: string) => {
         return {
           id: processo.id,
           nome: processo.nome,
-          pesoTotal: pesoTotalPlanejado, // SEMPRE o peso total da OF/ficha técnica
+          pesoTotal: pesoBaseProcesso, // Peso alvo do processo (soldável para solda, total para os demais)
           pesoFabricado: pesoFabricadoProcesso,
           progressoReal,
           progressoEsperado,

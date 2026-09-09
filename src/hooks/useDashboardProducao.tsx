@@ -85,6 +85,10 @@ export const useDashboardProducao = (ofNumber: string) => {
         total + (peca.quantidade * (peca.peso_unitario || 0)), 0
       );
 
+      const pesoTotalSoldavel = pecasData.filter(p => p.tem_componentes === true).reduce((total, peca) =>
+        total + (peca.quantidade * (peca.peso_unitario || 0)), 0
+      ) || pesoTotalPlanejado;
+
       const pesoTotalFabricado = apontamentosData.reduce((total, apontamento) => 
         total + (apontamento.quantidade_produzida * (apontamento.peca?.peso_unitario || 0)), 0
       );
@@ -98,7 +102,10 @@ export const useDashboardProducao = (ofNumber: string) => {
           total + (a.quantidade_produzida * (a.peca?.peso_unitario || 0)), 0
         );
 
-        const progressoReal = pesoTotalPlanejado > 0 ? (pesoFabricadoProcesso / pesoTotalPlanejado) * 100 : 0;
+        const isProcessoSolda = processo.nome.toLowerCase().includes('solda');
+        const pesoBase = isProcessoSolda && pesoTotalSoldavel > 0 ? pesoTotalSoldavel : pesoTotalPlanejado;
+
+        const progressoReal = pesoBase > 0 ? (pesoFabricadoProcesso / pesoBase) * 100 : 0;
         
         // Calcular progresso esperado baseado na data atual
         const hoje = new Date();

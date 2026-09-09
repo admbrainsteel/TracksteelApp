@@ -118,30 +118,52 @@ export const useProcessChartData = (ofNumber: string) => {
         .eq('num_of', ofNumber)
         .single();
 
-      let pesoTotalPlanejado = ofData?.peso_total || 0;
-      
-      if (!pesoTotalPlanejado) {
-        const { data: fichaTecnica } = await supabase
-          .from('ficha_tecnica_contratos')
-          .select('quantidade')
-          .eq('of_number', ofNumber)
-          .maybeSingle();
+      const isProcessoSolda = processName.toLowerCase().includes('solda');
 
-        if (fichaTecnica?.quantidade) {
-          pesoTotalPlanejado = fichaTecnica.quantidade;
+      let pesoTotalPlanejado = 0;
+
+      // Se for solda, a meta deve ser calculada estritamente sobre as peças que possuem componentes
+      if (isProcessoSolda) {
+        const { data: pecasSolda } = await supabase
+          .from('pecas')
+          .select('peso_unitario, quantidade, tem_componentes')
+          .eq('of_number', ofNumber)
+          .eq('tem_componentes', true);
+
+        if (pecasSolda && pecasSolda.length > 0) {
+          pesoTotalPlanejado = pecasSolda.reduce((total, peca) => {
+            return total + ((peca.peso_unitario || 0) * (peca.quantidade || 0));
+          }, 0);
         }
       }
 
+      // Se não for solda ou se não encontrou peças específicas de solda, busca peso total geral
       if (!pesoTotalPlanejado) {
-        const { data: pecasData } = await supabase
-          .from('pecas')
-          .select('peso_unitario, quantidade')
-          .eq('of_number', ofNumber);
+        pesoTotalPlanejado = ofData?.peso_total || 0;
+        
+        if (!pesoTotalPlanejado) {
+          const { data: fichaTecnica } = await supabase
+            .from('ficha_tecnica_contratos')
+            .select('quantidade')
+            .eq('of_number', ofNumber)
+            .maybeSingle();
 
-        if (pecasData) {
-          pesoTotalPlanejado = pecasData.reduce((total, peca) => {
-            return total + ((peca.peso_unitario || 0) * (peca.quantidade || 0));
-          }, 0);
+          if (fichaTecnica?.quantidade) {
+            pesoTotalPlanejado = fichaTecnica.quantidade;
+          }
+        }
+
+        if (!pesoTotalPlanejado) {
+          const { data: pecasData } = await supabase
+            .from('pecas')
+            .select('peso_unitario, quantidade')
+            .eq('of_number', ofNumber);
+
+          if (pecasData) {
+            pesoTotalPlanejado = pecasData.reduce((total, peca) => {
+              return total + ((peca.peso_unitario || 0) * (peca.quantidade || 0));
+            }, 0);
+          }
         }
       }
 
