@@ -171,17 +171,34 @@ export const PrioridadesPDFTemplate: React.FC<PrioridadesPDFTemplateProps> = ({
           height: 18px;
           line-height: 14px;
         }
+        @page {
+          size: A4 portrait;
+          margin: 8mm 10mm 8mm 10mm;
+        }
         @media print {
           body {
-            font-size: 9px;
+            font-size: 9.5px;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
-          .page-break {
-            page-break-before: always;
+          .checklist-container {
+            width: 100% !important;
+            max-width: 100% !important;
+          }
+          .priority-group {
+            break-inside: auto;
+            page-break-inside: auto;
           }
           h2 {
+            break-after: avoid;
             page-break-after: avoid; 
           }
+          .item-row {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
           .item-card {
+            break-inside: avoid;
             page-break-inside: avoid;
           }
         }
@@ -206,7 +223,7 @@ export const PrioridadesPDFTemplate: React.FC<PrioridadesPDFTemplateProps> = ({
         
         {/* Informações da OF e Fase */}
         <div className="border border-gray-200 bg-white p-3.5 rounded-lg mb-3">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-x-6 gap-y-3">
+          <div className="grid grid-cols-4 gap-x-6 gap-y-3">
             {/* Coluna OF */}
             <div>
               <p className="text-xs font-medium text-gray-500">Ordem de Fabricação (OF)</p>
@@ -218,7 +235,7 @@ export const PrioridadesPDFTemplate: React.FC<PrioridadesPDFTemplateProps> = ({
               <p className="text-base font-bold text-gray-800 leading-snug">{etapaFase}</p>
             </div>
             {/* Coluna Processo */}
-            <div className="md:col-span-2">
+            <div className="col-span-2">
               <p className="text-xs font-medium text-gray-500 mb-1">PROCESSO</p>
               <div style={{ marginTop: '2px' }}>
                 {['Corte', 'Solda', 'Pintura', 'Expedição'].map((processo) => (
@@ -270,12 +287,12 @@ export const PrioridadesPDFTemplate: React.FC<PrioridadesPDFTemplateProps> = ({
 
         {/* Itens por Prioridade */}
         <div className="space-y-6">
-          {['P1', 'P2', 'P3', 'P4'].map((codigo, priorityIndex) => {
+          {['P1', 'P2', 'P3', 'P4'].map((codigo) => {
             const itens = itensPorPrioridade[codigo] || [];
             if (itens.length === 0) return null;
 
             return (
-              <div key={codigo} className={priorityIndex > 0 ? 'page-break' : ''}>
+              <div key={codigo} className="priority-group mb-5">
                 <h2 className={`text-base font-semibold ${getCoresPrioridade(codigo)} px-3 py-1 rounded-md inline-block mb-2.5 border`}>
                   {getPrioridadeNome(codigo)}
                 </h2>
@@ -286,7 +303,7 @@ export const PrioridadesPDFTemplate: React.FC<PrioridadesPDFTemplateProps> = ({
                     const rowItems = itens.slice(i * 3, (i + 1) * 3);
                     
                     return (
-                      <div key={i} className={`grid grid-cols-3 gap-2 p-1 rounded-md ${bgColorClass}`}>
+                      <div key={i} className={`item-row grid grid-cols-3 gap-2 p-1 rounded-md ${bgColorClass}`} style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                         {rowItems.map((item) => {
                           const quantidade = item.quantidade_priorizada;
                           const marca = item.peca?.marca || 'N/A';

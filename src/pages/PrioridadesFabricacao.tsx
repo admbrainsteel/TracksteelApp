@@ -176,11 +176,8 @@ const PrioridadesFabricacao = () => {
           }
         };
 
-        // Adicionar classe page-break para P2, P3 e P4
-        const pageBreakClass = priorityIndex > 0 ? 'page-break' : '';
-        
         itemsContent += `
-          <div class="priority-group ${pageBreakClass}">
+          <div class="priority-group mb-5">
             <h2 class="text-base font-semibold ${getCoresPrioridade(codigo)} px-3 py-1 rounded-md inline-block mb-2.5 border">
               ${getPrioridadeNome(codigo)}
             </h2>
@@ -192,7 +189,7 @@ const PrioridadesFabricacao = () => {
           const bgColorClass = i % 2 !== 0 ? 'bg-gray-50/70' : 'bg-white';
           const rowItems = itens.slice(i * 3, (i + 1) * 3);
           
-          itemsContent += `<div class="grid grid-cols-3 gap-2 p-1 rounded-md ${bgColorClass}">`;
+          itemsContent += `<div class="item-row grid grid-cols-3 gap-2 p-1 rounded-md ${bgColorClass}" style="break-inside: avoid; page-break-inside: avoid;">`;
           
           rowItems.forEach((item) => {
             const quantidade = item.quantidade_priorizada;
@@ -266,17 +263,28 @@ const PrioridadesFabricacao = () => {
                   height: 18px;
                   line-height: 14px;
                 }
+                @page {
+                  size: A4 portrait;
+                  margin: 8mm 10mm 8mm 10mm;
+                }
                 @media print {
                     body {
-                        font-size: 9px;
+                        font-size: 9.5px;
                     }
-                    .page-break {
-                        page-break-before: always;
+                    .priority-group {
+                        break-inside: auto;
+                        page-break-inside: auto;
                     }
                     h2 {
+                        break-after: avoid;
                         page-break-after: avoid; 
                     }
+                    .item-row {
+                        break-inside: avoid;
+                        page-break-inside: avoid;
+                    }
                     .item-card {
+                        break-inside: avoid;
                         page-break-inside: avoid;
                     }
                 }
@@ -299,7 +307,7 @@ const PrioridadesFabricacao = () => {
                 
                 <!-- Informações da OF e Fase -->
                 <div class="border border-gray-200 bg-white p-3.5 rounded-lg mb-3">
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-x-6 gap-y-3">
+                    <div class="grid grid-cols-4 gap-x-6 gap-y-3">
                         <!-- Coluna OF -->
                         <div>
                             <p class="text-xs font-medium text-gray-500">Ordem de Fabricação (OF)</p>
@@ -311,7 +319,7 @@ const PrioridadesFabricacao = () => {
                             <p class="text-base font-bold text-gray-800 leading-snug">${faseSelecionada}</p>
                         </div>
                         <!-- Coluna Processo -->
-                        <div class="md:col-span-2">
+                        <div class="col-span-2">
                             <p class="text-xs font-medium text-gray-500 mb-1">PROCESSO</p>
                             <div style="margin-top: 2px;">
                               <div style="display: inline-block; vertical-align: middle; margin-right: 16px; white-space: nowrap;">

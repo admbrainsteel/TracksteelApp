@@ -214,27 +214,25 @@ export const printProfessionalPDF = async (elementId: string) => {
       console.warn('Não foi possível obter alguns estilos', e);
     }
 
-    // HTML otimizado para impressão sem áreas vazias
+    // HTML otimizado para impressão idêntica à visualização
     const printContent = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Relatório de Produção</title>
+          <title>Checklist de Produção</title>
           <meta charset="UTF-8">
+          <script src="https://cdn.tailwindcss.com"></script>
           <style>
             ${allStyles}
             
             /* Reset e configuração básica */
             * {
               box-sizing: border-box;
-              margin: 0;
-              padding: 0;
             }
             
             @page {
-              size: A4;
-              margin: 15mm 20mm 15mm 20mm;
-              padding: 0;
+              size: A4 portrait;
+              margin: 8mm 10mm 8mm 10mm;
             }
             
             @media print {
@@ -242,163 +240,48 @@ export const printProfessionalPDF = async (elementId: string) => {
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
                 color-adjust: exact !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                font-size: 10px !important;
-                line-height: 1.2 !important;
+                background-color: #ffffff !important;
+                font-size: 9.5px !important;
               }
               
-              /* Remover elementos desnecessários */
               .no-print {
                 display: none !important;
               }
               
-              /* Otimizar espaçamento */
               #${elementId} {
                 width: 100% !important;
-                max-width: none !important;
+                max-width: 100% !important;
                 margin: 0 !important;
                 padding: 0 !important;
                 transform: none !important;
               }
               
-              /* Compactar seções */
-              .statistics-grid {
-                margin-bottom: 8px !important;
-                gap: 4px !important;
-              }
-              
-              .process-section {
-                margin-bottom: 10px !important;
-                page-break-inside: avoid;
-              }
-              
-              .priority-section {
-                margin-bottom: 10px !important;
-                page-break-inside: avoid;
-              }
-              
-              /* Otimizar tabelas */
-              table {
-                width: 100% !important;
-                border-collapse: collapse !important;
-                margin: 0 !important;
-                page-break-inside: avoid;
-              }
-              
-              th, td {
-                padding: 2px 4px !important;
-                font-size: 9px !important;
-                line-height: 1.1 !important;
-              }
-              
-              /* Compactar cabeçalhos */
-              h1 {
-                font-size: 16px !important;
-                margin-bottom: 4px !important;
-                line-height: 1.1 !important;
+              .priority-group {
+                break-inside: auto !important;
+                page-break-inside: auto !important;
               }
               
               h2 {
-                font-size: 14px !important;
-                margin-bottom: 6px !important;
-                margin-top: 8px !important;
-                line-height: 1.1 !important;
+                break-after: avoid !important;
+                page-break-after: avoid !important;
               }
               
-              h3 {
-                font-size: 12px !important;
-                margin-bottom: 4px !important;
-                line-height: 1.1 !important;
-              }
-              
-              /* Reduzir espaçamentos desnecessários */
-              header {
-                margin-bottom: 8px !important;
-                padding-bottom: 8px !important;
-              }
-              
-              section {
-                margin-bottom: 8px !important;
-              }
-              
-              /* Otimizar cards de estatísticas */
-              .statistics-grid > div {
-                padding: 4px !important;
-                margin: 0 !important;
-              }
-              
-              /* Evitar quebras desnecessárias */
-              .avoid-break {
+              .item-row {
+                break-inside: avoid !important;
                 page-break-inside: avoid !important;
               }
               
-              .process-header {
-                page-break-after: avoid !important;
-              }
-              
-              .priority-header {
-                page-break-after: avoid !important;
-              }
-              
-              /* Compactar processos menores */
-              .process-section h3 {
-                padding: 3px 6px !important;
-                margin: 0 !important;
-              }
-              
-              .process-section .grid {
-                gap: 3px !important;
-                padding: 3px !important;
-                margin-bottom: 3px !important;
-              }
-              
-              /* Melhorar aproveitamento do espaço */
-              .overflow-x-auto {
-                overflow: visible !important;
-              }
-              
-              /* Remover espaços extras */
-              p {
-                margin: 0 !important;
-                padding: 0 !important;
-              }
-              
-              /* Compactar divs com display grid */
-              div[style*="display: grid"] {
-                gap: 3px !important;
-              }
-              
-              /* Reduzir espaçamentos entre elementos */
-              div[style*="margin-bottom"] {
-                margin-bottom: 6px !important;
-              }
-              
-              /* Otimizar áreas de processo */
-              .process-section > div:last-child {
-                margin-bottom: 0 !important;
-              }
-              
-              /* Compactar mais os elementos */
-              div[style*="padding: 10px"] {
-                padding: 4px !important;
-              }
-              
-              div[style*="padding: 8px"] {
-                padding: 3px !important;
-              }
-              
-              div[style*="padding: 6px"] {
-                padding: 2px !important;
+              .item-card {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
               }
             }
           </style>
         </head>
-        <body>
+        <body class="bg-white">
           ${element.outerHTML}
           <script>
             window.onload = function() {
-              // Aguardar renderização e depois imprimir
               setTimeout(() => {
                 window.print();
                 window.close();
