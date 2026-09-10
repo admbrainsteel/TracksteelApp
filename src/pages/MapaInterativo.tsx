@@ -107,7 +107,7 @@ const STEPS: ProcessStep[] = [
     orderNumber: 1,
     title: 'Ficha Técnica & Contrato',
     subtitle: 'Especificações e base do cliente',
-    route: '/ficha-tecnica',
+    route: '/cadastro-of',
     phaseId: 'engenharia',
     phaseName: '1. Engenharia & Cadastros',
     phaseColor: {
@@ -176,7 +176,7 @@ const STEPS: ProcessStep[] = [
     orderNumber: 3,
     title: 'Cadastro de Peças & Conjuntos',
     subtitle: 'A lista de corte e montagem',
-    route: '/cadastro/pecas',
+    route: '/seletor-of',
     phaseId: 'engenharia',
     phaseName: '1. Engenharia & Cadastros',
     phaseColor: {
@@ -211,7 +211,7 @@ const STEPS: ProcessStep[] = [
     orderNumber: 4,
     title: 'Cronograma & Metas',
     subtitle: 'Curva planejada por processo',
-    route: '/cronograma',
+    route: '/ofs/cronograma',
     phaseId: 'pcp',
     phaseName: '2. Planejamento & PCP',
     phaseColor: {

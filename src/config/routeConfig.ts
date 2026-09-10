@@ -50,7 +50,19 @@ export const routeConfig: RouteDefinition[] = [
     resourceKey: 'cadastro-of',
   },
   {
+    path: '/ficha-tecnica',
+    component: () => import('@/pages/CadastroOF'),
+    guard: 'resource',
+    resourceKey: 'cadastro-of',
+  },
+  {
     path: '/seletor-of',
+    component: () => import('@/pages/SeletorOF'),
+    guard: 'resource',
+    resourceKey: 'cadastro-pecas',
+  },
+  {
+    path: '/cadastro/pecas',
     component: () => import('@/pages/SeletorOF'),
     guard: 'resource',
     resourceKey: 'cadastro-pecas',
@@ -108,6 +120,12 @@ export const routeConfig: RouteDefinition[] = [
   },
   {
     path: '/ofs/cronograma',
+    component: () => import('@/pages/CronogramaOF'),
+    guard: 'resource',
+    resourceKey: 'ofs-cronograma',
+  },
+  {
+    path: '/cronograma',
     component: () => import('@/pages/CronogramaOF'),
     guard: 'resource',
     resourceKey: 'ofs-cronograma',
