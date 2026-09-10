@@ -151,11 +151,16 @@ export const PrioridadesPDFTemplate: React.FC<PrioridadesPDFTemplateProps> = ({
           color: #111827;
         }
         .item-card {
-          border: 1px solid #e5e7eb;
           padding: 8px 10px;
           border-radius: 6px;
           background-color: #ffffff;
           box-sizing: border-box;
+        }
+        .item-card-cm {
+          border: 1.5px solid #4b5563;
+        }
+        .item-card-sm {
+          border: 1.5px dashed #9ca3af;
         }
         .item-signature {
           margin-top: 6px;
@@ -249,9 +254,9 @@ export const PrioridadesPDFTemplate: React.FC<PrioridadesPDFTemplateProps> = ({
           <span className="font-semibold" style={{ marginRight: '6px' }}>Legenda:</span>
           <span style={{ marginRight: '6px' }}>Marca (Qtd)</span>
           <span className="font-medium text-gray-500" style={{ marginRight: '4px' }}>(S/M)</span>
-          <span style={{ marginRight: '6px' }}>= Sem Montagem,</span>
+          <span style={{ marginRight: '6px' }}>= Sem Montagem (borda tracejada),</span>
           <span className="font-medium text-gray-500" style={{ marginRight: '4px' }}>(C/M)</span>
-          <span style={{ marginRight: '4px' }}>= Com Montagem. Os quadrados</span>
+          <span style={{ marginRight: '4px' }}>= Com Montagem (borda contínua). Os quadrados</span>
           <svg 
             width="13" 
             height="13" 
@@ -289,7 +294,7 @@ export const PrioridadesPDFTemplate: React.FC<PrioridadesPDFTemplateProps> = ({
                           const infoType = temComponentes ? '(C/M)' : '(S/M)';
                           
                           return (
-                            <div key={item.id} className="item-card">
+                            <div key={item.id} className={`item-card ${temComponentes ? 'item-card-cm' : 'item-card-sm'}`}>
                               <div style={{ marginBottom: '6px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827', verticalAlign: 'middle', marginRight: '4px' }}>
                                   {marca} ({quantidade})

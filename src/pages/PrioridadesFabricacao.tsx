@@ -202,7 +202,7 @@ const PrioridadesFabricacao = () => {
             const tickBoxes = generateTickBoxesHTML(quantidade);
             
             itemsContent += `
-              <div class="item-card">
+              <div class="item-card ${temComponentes ? 'item-card-cm' : 'item-card-sm'}">
                 <div style="margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                   <span style="font-size: 13px; font-weight: 700; color: #111827; vertical-align: middle; margin-right: 4px;">${marca} (${quantidade})</span>
                   <span style="font-size: 11px; font-weight: 600; color: #6b7280; vertical-align: middle;">${infoType}</span>
@@ -246,11 +246,16 @@ const PrioridadesFabricacao = () => {
                     print-color-adjust: exact;
                 }
                 .item-card {
-                  border: 1px solid #e5e7eb;
                   padding: 8px 10px;
                   border-radius: 6px;
                   background-color: #ffffff;
                   box-sizing: border-box;
+                }
+                .item-card-cm {
+                  border: 1.5px solid #4b5563;
+                }
+                .item-card-sm {
+                  border: 1.5px dashed #9ca3af;
                 }
                 .item-signature {
                   margin-top: 6px;
@@ -343,9 +348,9 @@ const PrioridadesFabricacao = () => {
                     <span class="font-semibold" style="margin-right: 6px;">Legenda:</span>
                     <span style="margin-right: 6px;">Marca (Qtd)</span>
                     <span class="font-medium text-gray-500" style="margin-right: 4px;">(S/M)</span>
-                    <span style="margin-right: 6px;">= Sem Montagem,</span>
+                    <span style="margin-right: 6px;">= Sem Montagem (borda tracejada),</span>
                     <span class="font-medium text-gray-500" style="margin-right: 4px;">(C/M)</span>
-                    <span style="margin-right: 4px;">= Com Montagem. Os quadrados</span>
+                    <span style="margin-right: 4px;">= Com Montagem (borda contínua). Os quadrados</span>
                     <svg width="13" height="13" viewBox="0 0 13 13" style="display: inline-block; vertical-align: -2px; margin: 0 4px;">
                       <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#ffffff" stroke="#4b5563" stroke-width="1" />
                     </svg>
