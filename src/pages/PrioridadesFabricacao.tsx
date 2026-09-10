@@ -54,34 +54,74 @@ const PrioridadesFabricacao = () => {
   };
 
   const generateTickBoxesHTML = (quantity: number): string => {
-    let boxesHtml = '';
-    if (quantity > 10) {
-      const numBigBoxes = Math.floor(quantity / 5);
-      const numSmallBoxes = quantity % 5;
-      for (let i = 0; i < numBigBoxes; i++) {
-        boxesHtml += `
-          <svg width="13" height="13" viewBox="0 0 13 13" style="display: inline-block; vertical-align: -1px; margin-right: 2px;">
-            <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#f3f4f6" stroke="#4b5563" stroke-width="1" />
-            <text x="6.5" y="9.5" text-anchor="middle" font-size="8.5" font-family="Arial, sans-serif" font-weight="bold" fill="#4b5563">5</text>
-          </svg>
-        `;
-      }
-      for (let i = 0; i < numSmallBoxes; i++) {
-        boxesHtml += `
-          <svg width="13" height="13" viewBox="0 0 13 13" style="display: inline-block; vertical-align: -1px; margin-right: 2px;">
-            <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#ffffff" stroke="#4b5563" stroke-width="1" />
-          </svg>
-        `;
-      }
+    if (!quantity || quantity <= 0) return '';
+
+    let qtd50 = 0;
+    let qtd10 = 0;
+    let qtd5 = 0;
+    let qtd1 = 0;
+
+    if (quantity <= 10) {
+      qtd1 = quantity;
+    } else if (quantity <= 50) {
+      qtd5 = Math.floor(quantity / 5);
+      qtd1 = quantity % 5;
+    } else if (quantity <= 100) {
+      qtd10 = Math.floor(quantity / 10);
+      const resto10 = quantity % 10;
+      qtd5 = Math.floor(resto10 / 5);
+      qtd1 = resto10 % 5;
     } else {
-      for (let i = 0; i < quantity; i++) {
-        boxesHtml += `
-          <svg width="13" height="13" viewBox="0 0 13 13" style="display: inline-block; vertical-align: -1px; margin-right: 2px;">
-            <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#ffffff" stroke="#4b5563" stroke-width="1" />
-          </svg>
-        `;
-      }
+      // Acima de 100 unidades
+      qtd50 = Math.floor(quantity / 50);
+      const resto50 = quantity % 50;
+      qtd10 = Math.floor(resto50 / 10);
+      const resto10 = resto50 % 10;
+      qtd5 = Math.floor(resto10 / 5);
+      qtd1 = resto10 % 5;
     }
+
+    let boxesHtml = '';
+
+    // Quadrados com "50"
+    for (let i = 0; i < qtd50; i++) {
+      boxesHtml += `
+        <svg width="13" height="13" viewBox="0 0 13 13" style="display: inline-block; vertical-align: -1px; margin-right: 2px;">
+          <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#f3f4f6" stroke="#4b5563" stroke-width="1" />
+          <text x="6.5" y="9.2" text-anchor="middle" font-size="7" font-family="Arial, sans-serif" font-weight="bold" fill="#374151">50</text>
+        </svg>
+      `;
+    }
+
+    // Quadrados com "10"
+    for (let i = 0; i < qtd10; i++) {
+      boxesHtml += `
+        <svg width="13" height="13" viewBox="0 0 13 13" style="display: inline-block; vertical-align: -1px; margin-right: 2px;">
+          <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#f3f4f6" stroke="#4b5563" stroke-width="1" />
+          <text x="6.5" y="9.2" text-anchor="middle" font-size="7" font-family="Arial, sans-serif" font-weight="bold" fill="#374151">10</text>
+        </svg>
+      `;
+    }
+
+    // Quadrados com "5"
+    for (let i = 0; i < qtd5; i++) {
+      boxesHtml += `
+        <svg width="13" height="13" viewBox="0 0 13 13" style="display: inline-block; vertical-align: -1px; margin-right: 2px;">
+          <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#f3f4f6" stroke="#4b5563" stroke-width="1" />
+          <text x="6.5" y="9.5" text-anchor="middle" font-size="8.5" font-family="Arial, sans-serif" font-weight="bold" fill="#4b5563">5</text>
+        </svg>
+      `;
+    }
+
+    // Quadrados unitários (vazios)
+    for (let i = 0; i < qtd1; i++) {
+      boxesHtml += `
+        <svg width="13" height="13" viewBox="0 0 13 13" style="display: inline-block; vertical-align: -1px; margin-right: 2px;">
+          <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#ffffff" stroke="#4b5563" stroke-width="1" />
+        </svg>
+      `;
+    }
+
     return `<span style="display: inline-block; vertical-align: middle; margin-left: 4px;">${boxesHtml}</span>`;
   };
 
@@ -309,7 +349,7 @@ const PrioridadesFabricacao = () => {
                     <svg width="13" height="13" viewBox="0 0 13 13" style="display: inline-block; vertical-align: -2px; margin: 0 4px;">
                       <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#ffffff" stroke="#4b5563" stroke-width="1" />
                     </svg>
-                    <span>indicam o controle de peças fabricadas.</span>
+                    <span>indicam o controle de peças (quadrados com número = lotes de 50, 10 ou 5 unidades; vazios = 1 unidade).</span>
                 </div>
                 
                 <div id="main-container" class="space-y-8">

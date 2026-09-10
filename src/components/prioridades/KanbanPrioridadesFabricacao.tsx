@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ItemPrioridade } from '@/hooks/useItensPrioridadeFabricacao';
 import { usePrioridades } from '@/hooks/usePrioridades';
-import { Edit, Trash2, GripVertical, X, Search } from 'lucide-react';
+import { Edit, Trash2, GripVertical, X, Search, ArrowUpDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface KanbanPrioridadesFabricacaoProps {
@@ -32,6 +32,8 @@ export const KanbanPrioridadesFabricacao: React.FC<KanbanPrioridadesFabricacaoPr
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editQuantity, setEditQuantity] = useState<number>(1);
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState<string | null>(null);
+  const [showSortDialog, setShowSortDialog] = useState<string | null>(null);
+  const [isSorting, setIsSorting] = useState(false);
   const [filtrosPecas, setFiltrosPecas] = useState<{ [key: string]: string }>({
     P1: '',
     P2: '',
@@ -202,6 +204,45 @@ export const KanbanPrioridadesFabricacao: React.FC<KanbanPrioridadesFabricacaoPr
     setShowDeleteAllDialog(null);
   };
 
+  const handleOrdenarPorMarca = async (codigo: string) => {
+    const itens = itensPorPrioridade[codigo] || [];
+    if (itens.length <= 1) {
+      setShowSortDialog(null);
+      return;
+    }
+
+    try {
+      setIsSorting(true);
+      // Ordenação sequencial natural por Marca (tag)
+      const itensOrdenadosPorMarca = [...itens].sort((a, b) => {
+        const marcaA = a.peca?.marca || '';
+        const marcaB = b.peca?.marca || '';
+        return marcaA.localeCompare(marcaB, undefined, { numeric: true, sensitivity: 'base' });
+      });
+
+      const itensOrdenados = itensOrdenadosPorMarca.map((item, index) => ({
+        id: item.id,
+        ordem_fabricacao: index + 1
+      }));
+
+      const primeiroItem = itens[0];
+      if (primeiroItem?.prioridade_fabricacao_id) {
+        const sucesso = await onReorderItems(primeiroItem.prioridade_fabricacao_id, itensOrdenados);
+        if (sucesso) {
+          toast.success(`Peças da prioridade ${codigo} ordenadas sequencialmente por marca!`);
+        } else {
+          toast.error(`Não foi possível salvar a nova ordenação da prioridade ${codigo}`);
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao ordenar peças por marca:', error);
+      toast.error('Ocorreu um erro ao tentar ordenar as peças');
+    } finally {
+      setIsSorting(false);
+      setShowSortDialog(null);
+    }
+  };
+
   return (
     <>
       <DragDropContext onDragEnd={handleDragEnd}>
@@ -243,9 +284,9 @@ export const KanbanPrioridadesFabricacao: React.FC<KanbanPrioridadesFabricacaoPr
                   </div>
                 </div>
 
-                {/* Campo de filtro */}
-                <div className="mb-3">
-                  <div className="relative">
+                {/* Campo de filtro e botão de ordenação por marca */}
+                <div className="mb-3 flex items-center gap-1.5">
+                  <div className="relative flex-1">
                     <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
                       placeholder="Filtrar peça..."
@@ -254,6 +295,17 @@ export const KanbanPrioridadesFabricacao: React.FC<KanbanPrioridadesFabricacaoPr
                       className="pl-8 h-8 text-sm bg-background/50 border-input/50 focus:bg-background focus:border-input"
                     />
                   </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowSortDialog(codigo)}
+                    disabled={itens.length <= 1 || isSorting}
+                    className="h-8 px-2 bg-background/80 hover:bg-background border-input/50 text-xs font-medium flex items-center gap-1 shrink-0"
+                    title="Ordenar sequencialmente por marca (tag)"
+                  >
+                    <ArrowUpDown className="h-3.5 w-3.5 text-primary" />
+                  </Button>
                 </div>
 
                 {/* Área de drop dos itens */}
@@ -377,6 +429,7 @@ export const KanbanPrioridadesFabricacao: React.FC<KanbanPrioridadesFabricacaoPr
       </DragDropContext>
 
       {/* Dialog de confirmação para excluir todas as peças */}
+      {/* Dialog de confirmação para exclusão de todas as peças */}
       <AlertDialog open={showDeleteAllDialog !== null} onOpenChange={handleCancelDeleteAll}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -403,6 +456,32 @@ export const KanbanPrioridadesFabricacao: React.FC<KanbanPrioridadesFabricacaoPr
               className="bg-red-600 hover:bg-red-700"
             >
               Excluir Todas
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de confirmação para ordenação por Marca */}
+      <AlertDialog open={showSortDialog !== null} onOpenChange={() => setShowSortDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Ordenação por Marca</AlertDialogTitle>
+            <AlertDialogDescription>
+              Atenção: A ordem manual atual das peças da prioridade <strong>{showSortDialog}</strong> será perdida e substituída pela sequência ordenada de <strong>Marca (Tag)</strong>.
+              <br /><br />
+              Tem certeza que deseja aplicar esta ordenação?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowSortDialog(null)} disabled={isSorting}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => showSortDialog && handleOrdenarPorMarca(showSortDialog)}
+              disabled={isSorting}
+              className="bg-primary hover:bg-primary/90"
+            >
+              {isSorting ? 'Ordenando...' : 'Ordenar por Marca'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

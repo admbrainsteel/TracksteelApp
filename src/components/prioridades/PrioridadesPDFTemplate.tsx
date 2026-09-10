@@ -48,59 +48,98 @@ export const PrioridadesPDFTemplate: React.FC<PrioridadesPDFTemplateProps> = ({
   };
 
   const generateTickBoxes = (quantity: number) => {
-    const boxes = [];
-    
-    if (quantity > 10) {
-      const numBigBoxes = Math.floor(quantity / 5);
-      const numSmallBoxes = quantity % 5;
-      
-      // Quadrados com "5"
-      for (let i = 0; i < numBigBoxes; i++) {
-        boxes.push(
-          <svg 
-            key={`big-${i}`} 
-            width="13" 
-            height="13" 
-            viewBox="0 0 13 13" 
-            style={{ display: 'inline-block', verticalAlign: '-1px', marginRight: '2px' }}
-          >
-            <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#f3f4f6" stroke="#4b5563" strokeWidth="1" />
-            <text x="6.5" y="9.5" textAnchor="middle" fontSize="8.5" fontFamily="Arial, sans-serif" fontWeight="bold" fill="#4b5563">5</text>
-          </svg>
-        );
-      }
-      
-      // Quadrados unitários restantes
-      for (let i = 0; i < numSmallBoxes; i++) {
-        boxes.push(
-          <svg 
-            key={`small-${i}`} 
-            width="13" 
-            height="13" 
-            viewBox="0 0 13 13" 
-            style={{ display: 'inline-block', verticalAlign: '-1px', marginRight: '2px' }}
-          >
-            <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#ffffff" stroke="#4b5563" strokeWidth="1" />
-          </svg>
-        );
-      }
+    if (!quantity || quantity <= 0) return null;
+
+    let qtd50 = 0;
+    let qtd10 = 0;
+    let qtd5 = 0;
+    let qtd1 = 0;
+
+    if (quantity <= 10) {
+      qtd1 = quantity;
+    } else if (quantity <= 50) {
+      qtd5 = Math.floor(quantity / 5);
+      qtd1 = quantity % 5;
+    } else if (quantity <= 100) {
+      qtd10 = Math.floor(quantity / 10);
+      const resto10 = quantity % 10;
+      qtd5 = Math.floor(resto10 / 5);
+      qtd1 = resto10 % 5;
     } else {
-      // Apenas quadrados unitários
-      for (let i = 0; i < quantity; i++) {
-        boxes.push(
-          <svg 
-            key={i} 
-            width="13" 
-            height="13" 
-            viewBox="0 0 13 13" 
-            style={{ display: 'inline-block', verticalAlign: '-1px', marginRight: '2px' }}
-          >
-            <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#ffffff" stroke="#4b5563" strokeWidth="1" />
-          </svg>
-        );
-      }
+      // Acima de 100 unidades
+      qtd50 = Math.floor(quantity / 50);
+      const resto50 = quantity % 50;
+      qtd10 = Math.floor(resto50 / 10);
+      const resto10 = resto50 % 10;
+      qtd5 = Math.floor(resto10 / 5);
+      qtd1 = resto10 % 5;
     }
-    
+
+    const boxes: React.ReactNode[] = [];
+
+    // Quadrados de peso 50
+    for (let i = 0; i < qtd50; i++) {
+      boxes.push(
+        <svg 
+          key={`box50-${i}`} 
+          width="13" 
+          height="13" 
+          viewBox="0 0 13 13" 
+          style={{ display: 'inline-block', verticalAlign: '-1px', marginRight: '2px' }}
+        >
+          <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#f3f4f6" stroke="#4b5563" strokeWidth="1" />
+          <text x="6.5" y="9.2" textAnchor="middle" fontSize="7" fontFamily="Arial, sans-serif" fontWeight="bold" fill="#374151">50</text>
+        </svg>
+      );
+    }
+
+    // Quadrados de peso 10
+    for (let i = 0; i < qtd10; i++) {
+      boxes.push(
+        <svg 
+          key={`box10-${i}`} 
+          width="13" 
+          height="13" 
+          viewBox="0 0 13 13" 
+          style={{ display: 'inline-block', verticalAlign: '-1px', marginRight: '2px' }}
+        >
+          <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#f3f4f6" stroke="#4b5563" strokeWidth="1" />
+          <text x="6.5" y="9.2" textAnchor="middle" fontSize="7" fontFamily="Arial, sans-serif" fontWeight="bold" fill="#374151">10</text>
+        </svg>
+      );
+    }
+
+    // Quadrados de peso 5
+    for (let i = 0; i < qtd5; i++) {
+      boxes.push(
+        <svg 
+          key={`box5-${i}`} 
+          width="13" 
+          height="13" 
+          viewBox="0 0 13 13" 
+          style={{ display: 'inline-block', verticalAlign: '-1px', marginRight: '2px' }}
+        >
+          <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#f3f4f6" stroke="#4b5563" strokeWidth="1" />
+          <text x="6.5" y="9.5" textAnchor="middle" fontSize="8.5" fontFamily="Arial, sans-serif" fontWeight="bold" fill="#4b5563">5</text>
+        </svg>
+      );
+    }
+
+    // Quadrados unitários (vazios)
+    for (let i = 0; i < qtd1; i++) {
+      boxes.push(
+        <svg 
+          key={`box1-${i}`} 
+          width="13" 
+          height="13" 
+          viewBox="0 0 13 13" 
+          style={{ display: 'inline-block', verticalAlign: '-1px', marginRight: '2px' }}
+        >
+          <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#ffffff" stroke="#4b5563" strokeWidth="1" />
+        </svg>
+      );
+    }
+
     return <span style={{ display: 'inline-block', verticalAlign: 'middle', marginLeft: '4px' }}>{boxes}</span>;
   };
 
@@ -221,7 +260,7 @@ export const PrioridadesPDFTemplate: React.FC<PrioridadesPDFTemplateProps> = ({
           >
             <rect x="0.5" y="0.5" width="12" height="12" rx="1.5" fill="#ffffff" stroke="#4b5563" strokeWidth="1" />
           </svg>
-          <span>indicam o controle de peças fabricadas.</span>
+          <span>indicam o controle de peças (quadrados com número = lotes de 50, 10 ou 5 unidades; vazios = 1 unidade).</span>
         </div>
 
         {/* Itens por Prioridade */}
