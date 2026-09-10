@@ -32,7 +32,8 @@ import {
   Layers,
   Clock,
   Check,
-  ChevronRight
+  ChevronRight,
+  Users
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -720,23 +721,25 @@ export default function MapaInterativo() {
       {/* DRAWER / GAVETA LATERAL DIDÁTICA (O Coração da Experiência) */}
       <Sheet open={selectedStep !== null} onOpenChange={(open) => !open && setSelectedStep(null)}>
         <SheetContent side="right" className="w-full sm:max-w-lg overflow-y-auto p-6 space-y-6">
-          {selectedStep && (
-            <>
-              {/* Cabeçalho do Drawer */}
-              <SheetHeader className="space-y-2 border-b border-border/60 pb-4">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className={selectedStep.phaseColor.badge}>
-                    Etapa {selectedStep.orderNumber} • {selectedStep.phaseName}
-                  </Badge>
-                </div>
-                <SheetTitle className="text-xl font-extrabold text-foreground flex items-center gap-2">
-                  <selectedStep.icon className={cn("h-6 w-6", selectedStep.phaseColor.accent)} />
-                  {selectedStep.title}
-                </SheetTitle>
-                <SheetDescription className="text-xs text-muted-foreground">
-                  {selectedStep.subtitle}
-                </SheetDescription>
-              </SheetHeader>
+          {selectedStep && (() => {
+            const StepIcon = selectedStep.icon;
+            return (
+              <>
+                {/* Cabeçalho do Drawer */}
+                <SheetHeader className="space-y-2 border-b border-border/60 pb-4">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className={selectedStep.phaseColor.badge}>
+                      Etapa {selectedStep.orderNumber} • {selectedStep.phaseName}
+                    </Badge>
+                  </div>
+                  <SheetTitle className="text-xl font-extrabold text-foreground flex items-center gap-2">
+                    {StepIcon && <StepIcon className={cn("h-6 w-6", selectedStep.phaseColor.accent)} />}
+                    {selectedStep.title}
+                  </SheetTitle>
+                  <SheetDescription className="text-xs text-muted-foreground">
+                    {selectedStep.subtitle}
+                  </SheetDescription>
+                </SheetHeader>
 
               {/* Botão de Ação Direta para a Tela Real */}
               <div>
@@ -821,8 +824,9 @@ export default function MapaInterativo() {
                   ))}
                 </div>
               </div>
-            </>
-          )}
+              </>
+            );
+          })()}
         </SheetContent>
       </Sheet>
     </div>
