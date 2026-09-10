@@ -8,7 +8,7 @@ import { useItensPrioridadeFabricacaoFiltrado } from '@/hooks/useItensPrioridade
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, FileText, RefreshCw, Printer } from 'lucide-react';
+import { Plus, FileText, RefreshCw, Printer, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 const PrioridadesFabricacao = () => {
@@ -25,7 +25,8 @@ const PrioridadesFabricacao = () => {
     faseSelecionada,
     versaoAtual,
     onFiltroChange,
-    incrementarRevisao
+    incrementarRevisao,
+    resetarRevisao
   } = useItensPrioridadeFabricacaoFiltrado();
   
   const [showPecaSelector, setShowPecaSelector] = useState(false);
@@ -51,6 +52,13 @@ const PrioridadesFabricacao = () => {
 
   const handleAddPecas = async () => {
     await refetch();
+  };
+
+  const handleResetarRevisao = async () => {
+    if (!ofSelecionada || !faseSelecionada) return;
+    if (window.confirm(`Deseja resetar o número de revisão desta lista de prioridades (OF: ${ofSelecionada} - Fase: ${faseSelecionada}) para 0?`)) {
+      await resetarRevisao(0);
+    }
   };
 
   const generateTickBoxesHTML = (quantity: number): string => {
@@ -132,7 +140,10 @@ const PrioridadesFabricacao = () => {
     }
 
     let revisaoParaImprimir = versaoAtual?.revisao || 0;
-    if (window.confirm(`Deseja gerar uma nova revisão (Rev. ${(versaoAtual?.revisao || 0) + 1}) para esta impressão?`)) {
+    const querSubir = window.confirm(
+      `Deseja incrementar a revisão para Rev. ${(versaoAtual?.revisao || 0) + 1} para esta impressão?\n\n- Clique em OK para subir a revisão para Rev. ${(versaoAtual?.revisao || 0) + 1}\n- Clique em Cancelar para manter a revisão atual (Rev. ${versaoAtual?.revisao || 0})`
+    );
+    if (querSubir) {
       const sucesso = await incrementarRevisao();
       if (sucesso) {
         revisaoParaImprimir += 1;
@@ -425,6 +436,14 @@ const PrioridadesFabricacao = () => {
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">Revisão:</span>
                   <Badge variant="outline">{versaoAtual.revisao}</Badge>
+                  <button
+                    type="button"
+                    onClick={handleResetarRevisao}
+                    className="h-5 w-5 inline-flex items-center justify-center rounded-full text-muted-foreground hover:text-red-600 hover:bg-muted transition-colors ml-0.5"
+                    title="Resetar revisão para 0"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
                 </div>
               </Card>
             )}
@@ -453,7 +472,10 @@ const PrioridadesFabricacao = () => {
               variant="outline"
               size="sm"
               onClick={async () => {
-                if (window.confirm(`Deseja gerar uma nova revisão (Rev. ${(versaoAtual?.revisao || 0) + 1}) para este PDF?`)) {
+                const querSubir = window.confirm(
+                  `Deseja incrementar a revisão para Rev. ${(versaoAtual?.revisao || 0) + 1} antes de gerar o PDF?\n\n- Clique em OK para subir a revisão para Rev. ${(versaoAtual?.revisao || 0) + 1}\n- Clique em Cancelar para manter a revisão atual (Rev. ${versaoAtual?.revisao || 0})`
+                );
+                if (querSubir) {
                   await incrementarRevisao();
                 }
                 setShowPrioridadesPDF(true);
@@ -511,6 +533,7 @@ const PrioridadesFabricacao = () => {
           ofSelecionada={ofSelecionada}
           faseSelecionada={faseSelecionada}
           versaoAtual={versaoAtual}
+          onIncrementarRevisao={incrementarRevisao}
         />
       </div>
     </StandardPageLayout>

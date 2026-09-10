@@ -128,6 +128,41 @@ export const useItensPrioridadeFabricacaoFiltrado = () => {
     }
   };
 
+  const resetarRevisao = async (valor: number = 0) => {
+    if (!ofSelecionada || !faseSelecionada) return false;
+
+    try {
+      const dataModificacao = new Date().toISOString();
+
+      const { error } = await supabase
+        .from('prioridades_fabricacao')
+        .update({ 
+          revisao: valor, 
+          data_ultima_modificacao: dataModificacao 
+        })
+        .eq('of_number', ofSelecionada)
+        .eq('etapa_fase', faseSelecionada);
+
+      if (error) {
+        console.error('Erro ao resetar revisão no DB:', error);
+        toast.error('Erro ao resetar revisão.');
+        return false;
+      }
+
+      setVersaoAtual(prev => ({
+        ...prev!,
+        revisao: valor,
+        dataModificacao: dataModificacao
+      }));
+      
+      toast.success(`Revisão resetada para ${valor}`);
+      return true;
+    } catch (error) {
+      console.error('Erro ao resetar revisão:', error);
+      return false;
+    }
+  };
+
   return {
     ...hookOriginal,
     itensPorPrioridade: itensFiltrados,
@@ -135,6 +170,7 @@ export const useItensPrioridadeFabricacaoFiltrado = () => {
     faseSelecionada,
     versaoAtual,
     onFiltroChange: handleFiltroChange,
-    incrementarRevisao
+    incrementarRevisao,
+    resetarRevisao
   };
 };

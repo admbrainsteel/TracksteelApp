@@ -19,6 +19,7 @@ interface PrioridadesPDFProps {
     dataModificacao: string;
     modificadoPor?: string;
   } | null;
+  onIncrementarRevisao?: () => Promise<boolean>;
 }
 
 export const PrioridadesPDF: React.FC<PrioridadesPDFProps> = ({
@@ -27,7 +28,8 @@ export const PrioridadesPDF: React.FC<PrioridadesPDFProps> = ({
   itensPorPrioridade,
   ofSelecionada,
   faseSelecionada,
-  versaoAtual
+  versaoAtual,
+  onIncrementarRevisao
 }) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
@@ -74,6 +76,15 @@ export const PrioridadesPDF: React.FC<PrioridadesPDFProps> = ({
     if (!elemento) {
       toast.error('Elemento do relatório não encontrado');
       return;
+    }
+
+    if (onIncrementarRevisao) {
+      const querSubir = window.confirm(
+        `Deseja incrementar a revisão para Rev. ${(versaoAtual?.revisao || 0) + 1} para esta impressão?\n\n- Clique em OK para subir a revisão para Rev. ${(versaoAtual?.revisao || 0) + 1}\n- Clique em Cancelar para manter a revisão atual (Rev. ${versaoAtual?.revisao || 0})`
+      );
+      if (querSubir) {
+        await onIncrementarRevisao();
+      }
     }
 
     try {
