@@ -215,51 +215,18 @@ const AdvanceSteelConverterContent: React.FC = () => {
       }
     }
 
-    // Calibração inicial das colunas X para o layout padrão do Advance Steel
-    const colX = {
-      marca: 30,
-      qtde: 100,
-      nome: 180,
-      qualidade: 290,
-      comprimento: 370,
-      largura: 430,
-      pesoPeca: 490,
-      totalPeso: 550,
-      superficie: 610,
-      totalSuperficie: 670
-    };
+    const KNOWN_MATERIALS = [
+      'A572-GR 50', 'A572-GR50', 'A572-GR.50', 'A572 GR50', 'A572GR50', 'A572GR5', 'A572',
+      'A36', 'ASTM A36', 'ASTM A572', '10.9', '8.8', 'SAE 1020', 'SAE 1045', 'INOX', '304', '316'
+    ];
 
-    // Tentar recalibrar X dinamicamente a partir dos títulos das colunas
-    for (const line of lines) {
-      const lineText = line.map((i) => i.text).join(' ').toLowerCase();
-      if (lineText.includes('marca') && (lineText.includes('qtde') || lineText.includes('quant'))) {
-        for (const item of line) {
-          const t = item.text.toLowerCase().trim();
-          if (t === 'marca') colX.marca = item.x;
-          else if (t.startsWith('qtd') || t.startsWith('quant')) colX.qtde = item.x;
-          else if (t === 'nome') colX.nome = item.x;
-          else if (t.startsWith('qualid')) colX.qualidade = item.x;
-          else if (t.startsWith('comprim')) colX.comprimento = item.x;
-          else if (t.startsWith('largura')) colX.largura = item.x;
-          else if (t.includes('peso da') || t.includes('da peça') || t.includes('piece')) colX.pesoPeca = item.x;
-          else if (t.includes('total peso') || (t === 'total' && item.x < 600)) colX.totalPeso = item.x;
-          else if (t.includes('total superf') || (t === 'total' && item.x >= 600)) colX.totalSuperficie = item.x;
-          else if (t.startsWith('superf')) colX.superficie = item.x;
-        }
-      }
-    }
-
-    const getNearestCol = (x: number): string => {
-      let bestCol = '';
-      let minDiff = Infinity;
-      for (const [colName, targetX] of Object.entries(colX)) {
-        const diff = Math.abs(x - targetX);
-        if (diff < minDiff) {
-          minDiff = diff;
-          bestCol = colName;
-        }
-      }
-      return bestCol;
+    const normalizeLineText = (lineStr: string): string => {
+      let s = lineStr.trim();
+      s = s.replace(/([A-Za-z0-9]+)\s*-\s*(\d+)\s*-\s*(\d+)/g, '$1-$2-$3');
+      s = s.replace(/([A-Za-z0-9]+)\s*-\s*(\d+)/g, '$1-$2');
+      s = s.replace(/A572\s*-\s*GR\s*50/gi, 'A572-GR 50');
+      s = s.replace(/A572\s*-\s*GR/gi, 'A572-GR');
+      return s;
     };
 
     const assemblies: AssemblyItem[] = [];
@@ -267,224 +234,184 @@ const AdvanceSteelConverterContent: React.FC = () => {
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      const lineText = line.map((it) => it.text).join(' ');
+      let rawLineText = line.map((it) => it.text).join(' ').trim();
+      const lineText = normalizeLineText(rawLineText);
 
+      // Ignorar cabeçalhos e metadados conhecidos
       if (
-        lineText.includes('Lista de Peças') ||
+        lineText.includes('LISTA DE PEÇAS') ||
+        lineText.includes('LISTA ESTRUTURADA') ||
+        lineText.includes('DetailDwgExtract') ||
         lineText.includes('Cliente:') ||
-        lineText.includes('Marca Quant Nome') ||
+        lineText.includes('Desenhado') ||
         lineText.includes('Superfície') ||
-        lineText.includes('Trabalho:')
+        lineText.includes('Trabalho:') ||
+        lineText.includes('Kg/piece') ||
+        lineText.includes('( mm)') ||
+        (lineText.toLowerCase().includes('marca') && lineText.toLowerCase().includes('nome'))
       ) {
         continue;
       }
 
-      // 1. Identificar se a linha inicia com marca ou aglutinação de tokens (ex: B133-1-20)
-      let markStr = '';
-      let markTokensConsumed = 0;
+      // 1. Verificar se é Linha Mestre de Peça Principal (ex: "B133-1-20 2 Pl 6x160x154" ou "B133-1-11 1 C 100x50x20x2.8")
+      const masterMatch = lineText.match(/^([A-Za-z0-9]+(?:-\d+)+)\s+(\d+)\s+([A-Za-z].*)$/);
+      let isMasterLine = false;
 
-      const firstTok = line[0].text.trim();
-      if (firstTok.match(/^([A-Za-z0-9]+)-(\d+)-(\d+)$/) || firstTok.match(/^([A-Za-z0-9]+)-(\d+)$/)) {
-        markStr = firstTok;
-        markTokensConsumed = 1;
-      } else {
-        let candidate = '';
-        let found3: { mark: string; count: number } | null = null;
-        let found2: { mark: string; count: number } | null = null;
+      if (masterMatch) {
+        const fullMark = masterMatch[1];
+        const quant = parseInt(masterMatch[2], 10);
+        const descCandidate = masterMatch[3].trim();
+        const parts = fullMark.split('-');
+        const pieceNumber = parts[parts.length - 1];
+        const pieceNumInt = parseInt(pieceNumber, 10);
 
-        for (let k = 0; k < Math.min(line.length, 6); k++) {
-          candidate += line[k].text.trim();
-          if (candidate.match(/^([A-Za-z0-9]+)-(\d+)-(\d+)$/)) {
-            found3 = { mark: candidate, count: k + 1 };
-            break;
+        // Se o número da peça for menor que 1000, é uma peça principal mestre
+        if (pieceNumInt < 1000) {
+          // Checar se não é uma linha completa de detalhe com material e medidas
+          const hasMaterial = KNOWN_MATERIALS.some((m) => descCandidate.includes(m));
+          const hasManyNumbers = (descCandidate.match(/[0-9.,]+/g) || []).length >= 3;
+
+          if (!hasMaterial && !hasManyNumbers) {
+            isMasterLine = true;
+            const ofCode = parts.length >= 2 ? parts[0] : defaultOf;
+            const phaseCode = parts.length >= 3 ? parts[1] : '0';
+
+            currentAssembly = {
+              rawMark: fullMark,
+              of: ofCode || defaultOf,
+              fase: phaseCode,
+              marca: pieceNumber,
+              numeroPeca: pieceNumber,
+              descricao: descCandidate || 'ESTRUTURA',
+              quantidade: quant > 0 ? quant : 1,
+              material: '',
+              comprimento: 0,
+              pesoUnitario: 0,
+              pesoTotal: 0,
+              subtotalPeso: 0,
+              isComposed: 'NÃO',
+              components: []
+            };
+            assemblies.push(currentAssembly);
+            continue;
           }
-          if (candidate.match(/^([A-Za-z0-9]+)-(\d+)$/) && !found2) {
-            found2 = { mark: candidate, count: k + 1 };
-          }
-        }
-
-        if (found3) {
-          markStr = found3.mark;
-          markTokensConsumed = found3.count;
-        } else if (found2) {
-          markStr = found2.mark;
-          markTokensConsumed = found2.count;
         }
       }
 
-      if (markStr) {
-        const parts = markStr.split('-');
-        const ofCode = parts.length === 3 ? parts[0] : (parts.length === 2 ? parts[0] : defaultOf);
-        const phaseCode = parts.length === 3 ? parts[1] : '0';
-        const pieceNumber = parts.length === 3 ? parts[2] : parts[1];
-
-        const pieceNumInt = parseInt(pieceNumber, 10);
-        const isComponent = !isNaN(pieceNumInt) && pieceNumInt >= 1000;
-        const remainingItems = line.slice(markTokensConsumed);
-
-        if (!isComponent) {
-          // Se a marca for idêntica à da peça principal atual, é a linha de detalhe da peça simples!
-          if (currentAssembly && currentAssembly.rawMark === markStr) {
-            for (const it of remainingItems) {
-              const col = getNearestCol(it.x);
-              const valNum = parseNumeric(it.text);
-              if (col === 'qualidade' && !currentAssembly.material) {
-                currentAssembly.material = it.text;
-              } else if (col === 'comprimento' && valNum > 0) {
-                currentAssembly.comprimento = valNum;
-              } else if (col === 'pesoPeca' && valNum > 0) {
-                currentAssembly.pesoUnitario = valNum;
-              } else if (col === 'totalPeso' && valNum > 0) {
-                currentAssembly.pesoTotal = valNum;
-              }
-            }
-            continue;
-          }
-
-          // Nova Peça Principal
-          let mainQuant = 1;
-          const descTokens: string[] = [];
-
-          for (const it of remainingItems) {
-            const col = getNearestCol(it.x);
-            const qVal = parseInt(it.text, 10);
-            if (col === 'qtde' && !isNaN(qVal) && qVal > 0) {
-              mainQuant = qVal;
-            } else if (col === 'nome' || (!it.text.match(/^[0-9.,]+$/) && descTokens.length === 0)) {
-              descTokens.push(it.text);
-            }
-          }
-
-          if (mainQuant === 1 && remainingItems.length > 0) {
-            const firstNum = remainingItems.find((it) => /^[0-9]+$/.test(it.text.trim()));
-            if (firstNum) {
-              const parsedQ = parseInt(firstNum.text.trim(), 10);
-              if (parsedQ > 0 && parsedQ < 1000) mainQuant = parsedQ;
-            }
-          }
-
-          currentAssembly = {
-            rawMark: markStr,
-            of: ofCode || defaultOf,
-            fase: phaseCode,
-            marca: pieceNumber,
-            numeroPeca: pieceNumber,
-            descricao: descTokens.join(' ') || 'ESTRUTURA',
-            quantidade: mainQuant,
-            material: '',
-            comprimento: 0,
-            pesoUnitario: 0,
-            pesoTotal: 0,
-            subtotalPeso: 0,
-            isComposed: 'NÃO',
-            components: []
-          };
-          assemblies.push(currentAssembly);
-        } else {
-          // Componente com marca >= 1000 (Peça Composta)
-          if (currentAssembly) {
-            currentAssembly.isComposed = 'SIM';
-            let compQuant = 1;
-            const compDescTokens: string[] = [];
-            let compMaterial = 'A36';
-            let compLength = 0;
-            let compWeightTotal = 0;
-
-            for (const it of remainingItems) {
-              const col = getNearestCol(it.x);
-              const valNum = parseNumeric(it.text);
-              const t = it.text.trim();
-
-              if (col === 'qtde') {
-                const qVal = parseInt(t, 10);
-                if (!isNaN(qVal)) compQuant = qVal;
-              } else if (col === 'nome') {
-                compDescTokens.push(t);
-              } else if (col === 'qualidade') {
-                compMaterial = t;
-              } else if (col === 'comprimento' && valNum > 0) {
-                compLength = valNum;
-              } else if (col === 'totalPeso' && valNum > 0) {
-                compWeightTotal = valNum;
-              }
-            }
-
-            // Fallback caso coordenadas não tenham capturado peso total do componente
-            if (compWeightTotal === 0) {
-              const nums = remainingItems.map((it) => parseNumeric(it.text)).filter((n) => n > 0);
-              if (nums.length >= 2) {
-                compWeightTotal = nums[nums.length - 1];
-              }
-            }
-
-            currentAssembly.components.push({
-              quantidade: compQuant,
-              perfil: compDescTokens.join(' ') || currentAssembly.descricao,
-              material: compMaterial,
-              comprimento: compLength,
-              pesoTotal: compWeightTotal
-            });
+      // 2. Linha com Subtotal da Marca (ex: "81 3,07" ou "3,5 0,155" ou "2,6 0,25")
+      const tokens = lineText.split(/\s+/);
+      const allTokensNumeric = tokens.length > 0 && tokens.every((tok) => /^[0-9.,]+$/.test(tok));
+      if (allTokensNumeric && tokens.length <= 3) {
+        if (currentAssembly && (!currentAssembly.subtotalPeso || currentAssembly.subtotalPeso === 0)) {
+          const subP = parseNumeric(tokens[0]);
+          if (subP > 0) {
+            currentAssembly.subtotalPeso = subP;
           }
         }
+        continue;
+      }
+
+      // 3. Linha de Detalhe de Monopeça ou Componente Subordinado
+      // Ex: "B133-1-11 1 C 100x50x20x2.8 A36 540 2,6 2,6 0,25 0,25"
+      // Ex: "B133-1-1000 1 Pl 6x120x91 A36 120 91 0,5 1,1 0,024 0,049"
+      // Ex: "B133-1-1002 1 W 150x18.0 A572-GR 50 4.000 72 72 2,76 2,76"
+      // Ex: "- 12 M13 NaW 32 ASTM A325 10.9 10.9 32 0,1 1,7"
+      let itemMark = '';
+      let itemQuant = 1;
+      let remaining = lineText;
+
+      const mMark = remaining.match(/^([A-Za-z0-9]+(?:-\d+)+|-)\s+(\d+)\s+/);
+      if (mMark) {
+        itemMark = mMark[1];
+        itemQuant = parseInt(mMark[2], 10);
+        remaining = remaining.substring(mMark[0].length).trim();
+      } else if (remaining.startsWith('-')) {
+        itemMark = '-';
+        remaining = remaining.substring(1).trim();
+        const mQ = remaining.match(/^(\d+)\s+/);
+        if (mQ) {
+          itemQuant = parseInt(mQ[1], 10);
+          remaining = remaining.substring(mQ[0].length).trim();
+        }
+      }
+
+      // Localizar Material dentro de remaining
+      let detectedMaterial = '';
+      let matIdx = -1;
+      let matLen = 0;
+
+      for (const mat of KNOWN_MATERIALS) {
+        const idx = remaining.indexOf(mat);
+        if (idx !== -1 && idx > matIdx) {
+          detectedMaterial = mat;
+          matIdx = idx;
+          matLen = mat.length;
+        }
+      }
+
+      let itemDesc = '';
+      let afterMat = '';
+
+      if (matIdx !== -1) {
+        itemDesc = remaining.substring(0, matIdx).trim();
+        afterMat = remaining.substring(matIdx + matLen).trim();
       } else {
-        // Linhas sem marca explícita (subitens, parafusos '-' ou linha de subtotal)
-        if (currentAssembly) {
-          if (lineText.includes('M13') || lineText.startsWith('-') || lineText.includes('ASTM') || lineText.includes('10.9')) {
-            currentAssembly.isComposed = 'SIM';
-            let compLength = 0;
-            let compWeightTotal = 0;
-            let compQuant = 1;
+        const parts = remaining.split(/\s+/);
+        const firstNumIdx = parts.findIndex((p) => /^[0-9.,]+$/.test(p));
+        if (firstNumIdx > 0) {
+          itemDesc = parts.slice(0, firstNumIdx).join(' ');
+          afterMat = parts.slice(firstNumIdx).join(' ');
+        } else {
+          itemDesc = remaining;
+        }
+      }
 
-            for (const it of line) {
-              const col = getNearestCol(it.x);
-              const valNum = parseNumeric(it.text);
-              if (col === 'qtde') {
-                const q = parseInt(it.text, 10);
-                if (!isNaN(q)) compQuant = q;
-              } else if (col === 'comprimento' && valNum > 0) {
-                compLength = valNum;
-              } else if (col === 'totalPeso' && valNum > 0) {
-                compWeightTotal = valNum;
-              }
-            }
+      const numTokens = afterMat.split(/\s+/).filter((tok) => /^[0-9.,]+$/.test(tok));
+      const nums = numTokens.map(parseNumeric);
 
-            currentAssembly.components.push({
-              quantidade: compQuant,
-              perfil: lineText.split(' ')[0] || 'ACESSÓRIO',
-              material: '10.9',
-              comprimento: compLength,
-              pesoTotal: compWeightTotal
-            });
-          } else if (lineText.includes('W ') || lineText.includes('C ') || lineText.includes('Pl ')) {
-            // Perfil principal de conjunto composto
-            let compLength = 0;
-            let compWeightTotal = 0;
-            let compMaterial = 'A36';
+      let itemComp = 0;
+      let itemPesoTot = 0;
 
-            for (const it of line) {
-              const col = getNearestCol(it.x);
-              const valNum = parseNumeric(it.text);
-              if (col === 'qualidade') compMaterial = it.text;
-              else if (col === 'comprimento' && valNum > 0) compLength = valNum;
-              else if (col === 'totalPeso' && valNum > 0) compWeightTotal = valNum;
-            }
+      if (nums.length >= 1) {
+        itemComp = nums[0]; // O comprimento é sempre o primeiro valor numérico após o material
+      }
 
-            currentAssembly.components.push({
-              quantidade: 1,
-              perfil: lineText.split(' ')[0] + ' ' + (lineText.split(' ')[1] || ''),
-              material: compMaterial,
-              comprimento: compLength,
-              pesoTotal: compWeightTotal
-            });
-          } else {
-            // Linha com totais do conjunto (ex: 3,5 na coluna Total Peso)
-            for (const it of line) {
-              const col = getNearestCol(it.x);
-              const valNum = parseNumeric(it.text);
-              if (col === 'totalPeso' && valNum > 0) {
-                currentAssembly.subtotalPeso = valNum;
-              }
-            }
+      if (nums.length === 3) {
+        itemPesoTot = nums[2];
+      } else if (nums.length === 4) {
+        itemPesoTot = nums[2];
+      } else if (nums.length === 5) {
+        itemPesoTot = nums[2];
+      } else if (nums.length >= 6) {
+        itemPesoTot = nums[3];
+      }
+
+      if (currentAssembly) {
+        const isSubComp =
+          itemMark === '-' ||
+          itemMark.includes('-100') ||
+          itemMark.includes('-10') ||
+          (itemMark.match(/-\d+$/) && parseInt(itemMark.match(/-(\d+)$/)![1], 10) >= 1000);
+
+        if (isSubComp) {
+          currentAssembly.isComposed = 'SIM';
+          currentAssembly.components.push({
+            quantidade: itemQuant,
+            perfil: itemDesc || currentAssembly.descricao,
+            material: detectedMaterial || 'A36',
+            comprimento: itemComp,
+            pesoTotal: itemPesoTot
+          });
+        } else {
+          // Monopeça (peça simples sem componentes subordinados)
+          if (!currentAssembly.material && detectedMaterial) {
+            currentAssembly.material = detectedMaterial;
+          }
+          if (itemComp > 0 && (!currentAssembly.comprimento || currentAssembly.comprimento === 0)) {
+            currentAssembly.comprimento = itemComp;
+          }
+          if (itemPesoTot > 0 && (!currentAssembly.pesoTotal || currentAssembly.pesoTotal === 0)) {
+            currentAssembly.pesoTotal = itemPesoTot;
           }
         }
       }
@@ -502,6 +429,8 @@ const AdvanceSteelConverterContent: React.FC = () => {
       if (isComposed) {
         let sumComponentsWeight = 0;
         let bestComp = asm.components[0];
+        maxComp = 0;
+
         asm.components.forEach((c) => {
           if (c.comprimento > maxComp) {
             maxComp = c.comprimento;
@@ -513,8 +442,10 @@ const AdvanceSteelConverterContent: React.FC = () => {
         if (bestComp) {
           perfilPrincipal = bestComp.perfil || asm.descricao;
           materialPrincipal = bestComp.material || 'A36';
+          maxComp = bestComp.comprimento;
         }
 
+        // Se não obteve subtotal na linha isolada, usar a somatória dos componentes
         if (!totalPeso || totalPeso === 0) {
           totalPeso = sumComponentsWeight;
         }
