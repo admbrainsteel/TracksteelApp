@@ -398,7 +398,7 @@
       let lastPage = null;
 
       items.forEach(item => {
-        if (lastPage === null || item.page !== lastPage || Math.abs(item.y - (lastY ?? item.y)) > 3.5) {
+        if (lastPage === null || item.page !== lastPage || Math.abs(item.y - (lastY ?? item.y)) > 4.5) {
           if (currentLine.length > 0) {
             lines.push(currentLine);
           }
@@ -461,21 +461,21 @@
           continue;
         }
 
-        // 1. Linha Mestre de Peça Principal (ex: "B133-1-20 2 Pl 6x160x154" ou "B133-1-11 1 C 100x50x20x2.8")
-        const masterMatch = lineText.match(/^([A-Za-z0-9]+(?:-\d+)+)\s+(\d+)\s+([A-Za-z].*)$/);
+        // 1. Linha Mestre de Peça Principal (ex: "B133-1-20 2 Pl 6x160x154" ou "B133-1-20 Pl 6x160x154")
+        const masterMatch = lineText.match(/^([A-Za-z0-9]+(?:-\d+)+)(?:\s+(\d+))?\s+([A-Za-z].*)$/);
         if (masterMatch) {
           const fullMark = masterMatch[1];
-          const quant = parseInt(masterMatch[2], 10);
+          const inlineQuant = masterMatch[2] ? parseInt(masterMatch[2], 10) : 0;
           const descCandidate = masterMatch[3].trim();
           const parts = fullMark.split('-');
           const pieceNumber = parts[parts.length - 1];
           const pieceNumInt = parseInt(pieceNumber, 10);
 
+          // Peça principal tem identificador < 1000 e não possui material na linha de cabeçalho da marca
           if (pieceNumInt < 1000) {
             const hasMaterial = KNOWN_MATERIALS.some(m => descCandidate.includes(m));
-            const hasManyNumbers = (descCandidate.match(/[0-9.,]+/g) || []).length >= 3;
 
-            if (!hasMaterial && !hasManyNumbers) {
+            if (!hasMaterial) {
               const ofCode = parts.length >= 2 ? parts[0] : defaultOf;
               const phaseCode = parts.length >= 3 ? parts[1] : '0';
 
@@ -486,7 +486,7 @@
                 marca: pieceNumber,
                 numeroPeca: pieceNumber,
                 descricao: descCandidate || 'ESTRUTURA',
-                quantidade: quant > 0 ? quant : 1,
+                quantidade: inlineQuant > 0 ? inlineQuant : 1,
                 material: '',
                 comprimento: 0,
                 pesoUnitario: 0,
@@ -623,6 +623,8 @@
         let maxComp = asm.comprimento || 0;
         let totalPeso = asm.subtotalPeso > 0 ? asm.subtotalPeso : asm.pesoTotal;
 
+        let finalQuant = asm.quantidade;
+
         if (isComposed) {
           let sumComponentsWeight = 0;
           let bestComp = asm.components[0];
@@ -645,10 +647,24 @@
           if (!totalPeso || totalPeso === 0) {
             totalPeso = sumComponentsWeight;
           }
+
+          // Se a quantidade veio 1 (ou não veio no cabeçalho), calcular relação peso total / soma peso unitário dos componentes
+          if (finalQuant <= 1 && asm.components.length > 0) {
+            const sumUnitWeights = asm.components.reduce((acc, c) => {
+              const unitW = c.quantidade > 0 ? (c.pesoTotal / c.quantidade) : c.pesoTotal;
+              return acc + unitW;
+            }, 0);
+            if (sumUnitWeights > 0 && totalPeso > sumUnitWeights * 1.3) {
+              const ratio = Math.round(totalPeso / sumUnitWeights);
+              if (ratio > 1) {
+                finalQuant = ratio;
+              }
+            }
+          }
         }
 
         // Regra de Ouro: Peso Unitário = Peso Total dividido pela quantidade da peça principal
-        const pesoUnit = asm.quantidade > 0 ? (totalPeso / asm.quantidade) : totalPeso;
+        const pesoUnit = finalQuant > 0 ? (totalPeso / finalQuant) : totalPeso;
 
         return {
           of: asm.of,
@@ -656,7 +672,7 @@
           marca: asm.marca,
           descricao: asm.descricao,
           isComposed: isComposed ? "SIM" : "NÃO",
-          quantidade: asm.quantidade,
+          quantidade: finalQuant,
           material: materialPrincipal,
           perfilPrincipal: perfilPrincipal,
           comprimentoMax: maxComp > 0 ? maxComp : "-",

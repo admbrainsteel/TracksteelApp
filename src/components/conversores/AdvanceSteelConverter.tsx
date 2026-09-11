@@ -28,6 +28,7 @@ interface ComponentItem {
   perfil: string;
   material: string;
   comprimento: number;
+  pesoUnitario?: number;
   pesoTotal: number;
 }
 
@@ -189,7 +190,7 @@ const AdvanceSteelConverterContent: React.FC = () => {
     let lastPage: number | null = null;
 
     items.forEach((item) => {
-      if (lastPage === null || item.page !== lastPage || Math.abs(item.y - (lastY ?? item.y)) > 3.5) {
+      if (lastPage === null || item.page !== lastPage || Math.abs(item.y - (lastY ?? item.y)) > 4.5) {
         if (currentLine.length > 0) {
           lines.push(currentLine);
         }
@@ -253,13 +254,12 @@ const AdvanceSteelConverterContent: React.FC = () => {
         continue;
       }
 
-      // 1. Verificar se é Linha Mestre de Peça Principal (ex: "B133-1-20 2 Pl 6x160x154" ou "B133-1-11 1 C 100x50x20x2.8")
-      const masterMatch = lineText.match(/^([A-Za-z0-9]+(?:-\d+)+)\s+(\d+)\s+([A-Za-z].*)$/);
-      let isMasterLine = false;
+      // 1. Linha Mestre de Peça Principal (ex: "B133-1-20 Pl 6x160x154" ou "B133-1-20 2 Pl 6x160x154")
+      const masterMatch = lineText.match(/^([A-Za-z0-9]+(?:-\d+)+)(?:\s+(\d+))?\s+([A-Za-z].*)$/);
 
       if (masterMatch) {
         const fullMark = masterMatch[1];
-        const quant = parseInt(masterMatch[2], 10);
+        const quant = masterMatch[2] ? parseInt(masterMatch[2], 10) : 1;
         const descCandidate = masterMatch[3].trim();
         const parts = fullMark.split('-');
         const pieceNumber = parts[parts.length - 1];
@@ -267,12 +267,9 @@ const AdvanceSteelConverterContent: React.FC = () => {
 
         // Se o número da peça for menor que 1000, é uma peça principal mestre
         if (pieceNumInt < 1000) {
-          // Checar se não é uma linha completa de detalhe com material e medidas
           const hasMaterial = KNOWN_MATERIALS.some((m) => descCandidate.includes(m));
-          const hasManyNumbers = (descCandidate.match(/[0-9.,]+/g) || []).length >= 3;
 
-          if (!hasMaterial && !hasManyNumbers) {
-            isMasterLine = true;
+          if (!hasMaterial) {
             const ofCode = parts.length >= 2 ? parts[0] : defaultOf;
             const phaseCode = parts.length >= 3 ? parts[1] : '0';
 
@@ -312,10 +309,6 @@ const AdvanceSteelConverterContent: React.FC = () => {
       }
 
       // 3. Linha de Detalhe de Monopeça ou Componente Subordinado
-      // Ex: "B133-1-11 1 C 100x50x20x2.8 A36 540 2,6 2,6 0,25 0,25"
-      // Ex: "B133-1-1000 1 Pl 6x120x91 A36 120 91 0,5 1,1 0,024 0,049"
-      // Ex: "B133-1-1002 1 W 150x18.0 A572-GR 50 4.000 72 72 2,76 2,76"
-      // Ex: "- 12 M13 NaW 32 ASTM A325 10.9 10.9 32 0,1 1,7"
       let itemMark = '';
       let itemQuant = 1;
       let remaining = lineText;
@@ -370,6 +363,7 @@ const AdvanceSteelConverterContent: React.FC = () => {
       const nums = numTokens.map(parseNumeric);
 
       let itemComp = 0;
+      let itemPUn = 0;
       let itemPesoTot = 0;
 
       if (nums.length >= 1) {
@@ -377,12 +371,16 @@ const AdvanceSteelConverterContent: React.FC = () => {
       }
 
       if (nums.length === 3) {
+        itemPUn = nums[1];
         itemPesoTot = nums[2];
       } else if (nums.length === 4) {
+        itemPUn = nums[1];
         itemPesoTot = nums[2];
       } else if (nums.length === 5) {
+        itemPUn = nums[1];
         itemPesoTot = nums[2];
       } else if (nums.length >= 6) {
+        itemPUn = nums[2];
         itemPesoTot = nums[3];
       }
 
@@ -400,6 +398,7 @@ const AdvanceSteelConverterContent: React.FC = () => {
             perfil: itemDesc || currentAssembly.descricao,
             material: detectedMaterial || 'A36',
             comprimento: itemComp,
+            pesoUnitario: itemPUn,
             pesoTotal: itemPesoTot
           });
         } else {
@@ -409,6 +408,9 @@ const AdvanceSteelConverterContent: React.FC = () => {
           }
           if (itemComp > 0 && (!currentAssembly.comprimento || currentAssembly.comprimento === 0)) {
             currentAssembly.comprimento = itemComp;
+          }
+          if (itemPUn > 0 && (!currentAssembly.pesoUnitario || currentAssembly.pesoUnitario === 0)) {
+            currentAssembly.pesoUnitario = itemPUn;
           }
           if (itemPesoTot > 0 && (!currentAssembly.pesoTotal || currentAssembly.pesoTotal === 0)) {
             currentAssembly.pesoTotal = itemPesoTot;
@@ -428,6 +430,7 @@ const AdvanceSteelConverterContent: React.FC = () => {
 
       if (isComposed) {
         let sumComponentsWeight = 0;
+        let sumUnitComponentsWeight = 0;
         let bestComp = asm.components[0];
         maxComp = 0;
 
@@ -437,6 +440,9 @@ const AdvanceSteelConverterContent: React.FC = () => {
             bestComp = c;
           }
           sumComponentsWeight += c.pesoTotal;
+          if (c.pesoUnitario > 0) {
+            sumUnitComponentsWeight += c.pesoUnitario * c.quantidade;
+          }
         });
 
         if (bestComp) {
@@ -448,6 +454,14 @@ const AdvanceSteelConverterContent: React.FC = () => {
         // Se não obteve subtotal na linha isolada, usar a somatória dos componentes
         if (!totalPeso || totalPeso === 0) {
           totalPeso = sumComponentsWeight;
+        }
+
+        // Detecção de quantidade de conjunto caso tenha vindo 1:
+        if (asm.quantidade === 1 && sumUnitComponentsWeight > 0 && totalPeso > 0) {
+          const ratio = Math.round(totalPeso / sumUnitComponentsWeight);
+          if (ratio > 1) {
+            asm.quantidade = ratio;
+          }
         }
       }
 
