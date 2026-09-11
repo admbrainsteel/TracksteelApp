@@ -475,90 +475,181 @@
         return bestCol;
       };
 
+      const KNOWN_MATERIALS = [
+        'A572GR50', 'A572-GR 50', 'A572-GR50', 'A572GR5', 'A572',
+        'A36', 'ASTM A36', '10.9', '8.8', 'SAE 1020'
+      ];
+
       const assemblies = [];
       let currentAssembly = null;
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        const lineText = line.map(it => it.text).join(' ');
+        let rawLineText = line.map(it => it.text).join(' ').trim();
+        if (!rawLineText) continue;
+
+        let text = rawLineText.replace(/([A-Za-z0-9]+)\s*-\s*(\d+)\s*-\s*(\d+)/g, '$1-$2-$3');
+        text = text.replace(/([A-Za-z0-9]+)\s*-\s*(\d+)/g, '$1-$2');
 
         if (
-          lineText.includes('LISTA DE CONJUNTOS') ||
-          lineText.includes('Marca Pos. Descrição') ||
-          lineText.includes('P.Un. P.Tot. S.Tot.') ||
-          lineText.includes('B121-FASE')
+          text.includes('LISTA DE CONJUNTOS') ||
+          text.includes('Marca Pos. Descrição') ||
+          text.includes('P.Un. P.Tot.') ||
+          text.includes('FASE4-LISTA') ||
+          text === '21806'
         ) {
           continue;
         }
 
-        const rowByCol = {};
-        for (const it of line) {
-          const col = getNearestCol(it.x);
-          if (col === 'superficieTotal') continue; // Ignora S.Tot.
+        // 1. Monopeça: Marca repete na coluna Pos
+        const monoMatch = text.match(/^([A-Za-z0-9]+-\d+-(\d+))\s+\1\s+(.+)$/);
+        if (monoMatch) {
+          const fullMark = monoMatch[1];
+          const pieceNum = monoMatch[2];
+          const rest = monoMatch[3].trim();
+          const parts = fullMark.split('-');
 
-          if (!rowByCol[col]) {
-            rowByCol[col] = it.text.trim();
-          } else {
-            rowByCol[col] += ' ' + it.text.trim();
+          let mat = '';
+          let matIdx = -1;
+          let matLen = 0;
+          for (const m of KNOWN_MATERIALS) {
+            const idx = rest.indexOf(m);
+            if (idx !== -1 && idx > matIdx) {
+              mat = m;
+              matIdx = idx;
+              matLen = m.length;
+            }
+          }
+
+          if (matIdx !== -1) {
+            const beforeMat = rest.substring(0, matIdx).trim();
+            const afterMat = rest.substring(matIdx + matLen).trim();
+
+            const mDescQtd = beforeMat.match(/^(Lam\.\s*[0-9.]+|W[0-9]+X[0-9.]+|L[0-9./X]+|TB[0-9.X]+|[A-Za-z0-9./-]+)\s+(\d+)\s*(.*)$/i);
+            let desc = 'ESTRUTURA';
+            let quant = 1;
+            let comp = 0;
+
+            if (mDescQtd) {
+              desc = mDescQtd[1];
+              quant = parseInt(mDescQtd[2], 10) || 1;
+              const dimTokens = mDescQtd[3].trim().split(/\s+/).filter(t => /^[0-9.,]+$/.test(t));
+              if (dimTokens.length > 0) {
+                comp = parseNumeric(dimTokens[dimTokens.length - 1]);
+              }
+            }
+
+            const postNums = afterMat.split(/\s+/).map(parseNumeric);
+            const pUn = postNums[0] || 0;
+            const pTot = postNums[1] || 0;
+
+            assemblies.push({
+              rawMark: fullMark,
+              of: parts[0] || defaultOf,
+              fase: parts[1] || defaultFase,
+              marca: pieceNum,
+              descricao: desc,
+              isComposed: 'NÃO',
+              quantidade: quant,
+              material: normalizeMaterial(mat),
+              perfilPrincipal: desc,
+              comprimento: comp,
+              pesoUnitario: pUn,
+              pesoTotal: pTot,
+              components: []
+            });
+            currentAssembly = null;
+            continue;
           }
         }
 
-        const rawMarca = (rowByCol.marca || '').trim();
-        const rawPos = (rowByCol.pos || '').trim();
+        // 2. Linha Mestre de Conjunto (Peça Composta)
+        const masterMatch = text.match(/^([A-Za-z0-9]+-\d+-(\d+))\s+([A-Za-z0-9./-]+)\s+(\d+)\s+([0-9.,]+)\s+([0-9.,]+)$/);
+        if (masterMatch) {
+          const fullMark = masterMatch[1];
+          const pieceNum = masterMatch[2];
+          const pieceNumInt = parseInt(pieceNum, 10);
 
-        const markMatch = rawMarca.match(/^([A-Za-z0-9]+)-(\d+)-(\d+)$/) || rawMarca.match(/^([A-Za-z0-9]+)-(\d+)$/);
+          if (pieceNumInt < 1000) {
+            const desc = masterMatch[3].trim();
+            const quant = parseInt(masterMatch[4], 10) || 1;
+            const pUn = parseNumeric(masterMatch[5]);
+            const pTot = parseNumeric(masterMatch[6]);
+            const parts = fullMark.split('-');
 
-        if (markMatch) {
-          const parts = rawMarca.split('-');
-          const ofCode = parts.length === 3 ? parts[0] : defaultOf;
-          const phaseCode = parts.length === 3 ? parts[1] : defaultFase;
-          const pieceNumber = parts.length === 3 ? parts[2] : parts[1];
+            currentAssembly = {
+              rawMark: fullMark,
+              of: parts[0] || defaultOf,
+              fase: parts[1] || defaultFase,
+              marca: pieceNum,
+              descricao: desc,
+              isComposed: 'SIM',
+              quantidade: quant,
+              material: '',
+              perfilPrincipal: desc,
+              comprimento: 0,
+              pesoUnitario: pUn,
+              pesoTotal: pTot,
+              components: []
+            };
+            assemblies.push(currentAssembly);
+            continue;
+          }
+        }
 
-          const qVal = parseInt(rowByCol.qtde || '1', 10);
-          const mainQuant = isNaN(qVal) || qVal <= 0 ? 1 : qVal;
+        // 3. Componente Subordinado
+        const compMatch = text.match(/^([A-Za-z0-9]+-\d+-(\d+))\s+(.+)$/);
+        if (compMatch) {
+          const pos = compMatch[1];
+          const pieceNumInt = parseInt(compMatch[2], 10);
+          const rest = compMatch[3].trim();
 
-          const pUnVal = parseNumeric(rowByCol.pesoUnit || 0);
-          const pTotVal = parseNumeric(rowByCol.pesoTotal || 0);
-          const compVal = parseNumeric(rowByCol.comprimento || 0);
-          const matVal = rowByCol.material ? normalizeMaterial(rowByCol.material) : '';
+          if (pieceNumInt >= 1000 && currentAssembly) {
+            let mat = '';
+            let matIdx = -1;
+            let matLen = 0;
+            for (const m of KNOWN_MATERIALS) {
+              const idx = rest.indexOf(m);
+              if (idx !== -1 && idx > matIdx) {
+                mat = m;
+                matIdx = idx;
+                matLen = m.length;
+              }
+            }
 
-          const isSimple = rawPos === rawMarca || (compVal > 0 && !!matVal);
+            if (matIdx !== -1) {
+              const beforeMat = rest.substring(0, matIdx).trim();
+              const afterMat = rest.substring(matIdx + matLen).trim();
 
-          currentAssembly = {
-            rawMark: rawMarca,
-            of: ofCode || defaultOf,
-            fase: phaseCode || defaultFase,
-            marca: pieceNumber,
-            descricao: rowByCol.descricao || 'ESTRUTURA',
-            quantidade: mainQuant,
-            material: matVal,
-            perfilPrincipal: rowByCol.descricao || 'ESTRUTURA',
-            comprimento: compVal,
-            pesoUnitario: pUnVal,
-            pesoTotal: pTotVal,
-            isComposed: isSimple ? 'NÃO' : 'NÃO',
-            components: []
-          };
+              const mDescQtd = beforeMat.match(/^(Lam\.\s*[0-9.]+|W[0-9]+X[0-9.]+|L[0-9./X]+|TB[0-9.X]+|[A-Za-z0-9./-]+)\s+(\d+)\s*(.*)$/i);
+              let desc = 'COMPONENTE';
+              let quant = 1;
+              let comp = 0;
 
-          assemblies.push(currentAssembly);
-        } else if (rawPos && currentAssembly) {
-          currentAssembly.isComposed = 'SIM';
+              if (mDescQtd) {
+                desc = mDescQtd[1];
+                quant = parseInt(mDescQtd[2], 10) || 1;
+                const dimTokens = mDescQtd[3].trim().split(/\s+/).filter(t => /^[0-9.,]+$/.test(t));
+                if (dimTokens.length > 0) {
+                  comp = parseNumeric(dimTokens[dimTokens.length - 1]);
+                }
+              }
 
-          const compQuant = parseInt(rowByCol.qtde || '1', 10) || 1;
-          const compLength = parseNumeric(rowByCol.comprimento || 0);
-          const compMaterial = rowByCol.material ? normalizeMaterial(rowByCol.material) : 'A36';
-          const compPUn = parseNumeric(rowByCol.pesoUnit || 0);
-          const compPTot = parseNumeric(rowByCol.pesoTotal || 0);
+              const postNums = afterMat.split(/\s+/).map(parseNumeric);
+              const pUn = postNums[0] || 0;
+              const pTot = postNums[1] || 0;
 
-          currentAssembly.components.push({
-            pos: rawPos,
-            descricao: rowByCol.descricao || '',
-            quantidade: compQuant,
-            comprimento: compLength,
-            material: compMaterial,
-            pesoUnitario: compPUn,
-            pesoTotal: compPTot
-          });
+              currentAssembly.components.push({
+                pos: pos,
+                descricao: desc,
+                quantidade: quant,
+                comprimento: comp,
+                material: normalizeMaterial(mat),
+                pesoUnitario: pUn,
+                pesoTotal: pTot
+              });
+            }
+          }
         }
       }
 
@@ -574,7 +665,7 @@
 
         if (isComposed) {
           let bestComp = asm.components[0];
-          maxComp = bestComp.comprimento;
+          maxComp = 0;
 
           for (const comp of asm.components) {
             if (comp.comprimento > maxComp) {
@@ -585,6 +676,7 @@
 
           if (bestComp) {
             materialPrincipal = bestComp.material || 'A36';
+            maxComp = bestComp.comprimento;
             perfilPrincipal = asm.descricao;
           }
 
