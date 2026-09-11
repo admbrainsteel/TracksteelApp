@@ -1,10 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Upload, FileSpreadsheet, Download, RefreshCw, Terminal, FileText, AlertTriangle } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import {
+  Upload,
+  FileSpreadsheet,
+  Download,
+  RefreshCw,
+  Terminal,
+  FileText,
+  AlertTriangle,
+  Boxes,
+  Paintbrush,
+  CheckCircle2,
+  Info
+} from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 
@@ -128,6 +143,10 @@ const TecnometalConverterContent: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedPiece[]>([]);
+  const [headerOf, setHeaderOf] = useState<string>('');
+  const [headerFase, setHeaderFase] = useState<string>('1');
+  const [tratamentoGlobal, setTratamentoGlobal] = useState<'pintura' | 'galvanizacao'>('pintura');
+  const [showLogs, setShowLogs] = useState(false);
   const [logs, setLogs] = useState<string[]>(['> Aguardando seleção da lista PDF do Tecnometal...']);
   const [statusText, setStatusText] = useState<string>('Aguardando arquivo PDF...');
   const [currentFileName, setCurrentFileName] = useState<string>('Lista_Tecnometal');
@@ -144,6 +163,36 @@ const TecnometalConverterContent: React.FC = () => {
     setTimeout(() => {
       logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 50);
+  };
+
+  const handleTratamentoChange = (novoTratamento: 'pintura' | 'galvanizacao') => {
+    setTratamentoGlobal(novoTratamento);
+    setExtractedData((prev) =>
+      prev.map((item) => ({
+        ...item,
+        tratamentoSuperficial: novoTratamento
+      }))
+    );
+  };
+
+  const handleOfChange = (newOf: string) => {
+    setHeaderOf(newOf);
+    setExtractedData((prev) =>
+      prev.map((item) => ({
+        ...item,
+        of: newOf
+      }))
+    );
+  };
+
+  const handleFaseChange = (newFase: string) => {
+    setHeaderFase(newFase);
+    setExtractedData((prev) =>
+      prev.map((item) => ({
+        ...item,
+        fase: newFase
+      }))
+    );
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -233,6 +282,8 @@ const TecnometalConverterContent: React.FC = () => {
       if (matchTitulo) {
         defaultOf = matchTitulo[1];
         defaultFase = matchTitulo[2];
+        setHeaderOf(defaultOf);
+        setHeaderFase(defaultFase);
         addLog(`OF detectada no cabeçalho: ${defaultOf} | Fase: ${defaultFase}`);
         break;
       }
@@ -528,7 +579,7 @@ const TecnometalConverterContent: React.FC = () => {
         comprimentoMax: maxComp > 0 ? maxComp : '-',
         pesoUnit: pesoUnit > 0 ? pesoUnit.toFixed(1) : '-',
         pesoTotal: pesoTot > 0 ? pesoTot.toFixed(0) : '-',
-        tratamentoSuperficial: 'pintura'
+        tratamentoSuperficial: tratamentoGlobal
       };
     });
 
@@ -552,17 +603,15 @@ const TecnometalConverterContent: React.FC = () => {
     }
 
     setSelectedFile(file);
-    const baseName = file.name.replace(/\.[^/.]+$/, '');
-    setCurrentFileName(baseName);
-    setStatusText(`Processando: ${file.name}...`);
-    setLogs([`> Carregando arquivo Tecnometal: ${file.name}`]);
+    setCurrentFileName(file.name.replace(/\.[^/.]+$/, ''));
+    setLogs([`> Carregando lista PDF Tecnometal: ${file.name}`]);
     setIsProcessing(true);
 
     try {
       const pdfjs = await ensurePdfJs();
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-      addLog(`PDF aberto! Total de páginas: ${pdf.numPages}`);
+      addLog(`PDF Tecnometal aberto! Total de páginas: ${pdf.numPages}`);
 
       const allItems: PdfItem[] = [];
       for (let p = 1; p <= pdf.numPages; p++) {
@@ -615,196 +664,300 @@ const TecnometalConverterContent: React.FC = () => {
     const ws = XLSX.utils.json_to_sheet(excelRows);
 
     ws['!cols'] = [
-      { wch: 12 },
+      { wch: 10 },
       { wch: 8 },
-      { wch: 12 },
-      { wch: 20 },
-      { wch: 15 },
+      { wch: 10 },
+      { wch: 16 },
+      { wch: 26 },
       { wch: 12 },
       { wch: 18 },
       { wch: 16 },
       { wch: 22 },
       { wch: 16 },
       { wch: 22 },
-      { wch: 20 }
+      { wch: 22 }
     ];
 
     XLSX.utils.book_append_sheet(wb, ws, 'Lista_Pecas');
-    const outFileName = `${currentFileName}_Corrigido.xlsx`;
+    const outFileName = `${headerOf || currentFileName}_Fase_${headerFase || '1'}_Lista_Pecas_Tecnometal.xlsx`;
     XLSX.writeFile(wb, outFileName);
     addLog(`Planilha Excel baixada: ${outFileName}`);
-    toast.success(`Planilha Excel "${outFileName}" gerada com sucesso!`);
+    toast.success(`Planilha padrão baixada com sucesso: ${outFileName}`);
   };
+
+  const totalPesoGeral = extractedData.reduce((acc, curr) => {
+    const val = typeof curr.pesoTotal === 'number' ? curr.pesoTotal : parseFloat(String(curr.pesoTotal)) || 0;
+    return acc + val;
+  }, 0);
+  const totalPecasCompostas = extractedData.filter((p) => p.isComposed === 'SIM').length;
+  const totalPecasSimples = extractedData.filter((p) => p.isComposed === 'NÃO').length;
 
   return (
     <div className="space-y-6">
-      {/* Upload Zone */}
-      <div
-        className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200 ${
-          isDragging
-            ? 'border-sky-500 bg-sky-500/10 scale-[1.01]'
-            : 'border-slate-700 bg-slate-800/40 hover:border-sky-500/50 hover:bg-slate-800/80'
-        }`}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/pdf,.pdf"
-          onChange={handleFileInput}
-          className="hidden"
-        />
-        <Upload className="mx-auto h-12 w-12 text-slate-400 mb-3" />
-        {selectedFile ? (
-          <div>
-            <p className="text-sm font-semibold text-sky-400 mb-1">Arquivo selecionado:</p>
-            <p className="text-base text-white font-mono">{selectedFile.name}</p>
-            <p className="text-xs text-slate-400 mt-1">
-              ({(selectedFile.size / 1024).toFixed(1)} KB) — Clique para trocar
-            </p>
-          </div>
-        ) : (
-          <div>
-            <p className="text-sm text-slate-300 font-medium mb-1">
-              Arraste e solte o arquivo <strong className="text-sky-400 font-semibold">PDF da Lista de Conjuntos Tecnometal</strong> aqui
-            </p>
-            <p className="text-xs text-slate-400 mb-4">Suporta relatórios originais do Tecnometal em PDF</p>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="bg-sky-600 hover:bg-sky-500 text-white font-medium shadow-md pointer-events-none"
-            >
-              Selecionar PDF do Computador
-            </Button>
-          </div>
-        )}
-      </div>
+      {/* Banner Principal de Conversão */}
+      <Card className="bg-slate-900/90 border-slate-800 shadow-xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950/40 border-b border-slate-800 pb-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-indigo-500/10 border border-indigo-500/30 rounded-lg text-indigo-400">
+                  <Boxes className="w-5 h-5" />
+                </div>
+                <CardTitle className="text-xl font-bold text-white tracking-tight">
+                  Conversor de Listas Tecnometal
+                </CardTitle>
+              </div>
+              <CardDescription className="text-slate-300 text-sm">
+                Converte o Relatório de Lista de Conjuntos do Tecnometal para o padrão oficial de importação do TrackSteel.
+              </CardDescription>
+            </div>
 
-      {/* Actions & Status Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-800/60 p-4 rounded-lg border border-slate-700">
-        <div className="flex items-center gap-3">
-          <Badge variant="outline" className="bg-slate-900/80 text-sky-400 border-sky-500/30 px-3 py-1 text-xs font-mono">
-            {statusText}
-          </Badge>
-          {isProcessing && (
-            <div className="flex items-center text-xs text-amber-400 gap-1.5 animate-pulse">
-              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-              <span>Processando PDF Tecnometal...</span>
+            {/* Configuração de Tratamento Superficial */}
+            <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-3 shadow-inner flex flex-col gap-2 min-w-[280px]">
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
+                <span className="flex items-center gap-1.5 text-indigo-300">
+                  <Paintbrush className="w-3.5 h-3.5 text-indigo-400" />
+                  Tratamento Superficial:
+                </span>
+                <Badge variant="outline" className="text-[10px] bg-slate-900 text-slate-400 border-slate-700">
+                  Configuração Global
+                </Badge>
+              </div>
+
+              <RadioGroup
+                value={tratamentoGlobal}
+                onValueChange={(val) => handleTratamentoChange(val as 'pintura' | 'galvanizacao')}
+                className="grid grid-cols-2 gap-2"
+              >
+                <div className="flex items-center space-x-2 bg-slate-900/90 hover:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700/70 cursor-pointer transition-colors">
+                  <RadioGroupItem value="pintura" id="tecno-trat-pintura" className="border-indigo-400 text-indigo-500" />
+                  <Label htmlFor="tecno-trat-pintura" className="text-xs font-medium text-slate-200 cursor-pointer">
+                    Pintura
+                  </Label>
+                </div>
+
+                <div className="flex items-center space-x-2 bg-slate-900/90 hover:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700/70 cursor-pointer transition-colors">
+                  <RadioGroupItem value="galvanizacao" id="tecno-trat-galvanizacao" className="border-indigo-400 text-indigo-500" />
+                  <Label htmlFor="tecno-trat-galvanizacao" className="text-xs font-medium text-slate-200 cursor-pointer">
+                    Galvanização
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-6 space-y-6">
+          {/* Área de Upload / Arrastar Arquivo */}
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className="group border-2 border-dashed border-slate-700 hover:border-indigo-500/80 bg-slate-950/40 hover:bg-slate-900/50 rounded-xl p-8 text-center cursor-pointer transition-all duration-200 flex flex-col items-center justify-center space-y-3"
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf,.pdf"
+              onChange={handleFileInput}
+              className="hidden"
+            />
+
+            <div className="p-3.5 bg-indigo-500/10 border border-indigo-500/20 group-hover:border-indigo-500/40 rounded-full text-indigo-400 group-hover:scale-105 transition-transform duration-200">
+              <Upload className="h-7 w-7" />
+            </div>
+
+            <div>
+              <p className="text-sm font-semibold text-slate-200">
+                {selectedFile ? (
+                  <span className="text-indigo-400">{selectedFile.name}</span>
+                ) : (
+                  <>
+                    <span className="text-indigo-400 font-bold hover:underline">Clique para selecionar</span> ou arraste a lista Tecnometal (.pdf)
+                  </>
+                )}
+              </p>
+              <p className="text-xs text-slate-400 mt-1">
+                Lê automaticamente cabeçalho (Obra, Fase), marcas simples e conjuntos com subcomponentes.
+              </p>
+            </div>
+
+            {selectedFile && (
+              <Badge variant="outline" className="bg-slate-800 text-slate-300 border-slate-700 mt-2 font-mono text-[11px]">
+                {(selectedFile.size / 1024).toFixed(1)} KB carregado
+              </Badge>
+            )}
+          </div>
+
+          {/* Cards de Métricas e Identificação da OF */}
+          {extractedData.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <div className="bg-slate-800/60 border border-slate-700/70 p-3 rounded-lg flex flex-col justify-between">
+                <span className="text-[11px] font-medium text-slate-400">OF (Obra)</span>
+                <Input
+                  value={headerOf}
+                  onChange={(e) => handleOfChange(e.target.value)}
+                  className="h-7 text-xs font-bold font-mono bg-slate-900 border-slate-700 text-indigo-300 mt-1"
+                />
+              </div>
+
+              <div className="bg-slate-800/60 border border-slate-700/70 p-3 rounded-lg flex flex-col justify-between">
+                <span className="text-[11px] font-medium text-slate-400">Fase</span>
+                <Input
+                  value={headerFase}
+                  onChange={(e) => handleFaseChange(e.target.value)}
+                  className="h-7 text-xs font-bold font-mono bg-slate-900 border-slate-700 text-indigo-300 mt-1"
+                />
+              </div>
+
+              <div className="bg-slate-800/60 border border-slate-700/70 p-3 rounded-lg">
+                <span className="text-[11px] font-medium text-slate-400">Total de Peças</span>
+                <div className="text-lg font-bold text-white mt-1 flex items-baseline gap-1">
+                  {extractedData.length} <span className="text-xs font-normal text-slate-400">itens</span>
+                </div>
+              </div>
+
+              <div className="bg-slate-800/60 border border-slate-700/70 p-3 rounded-lg">
+                <span className="text-[11px] font-medium text-slate-400">Compostas / Simples</span>
+                <div className="text-xs font-bold mt-1.5 flex items-center gap-1.5">
+                  <Badge className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[10px] px-1.5 py-0">
+                    SIM: {totalPecasCompostas}
+                  </Badge>
+                  <Badge className="bg-sky-500/15 text-sky-300 border-sky-500/30 text-[10px] px-1.5 py-0">
+                    NÃO: {totalPecasSimples}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="col-span-2 sm:col-span-1 bg-slate-800/60 border border-slate-700/70 p-3 rounded-lg">
+                <span className="text-[11px] font-medium text-slate-400">Peso Total</span>
+                <div className="text-lg font-bold text-amber-400 mt-1">
+                  {totalPesoGeral.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}{' '}
+                  <span className="text-xs font-normal text-slate-400">kg</span>
+                </div>
+              </div>
             </div>
           )}
-        </div>
 
-        <Button
-          onClick={exportToExcel}
-          disabled={extractedData.length === 0 || isProcessing}
-          className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-lg transition-all"
-        >
-          <Download className="w-4 h-4 mr-2" />
-          Baixar Planilha Excel (.xlsx)
-        </Button>
-      </div>
+          {/* Barra de Ações */}
+          {extractedData.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-800/40 p-3 rounded-lg border border-slate-700/60">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-xs px-2.5 py-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-1 inline" />
+                  {extractedData.length} Peças Prontas para Importação
+                </Badge>
 
-      {/* Table Preview */}
-      <Card className="bg-slate-900/80 border-slate-800 shadow-xl overflow-hidden">
-        <CardHeader className="py-3.5 px-4 bg-slate-800/50 border-b border-slate-800 flex flex-row items-center justify-between">
-          <CardTitle className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-            <FileSpreadsheet className="h-4 w-4 text-emerald-400" />
-            Peças Extraídas Tecnometal ({extractedData.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <ScrollArea className="h-[400px] w-full">
-            <table className="w-full text-xs text-left border-collapse">
-              <thead className="bg-slate-950 text-slate-300 font-mono sticky top-0 z-10 shadow-sm">
-                <tr>
-                  <th className="p-2.5 border-b border-slate-800">OF</th>
-                  <th className="p-2.5 border-b border-slate-800">Fase</th>
-                  <th className="p-2.5 border-b border-slate-800">Marca</th>
-                  <th className="p-2.5 border-b border-slate-800">Descrição</th>
-                  <th className="p-2.5 border-b border-slate-800">Composto?</th>
-                  <th className="p-2.5 border-b border-slate-800 text-center">Qtd</th>
-                  <th className="p-2.5 border-b border-slate-800">Material</th>
-                  <th className="p-2.5 border-b border-slate-800">Perfil Principal</th>
-                  <th className="p-2.5 border-b border-slate-800 text-right">Comp. Max (mm)</th>
-                  <th className="p-2.5 border-b border-slate-800 text-right">Peso Unit. (kg)</th>
-                  <th className="p-2.5 border-b border-slate-800 text-right">Peso Total (kg)</th>
-                  <th className="p-2.5 border-b border-slate-800">Tratamento</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60 font-sans">
-                {extractedData.length === 0 ? (
-                  <tr>
-                    <td colSpan={12} className="py-12 text-center text-slate-500 font-medium">
-                      {selectedFile ? (
-                        <div className="space-y-2">
-                          <AlertTriangle className="mx-auto h-8 w-8 text-amber-400/80" />
-                          <p className="text-slate-300">Nenhuma peça foi identificada no PDF Tecnometal.</p>
-                          <p className="text-xs text-slate-400">
-                            Verifique os logs abaixo ou se o arquivo é uma Lista de Conjuntos válida.
-                          </p>
-                        </div>
-                      ) : (
-                        'Nenhum dado extraído ainda. Carregue um PDF de Lista de Conjuntos Tecnometal acima.'
-                      )}
-                    </td>
-                  </tr>
-                ) : (
-                  extractedData.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="p-2.5 font-mono font-bold text-sky-400">{row.of}</td>
-                      <td className="p-2.5 text-slate-300">{row.fase}</td>
-                      <td className="p-2.5 font-mono font-semibold text-white">{row.marca}</td>
-                      <td className="p-2.5 text-slate-200">{row.descricao}</td>
-                      <td className="p-2.5">
-                        <Badge
-                          variant="outline"
-                          className={
-                            row.isComposed === 'SIM'
-                              ? 'bg-emerald-950/60 text-emerald-400 border-emerald-800/60 text-[10px]'
-                              : 'bg-amber-950/60 text-amber-400 border-amber-800/60 text-[10px]'
-                          }
-                        >
-                          {row.isComposed}
-                        </Badge>
-                      </td>
-                      <td className="p-2.5 text-center font-bold text-white">{row.quantidade}</td>
-                      <td className="p-2.5 text-slate-300">{row.material}</td>
-                      <td className="p-2.5 font-medium text-slate-200">{row.perfilPrincipal}</td>
-                      <td className="p-2.5 text-right font-mono text-slate-300">{row.comprimentoMax}</td>
-                      <td className="p-2.5 text-right font-mono text-slate-300">{row.pesoUnit}</td>
-                      <td className="p-2.5 text-right font-mono font-bold text-emerald-400">{row.pesoTotal}</td>
-                      <td className="p-2.5 text-slate-400 capitalize">{row.tratamentoSuperficial}</td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </ScrollArea>
-        </CardContent>
-      </Card>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowLogs(!showLogs)}
+                  className="text-xs text-slate-400 hover:text-slate-200 h-7"
+                >
+                  <Info className="w-3.5 h-3.5 mr-1" />
+                  {showLogs ? 'Ocultar Logs' : 'Ver Logs'}
+                </Button>
+              </div>
 
-      {/* Terminal Log Panel */}
-      <Card className="bg-slate-950 border-slate-800 font-mono text-xs overflow-hidden">
-        <CardHeader className="py-2 px-3 bg-slate-900/90 border-b border-slate-800 flex flex-row items-center justify-between">
-          <CardTitle className="text-xs font-semibold text-slate-400 flex items-center gap-1.5">
-            <Terminal className="h-3.5 w-3.5 text-sky-400" />
-            Log de Processamento e Diagnóstico Tecnometal
-          </CardTitle>
-          <span className="text-[10px] text-slate-500 font-normal">{logs.length} eventos</span>
-        </CardHeader>
-        <CardContent className="p-3">
-          <ScrollArea className="h-32 w-full">
-            <div className="space-y-1 text-sky-400/90 leading-relaxed">
-              {logs.map((logLine, idx) => (
-                <div key={idx}>{logLine}</div>
-              ))}
-              <div ref={logEndRef} />
+              <div className="flex items-center gap-2">
+                <Button
+                  onClick={exportToExcel}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-4 h-9 shadow-lg shadow-emerald-950/40"
+                >
+                  <Download className="w-4 h-4 mr-1.5" />
+                  Baixar Planilha Padrão (.xlsx)
+                </Button>
+              </div>
             </div>
-          </ScrollArea>
+          )}
+
+          {/* Logs Expansíveis */}
+          {showLogs && logs.length > 0 && (
+            <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 font-mono text-[11px] text-slate-400 space-y-1 max-h-40 overflow-y-auto">
+              {logs.map((l, i) => (
+                <div key={i}>{l}</div>
+              ))}
+            </div>
+          )}
+
+          {/* Tabela de Pré-visualização com Visual Moderno (Igual ao Bocad) */}
+          {extractedData.length > 0 && (
+            <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950/60">
+              <div className="px-4 py-3 bg-slate-800/60 border-b border-slate-800 flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-200 flex items-center gap-2">
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                  Prévia da Planilha de Destino (12 Colunas Oficiais)
+                </span>
+                <span className="text-[11px] text-slate-400">
+                  Pronto para uso direto no botão "Importar Peças"
+                </span>
+              </div>
+
+              <ScrollArea className="h-[420px] w-full">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead className="bg-slate-900 text-slate-300 font-mono text-[11px] sticky top-0 z-10 shadow-sm">
+                    <tr>
+                      <th className="p-2.5 border-b border-slate-800">OF</th>
+                      <th className="p-2.5 border-b border-slate-800">Fase</th>
+                      <th className="p-2.5 border-b border-slate-800">Marca</th>
+                      <th className="p-2.5 border-b border-slate-800">Descrição</th>
+                      <th className="p-2.5 border-b border-slate-800 text-center">Composto por Componentes</th>
+                      <th className="p-2.5 border-b border-slate-800 text-center">Quantidade</th>
+                      <th className="p-2.5 border-b border-slate-800 text-right">Peso Unitário (kg)</th>
+                      <th className="p-2.5 border-b border-slate-800 text-right">Peso Total (kg)</th>
+                      <th className="p-2.5 border-b border-slate-800">Tratamento Superficial</th>
+                      <th className="p-2.5 border-b border-slate-800">Material</th>
+                      <th className="p-2.5 border-b border-slate-800">Perfil Principal</th>
+                      <th className="p-2.5 border-b border-slate-800 text-right">Comprimento Ref. (mm)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-sans">
+                    {extractedData.map((p, idx) => {
+                      const pUnit = typeof p.pesoUnit === 'number' ? p.pesoUnit : parseFloat(String(p.pesoUnit)) || 0;
+                      const pTot = typeof p.pesoTotal === 'number' ? p.pesoTotal : parseFloat(String(p.pesoTotal)) || 0;
+                      return (
+                        <tr key={idx} className="hover:bg-slate-800/40 transition-colors">
+                          <td className="p-2.5 font-mono text-indigo-300 font-medium">{p.of}</td>
+                          <td className="p-2.5 font-mono text-slate-300">{p.fase}</td>
+                          <td className="p-2.5 font-mono font-bold text-white">{p.marca}</td>
+                          <td className="p-2.5 text-slate-200 font-medium">{p.descricao}</td>
+                          <td className="p-2.5 text-center">
+                            {p.isComposed === 'SIM' ? (
+                              <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-[10px] px-2 py-0">
+                                SIM
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-sky-500/20 text-sky-300 border-sky-500/40 text-[10px] px-2 py-0">
+                                NÃO
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="p-2.5 text-center font-bold text-slate-200">{p.quantidade}</td>
+                          <td className="p-2.5 text-right font-mono text-slate-300">
+                            {pUnit > 0 ? pUnit.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}
+                          </td>
+                          <td className="p-2.5 text-right font-mono font-semibold text-amber-300">
+                            {pTot > 0 ? pTot.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 }) : '-'}
+                          </td>
+                          <td className="p-2.5 text-slate-300">
+                            <Badge variant="outline" className="text-[10px] bg-slate-900 border-slate-700 text-slate-300">
+                              {p.tratamentoSuperficial}
+                            </Badge>
+                          </td>
+                          <td className="p-2.5 font-medium text-emerald-400">{p.material}</td>
+                          <td className="p-2.5 font-mono text-slate-200">{p.perfilPrincipal}</td>
+                          <td className="p-2.5 text-right font-mono text-slate-400">
+                            {p.comprimentoMax || '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </ScrollArea>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
@@ -817,59 +970,18 @@ export const TecnometalConverterModal: React.FC<TecnometalConverterProps> = ({ o
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-slate-900 border-slate-800 text-white max-w-5xl max-h-[92vh] overflow-y-auto">
-        <DialogHeader className="border-b border-slate-800 pb-3">
-          <div className="flex items-center justify-between pr-4">
-            <div>
-              <DialogTitle className="text-xl font-bold text-white flex items-center gap-2">
-                <FileText className="h-5 w-5 text-sky-400" />
-                Conversor Tecnometal (PDF para Excel)
-              </DialogTitle>
-              <DialogDescription className="text-slate-400 text-xs mt-1">
-                Conversão 100% no navegador (Client-Side) de relatórios do Tecnometal em PDF para Excel (.xlsx)
-              </DialogDescription>
-            </div>
-            <Badge className="bg-sky-500/10 text-sky-400 border border-sky-500/20 text-xs">
-              Autônomo / Sem Servidor
-            </Badge>
-          </div>
-        </DialogHeader>
-
-        <div className="mt-4">
-          <TecnometalConverterContent />
-        </div>
+        <TecnometalConverterContent />
       </DialogContent>
     </Dialog>
   );
 };
 
-const TecnometalConverter: React.FC<TecnometalConverterProps> = ({ open, onOpenChange }) => {
+export const TecnometalConverter: React.FC<TecnometalConverterProps> = ({ open, onOpenChange }) => {
   if (open !== undefined && onOpenChange !== undefined) {
     return <TecnometalConverterModal open={open} onOpenChange={onOpenChange} />;
   }
 
-  return (
-    <Card className="bg-slate-900 border-slate-800 text-white max-w-5xl mx-auto shadow-2xl">
-      <CardHeader className="border-b border-slate-800">
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-xl font-bold flex items-center gap-2">
-              <FileText className="h-5 w-5 text-sky-400" />
-              Conversor Tecnometal (PDF para Excel)
-            </CardTitle>
-            <p className="text-xs text-slate-400 mt-1">
-              Conversão 100% no navegador (Client-Side) de Listas de Conjuntos do Tecnometal em PDF para Excel (.xlsx)
-            </p>
-          </div>
-          <Badge className="bg-sky-500/10 text-sky-400 border border-sky-500/20 text-xs">
-            Autônomo / Sem Servidor
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="pt-6">
-        <TecnometalConverterContent />
-      </CardContent>
-    </Card>
-  );
+  return <TecnometalConverterContent />;
 };
 
 export default TecnometalConverter;
