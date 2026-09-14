@@ -3,6 +3,7 @@ import React from 'react';
 import { ItemPrioridade } from '@/hooks/useItensPrioridadeFabricacao';
 
 interface PrioridadesPDFTemplateProps {
+  id?: string;
   itensPorPrioridade: { [key: string]: ItemPrioridade[] };
   ofSelecionada?: string | null;
   faseSelecionada?: string | null;
@@ -14,6 +15,7 @@ interface PrioridadesPDFTemplateProps {
 }
 
 export const PrioridadesPDFTemplate: React.FC<PrioridadesPDFTemplateProps> = ({ 
+  id,
   itensPorPrioridade,
   ofSelecionada,
   faseSelecionada,
@@ -144,7 +146,7 @@ export const PrioridadesPDFTemplate: React.FC<PrioridadesPDFTemplateProps> = ({
   };
 
   return (
-    <div id="prioridades-pdf-content" className="bg-white text-black max-w-4xl mx-auto p-6">
+    <div id={id || "prioridades-pdf-content"} className="bg-white text-black max-w-4xl mx-auto p-6">
       <style>{`
         .checklist-container {
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
