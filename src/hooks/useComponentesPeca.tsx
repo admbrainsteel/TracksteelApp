@@ -172,6 +172,13 @@ export function useComponentesPeca(pecaIds: string | string[] = []) {
     }
 
     try {
+      // 1. Apagar apontamentos de produção vinculados ao componente
+      await supabase
+        .from('apontamentos_producao')
+        .delete()
+        .eq('componente_id', id);
+
+      // 2. Apagar o componente
       const { error } = await supabase
         .from('componentes_peca')
         .delete()

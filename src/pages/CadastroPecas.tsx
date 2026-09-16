@@ -23,6 +23,7 @@ export default function CadastroPecas() {
     savePeca, 
     updatePeca, 
     deletePeca, 
+    deletePecasBatch,
     importCSV, 
     importPecas,
     undoLastImport,
@@ -70,9 +71,14 @@ export default function CadastroPecas() {
 
   const handleDelete = async (pecaId: string) => {
     if (!canDelete()) return;
-    if (confirm('Tem certeza que deseja apagar esta peça?')) {
+    if (confirm('Tem certeza que deseja apagar esta peça e seus vínculos?')) {
       await deletePeca(pecaId);
     }
+  };
+
+  const handleDeleteBatch = async (pecaIds: string[]) => {
+    if (!canDelete()) return;
+    await deletePecasBatch(pecaIds);
   };
 
   const handleEdit = (peca: Peca) => {
@@ -233,6 +239,7 @@ export default function CadastroPecas() {
               pecas={pecas}
               onOpenComponentPopup={handleOpenComponentPopup}
               onDeletePeca={canDelete() ? handleDelete : undefined}
+              onDeletePecasBatch={canDelete() ? handleDeleteBatch : undefined}
               onEditPeca={canEdit() ? handleEdit : undefined}
               onDeleteLastImport={canDelete() ? handleDeleteLastImport : undefined}
               hasRecentImport={hasRecentImport}

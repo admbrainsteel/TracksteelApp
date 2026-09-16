@@ -241,6 +241,83 @@ export function usePecas() {
     }
   };
 
+  const deletePecasCascade = async (pecaIds: string[]): Promise<boolean> => {
+    if (!pecaIds || pecaIds.length === 0) return true;
+
+    try {
+      console.log('🗑️ Iniciando exclusão em cascata para peças:', pecaIds);
+
+      // 1. Obter todos os IDs de componentes vinculados a essas peças
+      const { data: componentes } = await supabase
+        .from('componentes_peca')
+        .select('id')
+        .in('peca_id', pecaIds);
+
+      const componenteIds = componentes?.map(c => c.id) || [];
+
+      // 2. Apagar apontamentos de produção vinculados aos componentes
+      if (componenteIds.length > 0) {
+        const { error: apCompError } = await supabase
+          .from('apontamentos_producao')
+          .delete()
+          .in('componente_id', componenteIds);
+        if (apCompError) console.warn('Aviso ao apagar apontamentos de componentes:', apCompError);
+      }
+
+      // 3. Apagar apontamentos de produção vinculados diretamente às peças
+      const { error: apPecaError } = await supabase
+        .from('apontamentos_producao')
+        .delete()
+        .in('peca_id', pecaIds);
+      if (apPecaError) console.warn('Aviso ao apagar apontamentos de peças:', apPecaError);
+
+      // 4. Apagar itens de prioridades de fabricação
+      const { error: prioridadesError } = await supabase
+        .from('itens_prioridade_fabricacao')
+        .delete()
+        .in('peca_id', pecaIds);
+      if (prioridadesError) console.warn('Aviso ao apagar itens de prioridade:', prioridadesError);
+
+      // 5. Apagar itens de romaneio de peças
+      const { error: romaneioError } = await supabase
+        .from('itens_romaneio_pecas')
+        .delete()
+        .in('peca_id', pecaIds);
+      if (romaneioError) console.warn('Aviso ao apagar itens de romaneio:', romaneioError);
+
+      // 6. Apagar datas de processos
+      const { error: processosError } = await supabase
+        .from('processos_pecas_datas')
+        .delete()
+        .in('peca_id', pecaIds);
+      if (processosError) console.warn('Aviso ao apagar processos datas:', processosError);
+
+      // 7. Apagar componentes das peças
+      const { error: compError } = await supabase
+        .from('componentes_peca')
+        .delete()
+        .in('peca_id', pecaIds);
+      if (compError) console.warn('Aviso ao apagar componentes:', compError);
+
+      // 8. Apagar as peças principais
+      const { error: deleteError } = await supabase
+        .from('pecas')
+        .delete()
+        .in('id', pecaIds);
+
+      if (deleteError) {
+        console.error('❌ Erro ao apagar peças do banco:', deleteError);
+        throw deleteError;
+      }
+
+      console.log('✅ Peças e vínculos apagados com sucesso');
+      return true;
+    } catch (error) {
+      console.error('❌ Erro na exclusão em cascata das peças:', error);
+      throw error;
+    }
+  };
+
   const deletePeca = async (pecaId: string): Promise<boolean> => {
     if (!user) {
       toast.error('Usuário não autenticado');
@@ -248,23 +325,31 @@ export function usePecas() {
     }
 
     try {
-      const { error } = await supabase
-        .from('pecas')
-        .delete()
-        .eq('id', pecaId);
-
-      if (error) {
-        console.error('Erro ao apagar peça:', error);
-        toast.error('Erro ao apagar peça');
-        return false;
-      }
-
+      await deletePecasCascade([pecaId]);
       toast.success('Peça apagada com sucesso!');
       await loadPecas();
       return true;
     } catch (error) {
       console.error('Erro ao apagar peça:', error);
       toast.error('Erro ao apagar peça');
+      return false;
+    }
+  };
+
+  const deletePecasBatch = async (pecaIds: string[]): Promise<boolean> => {
+    if (!user) {
+      toast.error('Usuário não autenticado');
+      return false;
+    }
+
+    try {
+      await deletePecasCascade(pecaIds);
+      toast.success(`${pecaIds.length} peça(s) apagada(s) com sucesso!`);
+      await loadPecas();
+      return true;
+    } catch (error) {
+      console.error('Erro ao apagar peças selecionadas:', error);
+      toast.error('Erro ao apagar peças selecionadas');
       return false;
     }
   };
@@ -313,25 +398,7 @@ export function usePecas() {
         return;
       }
 
-      const { error } = await supabase
-        .from('pecas')
-        .insert(pecasData);
-
-      if (error) {
-        console.error('❌ Erro ao importar CSV:', error);
-        throw error;
-      }
-
-      console.log('✅ CSV importado com sucesso:', pecasData.length, 'peças');
-      toast.success(`${pecasData.length} peça(s) importada(s) com sucesso!`);
-      setHasRecentImport(true);
-      
-      // Sincronização manual apenas após importação
-      setTimeout(() => {
-        sincronizarPrioridades(false);
-      }, 3000);
-      
-      await loadPecas();
+      await importPecas(pecasData);
     } catch (error) {
       console.error('❌ Erro ao importar CSV:', error);
       toast.error('Erro ao importar arquivo CSV');
@@ -340,7 +407,7 @@ export function usePecas() {
   };
 
   const importPecas = async (pecasData: any[]) => {
-    console.log('📦 Iniciando importação de peças:', pecasData.length);
+    console.log('📦 Iniciando importação inteligente de peças:', pecasData.length);
     if (!user) {
       toast.error('Usuário não autenticado');
       return;
@@ -353,8 +420,6 @@ export function usePecas() {
       console.log('🔍 Separando dados de peças e componentes...');
       
       pecasData.forEach((item, index) => {
-        console.log(`📋 Processando item ${index + 1}:`, item);
-        
         const pecaKey = `${item.of_number || ''}-${item.etapa_fase || ''}-${item.marca || ''}`;
         
         const pecaData = {
@@ -394,75 +459,135 @@ export function usePecas() {
         }
       });
 
-      const pecasParaInserir = Array.from(pecasMap.values());
-      console.log('✅ Peças para inserir:', pecasParaInserir.length);
+      const pecasParaProcessar = Array.from(pecasMap.values());
+      console.log('✅ Peças únicas a processar:', pecasParaProcessar.length);
       console.log('✅ Peças com componentes:', componentesMap.size);
 
-      if (pecasParaInserir.length === 0) {
+      if (pecasParaProcessar.length === 0) {
         toast.error('Nenhuma peça válida encontrada para importação');
         return;
       }
 
-      console.log('💾 Inserindo peças principais...');
-      const { data: pecasInseridas, error: pecasError } = await supabase
+      // 1. Consultar peças existentes para não duplicar (mesma OF, Fase e Marca)
+      const ofsParaConsultar = Array.from(new Set(pecasParaProcessar.map(p => p.of_number).filter(Boolean)));
+      const { data: pecasExistentes, error: queryExistentesError } = await supabase
         .from('pecas')
-        .insert(pecasParaInserir)
-        .select('id, of_number, etapa_fase, marca');
+        .select('id, of_number, etapa_fase, marca')
+        .eq('user_id', user.id)
+        .in('of_number', ofsParaConsultar);
 
-      if (pecasError) {
-        console.error('❌ Erro ao inserir peças:', pecasError);
-        toast.error(`Erro ao inserir peças: ${pecasError.message}`);
-        throw pecasError;
+      if (queryExistentesError) {
+        console.warn('Aviso ao consultar peças existentes:', queryExistentesError);
       }
 
-      console.log('✅ Peças inseridas com sucesso:', pecasInseridas?.length || 0);
+      const existingPecasMap = new Map<string, string>();
+      if (pecasExistentes) {
+        pecasExistentes.forEach(ep => {
+          const key = `${ep.of_number || ''}-${ep.etapa_fase || ''}-${ep.marca || ''}`;
+          existingPecasMap.set(key, ep.id);
+        });
+      }
 
+      const pecaIdResolvedMap = new Map<string, string>();
+      const pecasNovasParaInserir: any[] = [];
+      let totalAtualizadas = 0;
+
+      // 2. Atualizar existentes mantendo ID (preservando apontamentos e prioridades)
+      for (const peca of pecasParaProcessar) {
+        const key = `${peca.of_number || ''}-${peca.etapa_fase || ''}-${peca.marca || ''}`;
+        const existingId = existingPecasMap.get(key);
+
+        if (existingId) {
+          const { error: updateError } = await supabase
+            .from('pecas')
+            .update({
+              descricao: peca.descricao,
+              quantidade: peca.quantidade,
+              peso_unitario: peca.peso_unitario,
+              peso_total: peca.peso_total,
+              tratamento_superficial: peca.tratamento_superficial,
+              material: peca.material,
+              perfil_principal: peca.perfil_principal,
+              tem_componentes: peca.tem_componentes
+            })
+            .eq('id', existingId);
+
+          if (!updateError) {
+            pecaIdResolvedMap.set(key, existingId);
+            totalAtualizadas++;
+          }
+        } else {
+          pecasNovasParaInserir.push(peca);
+        }
+      }
+
+      // 3. Inserir novas peças
+      let totalNovas = 0;
+      if (pecasNovasParaInserir.length > 0) {
+        console.log('💾 Inserindo novas peças principais:', pecasNovasParaInserir.length);
+        const { data: pecasInseridas, error: pecasError } = await supabase
+          .from('pecas')
+          .insert(pecasNovasParaInserir)
+          .select('id, of_number, etapa_fase, marca');
+
+        if (pecasError) {
+          console.error('❌ Erro ao inserir novas peças:', pecasError);
+          toast.error(`Erro ao inserir peças: ${pecasError.message}`);
+          throw pecasError;
+        }
+
+        if (pecasInseridas) {
+          totalNovas = pecasInseridas.length;
+          pecasInseridas.forEach(p => {
+            const key = `${p.of_number || ''}-${p.etapa_fase || ''}-${p.marca || ''}`;
+            pecaIdResolvedMap.set(key, p.id);
+          });
+        }
+      }
+
+      // 4. Inserir/Sincronizar Componentes
       let totalComponentesInseridos = 0;
-      
-      if (componentesMap.size > 0 && pecasInseridas) {
-        console.log('🔧 Inserindo componentes...');
+      if (componentesMap.size > 0) {
+        console.log('🔧 Inserindo e sincronizando componentes...');
         
         for (const [pecaKey, componentes] of componentesMap.entries()) {
-          const [of_number, etapa_fase, marca] = pecaKey.split('-');
+          const pecaId = pecaIdResolvedMap.get(pecaKey);
           
-          const pecaInserida = pecasInseridas.find(p => 
-            p.of_number === of_number && 
-            p.etapa_fase === etapa_fase && 
-            p.marca === marca
-          );
-          
-          if (pecaInserida && componentes.length > 0) {
+          if (pecaId && componentes.length > 0) {
+            // Limpar componentes antigos desta peça para atualizar de forma limpa
+            await supabase
+              .from('componentes_peca')
+              .delete()
+              .eq('peca_id', pecaId);
+
             const componentesComPecaId = componentes.map(comp => ({
               ...comp,
-              peca_id: pecaInserida.id
+              peca_id: pecaId
             }));
-
-            console.log(`🔧 Inserindo ${componentesComPecaId.length} componentes para peça ${marca}...`);
 
             const { error: componentesError } = await supabase
               .from('componentes_peca')
               .insert(componentesComPecaId);
 
             if (componentesError) {
-              console.error('❌ Erro ao inserir componentes:', componentesError);
+              console.error(`❌ Erro ao inserir componentes para ${pecaKey}:`, componentesError);
             } else {
               totalComponentesInseridos += componentesComPecaId.length;
-              console.log(`✅ Componentes inseridos para peça ${marca}: ${componentesComPecaId.length}`);
             }
           }
         }
       }
 
-      let successMessage = `✅ ${pecasInseridas?.length || 0} peça(s) importada(s) com sucesso!`;
-      if (totalComponentesInseridos > 0) {
-        successMessage += ` ${totalComponentesInseridos} componente(s) também foram criados.`;
-      }
+      let successMessage = `✅ Importação concluída!`;
+      if (totalNovas > 0) successMessage += ` ${totalNovas} nova(s) peça(s).`;
+      if (totalAtualizadas > 0) successMessage += ` ${totalAtualizadas} peça(s) atualizada(s).`;
+      if (totalComponentesInseridos > 0) successMessage += ` ${totalComponentesInseridos} componente(s) vinculados.`;
 
       console.log('🎉 Importação concluída:', successMessage);
       toast.success(successMessage);
       setHasRecentImport(true);
       
-      // Sincronização manual apenas após importação
+      // Sincronização manual de prioridades
       setTimeout(() => {
         sincronizarPrioridades(false);
       }, 3000);
@@ -500,27 +625,7 @@ export function usePecas() {
       }
 
       const pecaIds = pecasParaApagar.map(peca => peca.id);
-      const { error: deleteComponentesError } = await supabase
-        .from('componentes_peca')
-        .delete()
-        .in('peca_id', pecaIds);
-
-      if (deleteComponentesError) {
-        console.error('Erro ao apagar componentes das peças:', deleteComponentesError);
-        toast.error('Erro ao apagar componentes das peças');
-        return;
-      }
-
-      const { error: deleteError } = await supabase
-        .from('pecas')
-        .delete()
-        .in('id', pecaIds);
-
-      if (deleteError) {
-        console.error('Erro ao apagar peças:', deleteError);
-        toast.error('Erro ao apagar peças');
-        return;
-      }
+      await deletePecasCascade(pecaIds);
 
       toast.success('Última importação desfeita com sucesso!');
       setHasRecentImport(false);
@@ -556,27 +661,7 @@ export function usePecas() {
       }
 
       const pecaIds = pecasParaApagar.map(peca => peca.id);
-      const { error: deleteComponentesError } = await supabase
-        .from('componentes_peca')
-        .delete()
-        .in('peca_id', pecaIds);
-
-      if (deleteComponentesError) {
-        console.error('Erro ao apagar componentes das peças:', deleteComponentesError);
-        toast.error('Erro ao apagar componentes das peças');
-        return;
-      }
-
-      const { error: deleteError } = await supabase
-        .from('pecas')
-        .delete()
-        .in('id', pecaIds);
-
-      if (deleteError) {
-        console.error('Erro ao apagar peças:', deleteError);
-        toast.error('Erro ao apagar peças');
-        return;
-      }
+      await deletePecasCascade(pecaIds);
 
       toast.success('Última importação apagada com sucesso!');
       setHasRecentImport(false);
@@ -635,6 +720,7 @@ export function usePecas() {
     savePeca,
     updatePeca,
     deletePeca,
+    deletePecasBatch,
     importCSV,
     importPecas,
     undoLastImport,
@@ -645,3 +731,4 @@ export function usePecas() {
     sincronizarPrioridades
   };
 }
+

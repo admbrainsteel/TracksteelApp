@@ -18,6 +18,7 @@ interface PecasTableProps {
   pecas: Peca[];
   onOpenComponentPopup: (pecaId: string) => void;
   onDeletePeca?: (pecaId: string) => void;
+  onDeletePecasBatch?: (pecaIds: string[]) => Promise<any>;
   onEditPeca?: (peca: Peca) => void;
   onDeleteLastImport?: () => void;
   onBatchUpdatePecas?: (pecaIds: string[], updates: any) => Promise<void>;
@@ -31,6 +32,7 @@ export function PecasTable({
   pecas, 
   onOpenComponentPopup, 
   onDeletePeca, 
+  onDeletePecasBatch,
   onEditPeca, 
   onDeleteLastImport,
   onBatchUpdatePecas,
@@ -89,19 +91,24 @@ export function PecasTable({
   };
 
   const handleDeleteSelected = async () => {
-    if (!canDelete || !onDeletePeca) {
+    if (!canDelete || (!onDeletePecasBatch && !onDeletePeca)) {
       toast.error('Você não tem permissão para excluir peças');
       return;
     }
     
-    if (window.confirm(`Tem certeza que deseja excluir ${selectedPecas.size} peças?`)) {
+    if (window.confirm(`Tem certeza que deseja excluir ${selectedPecas.size} peças selecionadas e seus vínculos?`)) {
       try {
-        for (const pecaId of selectedPecas) {
-          await onDeletePeca(pecaId);
+        const pecaIdsArray = Array.from(selectedPecas);
+        if (onDeletePecasBatch) {
+          await onDeletePecasBatch(pecaIdsArray);
+        } else if (onDeletePeca) {
+          for (const pecaId of pecaIdsArray) {
+            await onDeletePeca(pecaId);
+          }
+          toast.success('Peças excluídas com sucesso!');
         }
-        toast.success('Peças excluídas com sucesso!');
       } catch (error) {
-        toast.error('Erro ao excluir peças.');
+        console.error('Erro ao excluir peças:', error);
       }
     }
   };

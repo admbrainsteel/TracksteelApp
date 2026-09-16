@@ -24,6 +24,7 @@ export default function CadastroPecasFiltrado() {
     savePeca, 
     updatePeca, 
     deletePeca, 
+    deletePecasBatch,
     importCSV, 
     importPecas,
     undoLastImport,
@@ -45,12 +46,10 @@ export default function CadastroPecasFiltrado() {
     if (!canCreate()) return false;
     setSaving(true);
     try {
-      // Garantir que a peça seja salva com a OF selecionada
-      const formDataComOF = { ...formData, of_number: ofSelecionada };
-      const success = await savePeca(formDataComOF);
+      const pecaComOF = { ...formData, of_number: ofSelecionada };
+      const success = await savePeca(pecaComOF);
       if (success) {
         setShowForm(false);
-        // Reload data after successful save
         loadPecas();
       }
       return success;
@@ -59,15 +58,15 @@ export default function CadastroPecasFiltrado() {
     }
   };
 
-  const handleUpdate = async (id: string, formData: any) => {
-    if (!canEdit()) return false;
+  const handleUpdate = async (formData: any) => {
+    if (!canEdit() || !editingPeca) return false;
     setSaving(true);
     try {
-      const success = await updatePeca(id, formData);
+      const pecaComOF = { ...formData, of_number: ofSelecionada };
+      const success = await updatePeca(editingPeca.id, pecaComOF);
       if (success) {
         setEditingPeca(null);
         setShowForm(false);
-        // Reload data after successful update
         loadPecas();
       }
       return success;
@@ -78,12 +77,19 @@ export default function CadastroPecasFiltrado() {
 
   const handleDelete = async (pecaId: string) => {
     if (!canDelete()) return;
-    if (confirm('Tem certeza que deseja apagar esta peça?')) {
+    if (confirm('Tem certeza que deseja apagar esta peça e seus vínculos?')) {
       const success = await deletePeca(pecaId);
       if (success) {
-        // Reload data after successful delete
         loadPecas();
       }
+    }
+  };
+
+  const handleDeleteBatch = async (pecaIds: string[]) => {
+    if (!canDelete()) return;
+    const success = await deletePecasBatch(pecaIds);
+    if (success) {
+      loadPecas();
     }
   };
 
@@ -102,7 +108,6 @@ export default function CadastroPecasFiltrado() {
     if (!canDelete()) return;
     if (confirm('Tem certeza que deseja apagar todas as peças da última importação?')) {
       await deleteLastImport();
-      // Reload data after successful delete
       loadPecas();
     }
   };
@@ -122,13 +127,11 @@ export default function CadastroPecasFiltrado() {
       throw new Error('Sem permissão');
     }
     try {
-      // Adicionar a OF selecionada a todas as peças importadas
       const pecasComOF = pecasData.map(peca => ({
         ...peca,
         of_number: ofSelecionada
       }));
       await importPecas(pecasComOF);
-      // Reload data after successful import
       loadPecas();
     } catch (error) {
       throw error;
@@ -142,38 +145,25 @@ export default function CadastroPecasFiltrado() {
     }
     try {
       await importCSV(file);
-      // Reload data after successful import
       loadPecas();
       return true;
     } catch (error) {
-      console.error('Erro ao importar CSV:', error);
       return false;
     }
   };
 
-  const handleBatchUpdatePecas = async (pecaIds: string[], updates: any) => {
-    if (!canEdit()) {
-      toast.error('Você não tem permissão para editar peças');
-      throw new Error('Sem permissão');
-    }
-    
-    try {
-      await batchUpdatePecas(pecaIds, updates);
-      // Reload data after successful batch update
-      loadPecas();
-    } catch (error) {
-      throw error;
-    }
-  };
-
   const handleUndoLastImport = async () => {
-    await undoLastImport();
-    // Reload data after successful undo
-    loadPecas();
+    if (!canDelete()) return;
+    if (confirm('Tem certeza que deseja desfazer a última importação?')) {
+      await undoLastImport();
+      loadPecas();
+    }
   };
 
-  const handleVoltar = () => {
-    navigate('/seletor-of');
+  const handleBatchUpdatePecas = async (pecaIds: string[], updates: any) => {
+    if (!canEdit()) return;
+    await batchUpdatePecas(pecaIds, updates);
+    loadPecas();
   };
 
   useEffect(() => {
@@ -197,56 +187,52 @@ export default function CadastroPecasFiltrado() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-4 mb-2">
-              <h1 className="text-3xl font-bold text-foreground">Cadastro de Peças</h1>
-              <Badge variant="secondary" className="text-lg px-3 py-1">
-                OF: {ofSelecionada}
-              </Badge>
-            </div>
-            <p className="text-muted-foreground">Gerencie as peças da OF selecionada</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <Button 
-              onClick={handleVoltar}
-              variant="outline"
+    <StandardPageLayout
+      title="Cadastro de Peças"
+      description="Gerencie as peças da OF selecionada"
+      badges={[
+        { label: `OF: ${ofSelecionada}`, variant: "secondary" }
+      ]}
+      actions={
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/ordens-fabricacao')}
+            className="flex items-center gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Voltar
+          </Button>
+          <Badge variant="outline" className="text-sm px-3 py-1">
+            {pecasFiltradas.length} peças
+          </Badge>
+          {canCreate() && (
+            <Button
+              onClick={() => {
+                setEditingPeca(null);
+                setShowForm(!showForm);
+              }}
               className="flex items-center gap-2"
             >
-              <ArrowLeft className="h-4 w-4" />
-              Voltar
+              <Plus className="h-4 w-4" />
+              {showForm ? 'Fechar' : 'Nova Peça'}
             </Button>
-            <Badge variant="secondary" className="bg-secondary text-secondary-foreground border-border">
-              {pecasFiltradas.length} {pecasFiltradas.length === 1 ? 'peça' : 'peças'}
-            </Badge>
-            {canCreate() && (
-              <Button 
-                onClick={() => setShowForm(true)}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Nova Peça
-              </Button>
-            )}
-          </div>
+          )}
         </div>
-
+      }
+    >
+      <div className="space-y-6">
         {/* Form Card */}
         {showForm && canCreate() && (
           <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle className="text-card-foreground flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                {editingPeca ? 'Editar Peça' : 'Nova Peça'} - OF: {ofSelecionada}
+              <CardTitle className="text-card-foreground">
+                {editingPeca ? 'Editar Peça' : 'Nova Peça'}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <PecaForm 
-                ofNumbers={[ofSelecionada]} // Apenas a OF selecionada
-                ofDefault={ofSelecionada}
+              <PecaForm
+                ofNumber={ofSelecionada}
                 onSave={handleSave}
                 onUpdate={handleUpdate}
                 onImportCSV={handleImportCSV}
@@ -278,6 +264,7 @@ export default function CadastroPecasFiltrado() {
               pecas={pecasFiltradas}
               onOpenComponentPopup={handleOpenComponentPopup}
               onDeletePeca={canDelete() ? handleDelete : undefined}
+              onDeletePecasBatch={canDelete() ? handleDeleteBatch : undefined}
               onEditPeca={canEdit() ? handleEdit : undefined}
               onDeleteLastImport={canDelete() ? handleDeleteLastImport : undefined}
               onBatchUpdatePecas={canEdit() ? handleBatchUpdatePecas : undefined}
@@ -301,6 +288,6 @@ export default function CadastroPecasFiltrado() {
           />
         )}
       </div>
-    </div>
+    </StandardPageLayout>
   );
 }
