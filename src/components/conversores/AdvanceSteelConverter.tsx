@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { useAppLabels } from '@/hooks/useAppLabels';
 import { usePecas } from '@/hooks/usePecas';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface ComponentItem {
   marca: string;
@@ -159,6 +160,29 @@ const AdvanceSteelConverterContent: React.FC = () => {
     }, 50);
   };
 
+  const buscarTratamentoOF = async (ofCode: string): Promise<'pintura' | 'galvanizacao'> => {
+    if (!ofCode) return 'pintura';
+    try {
+      const cleanOf = ofCode.trim();
+      const { data } = await supabase
+        .from('ordens_fabricacao')
+        .select('num_of, tratamento_final')
+        .or(`num_of.eq.${cleanOf},num_of.ilike.%${cleanOf}%`)
+        .limit(1);
+
+      if (data && data.length > 0 && data[0].tratamento_final) {
+        const trat = data[0].tratamento_final.toLowerCase();
+        if (trat.includes('galv')) {
+          return 'galvanizacao';
+        }
+        return 'pintura';
+      }
+    } catch (err) {
+      console.warn('Aviso ao buscar tratamento da OF:', err);
+    }
+    return 'pintura';
+  };
+
   const handleTratamentoChange = (novoTratamento: 'pintura' | 'galvanizacao') => {
     setTratamentoGlobal(novoTratamento);
     setExtractedData((prev) =>
@@ -169,12 +193,15 @@ const AdvanceSteelConverterContent: React.FC = () => {
     );
   };
 
-  const handleOfChange = (newOf: string) => {
+  const handleOfChange = async (newOf: string) => {
     setHeaderOf(newOf);
+    const trat = await buscarTratamentoOF(newOf);
+    setTratamentoGlobal(trat);
     setExtractedData((prev) =>
       prev.map((item) => ({
         ...item,
-        of: newOf
+        of: newOf,
+        tratamentoSuperficial: trat
       }))
     );
   };
@@ -234,7 +261,7 @@ const AdvanceSteelConverterContent: React.FC = () => {
     return isNaN(num) ? 0 : num;
   };
 
-  const processPdfLines = (items: PdfItem[]) => {
+  const processPdfLines = async (items: PdfItem[]) => {
     // 1. Agrupamento robusto de linhas por Clustering de Coordenada Y em cada página
     const pagesMap = new Map<number, PdfItem[]>();
     items.forEach((it) => {
@@ -539,6 +566,11 @@ const AdvanceSteelConverterContent: React.FC = () => {
 
     addLog(`Total de Peças Principais extraídas: ${assemblies.length}`);
 
+    const targetOf = defaultOf || headerOf || (assemblies[0] ? assemblies[0].of : '');
+    const detectedTratamento = await buscarTratamentoOF(targetOf);
+    setTratamentoGlobal(detectedTratamento);
+    addLog(`Tratamento superficial obtido automaticamente da OF ${targetOf}: ${detectedTratamento === 'galvanizacao' ? 'Galvanizado' : 'Pintura'}`);
+
     const finalPieces: ExtractedPiece[] = assemblies.map((asm) => {
       const isComposed = asm.isComposed === 'SIM' && asm.components.length > 0;
       let perfilPrincipal = asm.descricao;
@@ -609,7 +641,7 @@ const AdvanceSteelConverterContent: React.FC = () => {
         comprimentoMax: maxComp > 0 ? maxComp : '-',
         pesoUnit: pesoUnit > 0 ? pesoUnit.toFixed(2) : '-',
         pesoTotal: totalPeso > 0 ? totalPeso.toFixed(2) : '-',
-        tratamentoSuperficial: 'pintura',
+        tratamentoSuperficial: detectedTratamento,
         components: isComposed ? asm.components : []
       };
     });
@@ -663,7 +695,7 @@ const AdvanceSteelConverterContent: React.FC = () => {
       }
 
       addLog(`Total de elementos de texto extraídos: ${allItems.length}`);
-      processPdfLines(allItems);
+      await processPdfLines(allItems);
     } catch (err) {
       console.error(err);
       const errMsg = err instanceof Error ? err.message : 'Erro desconhecido';
@@ -878,37 +910,21 @@ const AdvanceSteelConverterContent: React.FC = () => {
               </CardDescription>
             </div>
 
-            {/* Configuração de Tratamento Superficial */}
-            <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-3 shadow-inner flex flex-col gap-2 min-w-[280px]">
+            {/* Indicador Automático de Tratamento Superficial da OF */}
+            <div className="bg-slate-800/80 border border-slate-700/80 rounded-xl p-3 shadow-inner flex flex-col gap-1 min-w-[240px]">
               <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
                 <span className="flex items-center gap-1.5 text-indigo-300">
                   <Paintbrush className="w-3.5 h-3.5 text-indigo-400" />
                   Tratamento Superficial:
                 </span>
-                <Badge variant="outline" className="text-[10px] bg-slate-900 text-slate-400 border-slate-700">
-                  Configuração Global
+                <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-300 border-indigo-500/30">
+                  Automático da OF
                 </Badge>
               </div>
-
-              <RadioGroup
-                value={tratamentoGlobal}
-                onValueChange={(val) => handleTratamentoChange(val as 'pintura' | 'galvanizacao')}
-                className="grid grid-cols-2 gap-2"
-              >
-                <div className="flex items-center space-x-2 bg-slate-900/90 hover:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700/70 cursor-pointer transition-colors">
-                  <RadioGroupItem value="pintura" id="adv-trat-pintura" className="border-indigo-400 text-indigo-500" />
-                  <Label htmlFor="adv-trat-pintura" className="text-xs font-medium text-slate-200 cursor-pointer">
-                    Pintura
-                  </Label>
-                </div>
-
-                <div className="flex items-center space-x-2 bg-slate-900/90 hover:bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700/70 cursor-pointer transition-colors">
-                  <RadioGroupItem value="galvanizacao" id="adv-trat-galvanizacao" className="border-indigo-400 text-indigo-500" />
-                  <Label htmlFor="adv-trat-galvanizacao" className="text-xs font-medium text-slate-200 cursor-pointer">
-                    Galvanização
-                  </Label>
-                </div>
-              </RadioGroup>
+              <div className="flex items-center gap-2 pt-1 text-sm font-semibold text-white">
+                <span className={`w-2.5 h-2.5 rounded-full ${tratamentoGlobal === 'galvanizacao' ? 'bg-amber-400' : 'bg-blue-400'}`}></span>
+                {tratamentoGlobal === 'galvanizacao' ? 'Galvanizado (OF)' : 'Pintura (OF)'}
+              </div>
             </div>
           </div>
         </CardHeader>

@@ -33,6 +33,8 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 import { OrdemFabricacao } from '@/hooks/useOFs';
 
 const editOFSchema = z.object({
@@ -360,10 +362,27 @@ export const EditOFModal: React.FC<EditOFModalProps> = ({
                 control={form.control}
                 name="tratamento_final"
                 render={({ field }) => (
-                  <FormItem>
+                  <FormItem className="space-y-2">
                     <FormLabel>Tratamento Final</FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Ex: Pintura, Galvanização, etc." />
+                      <RadioGroup
+                        onValueChange={field.onChange}
+                        value={
+                          field.value?.toLowerCase().includes('galv')
+                            ? 'Galvanizado'
+                            : (field.value || 'Pintura')
+                        }
+                        className="flex items-center gap-6 pt-1.5"
+                      >
+                        <div className="flex items-center space-x-2 cursor-pointer">
+                          <RadioGroupItem value="Pintura" id="edit-trat-pintura" />
+                          <Label htmlFor="edit-trat-pintura" className="cursor-pointer font-normal text-sm">Pintura</Label>
+                        </div>
+                        <div className="flex items-center space-x-2 cursor-pointer">
+                          <RadioGroupItem value="Galvanizado" id="edit-trat-galvanizado" />
+                          <Label htmlFor="edit-trat-galvanizado" className="cursor-pointer font-normal text-sm">Galvanizado</Label>
+                        </div>
+                      </RadioGroup>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

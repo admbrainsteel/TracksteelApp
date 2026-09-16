@@ -34,13 +34,18 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { useNovaOF } from '@/hooks/useNovaOF';
 import { Textarea } from '@/components/ui/textarea';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 
 const novaOFSchema = z.object({
   ficha_tecnica_id: z.string().min(1, 'Ficha técnica é obrigatória'),
   data_abertura: z.string().optional(),
   data_prazo: z.string().optional(),
-  prioridade: z.string().default('Normal'),
-  nivel_qualidade: z.string().default('Normal'),
+  data_termino_prev: z.string().optional(),
+  peso_total: z.number().optional(),
+  gestor: z.string().optional(),
+  prioridade: z.string(),
+  nivel_qualidade: z.string(),
   criterio_qualidade: z.string().optional(),
   tratamento_final: z.string().optional(),
   local_uf: z.string().optional(),
@@ -66,6 +71,7 @@ export const NovaOFModal: React.FC<NovaOFModalProps> = ({
       data_abertura: new Date().toISOString().split('T')[0],
       prioridade: 'Normal',
       nivel_qualidade: 'Normal',
+      tratamento_final: 'Pintura',
     },
   });
 
@@ -323,10 +329,27 @@ export const NovaOFModal: React.FC<NovaOFModalProps> = ({
               control={form.control}
               name="tratamento_final"
               render={({ field }) => (
-                <FormItem>
+                <FormItem className="space-y-2">
                   <FormLabel>Tratamento Final</FormLabel>
                   <FormControl>
-                    <Input {...field} placeholder="Ex: Pintura, Galvanização, etc." />
+                    <RadioGroup
+                      onValueChange={field.onChange}
+                      value={
+                        field.value?.toLowerCase().includes('galv')
+                          ? 'Galvanizado'
+                          : (field.value || 'Pintura')
+                      }
+                      className="flex items-center gap-6 pt-1.5"
+                    >
+                      <div className="flex items-center space-x-2 cursor-pointer">
+                        <RadioGroupItem value="Pintura" id="nova-trat-pintura" />
+                        <Label htmlFor="nova-trat-pintura" className="cursor-pointer font-normal text-sm">Pintura</Label>
+                      </div>
+                      <div className="flex items-center space-x-2 cursor-pointer">
+                        <RadioGroupItem value="Galvanizado" id="nova-trat-galvanizado" />
+                        <Label htmlFor="nova-trat-galvanizado" className="cursor-pointer font-normal text-sm">Galvanizado</Label>
+                      </div>
+                    </RadioGroup>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
