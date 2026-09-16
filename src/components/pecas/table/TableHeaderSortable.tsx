@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { SortField, SortOrder } from '@/hooks/usePecasTable';
+import { useAppLabels } from '@/hooks/useAppLabels';
 
 interface TableHeaderSortableProps {
   selectAll: boolean;
@@ -21,6 +22,8 @@ export function TableHeaderSortable({
   sortOrder,
   onSort
 }: TableHeaderSortableProps) {
+  const { labels } = useAppLabels();
+
   const SortButton = ({ field, children }: { field: SortField; children: React.ReactNode }) => (
     <Button
       variant="ghost"
@@ -50,15 +53,15 @@ export function TableHeaderSortable({
       </TableHead>
       
       <TableHead className="w-16 px-2">
-        <SortButton field="of_number">OF</SortButton>
+        <SortButton field="of_number">{labels.ofLabel}</SortButton>
       </TableHead>
       
       <TableHead className="w-12 px-2">
-        <SortButton field="etapa_fase">Fase</SortButton>
+        <SortButton field="etapa_fase">{labels.faseLabel}</SortButton>
       </TableHead>
       
       <TableHead className="w-14 px-2">
-        <SortButton field="marca">Marca</SortButton>
+        <SortButton field="marca">{labels.pecaLabel}</SortButton>
       </TableHead>
       
       <TableHead className="w-32 px-2">
@@ -70,7 +73,7 @@ export function TableHeaderSortable({
       </TableHead>
       
       <TableHead className="w-16 px-2 text-center">
-        <SortButton field="tem_componentes">Sem Comp.</SortButton>
+        <SortButton field="tem_componentes">Tipo / {labels.componenteLabel}</SortButton>
       </TableHead>
       
       <TableHead className="w-12 px-2 text-right">

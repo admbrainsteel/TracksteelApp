@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Plus, Package } from 'lucide-react';
 import { PecaForm } from '@/components/pecas/PecaForm';
 import { PecasTable } from '@/components/pecas/PecasTable';
+import { ComponentesPopup } from '@/components/pecas/ComponentesPopup';
 import { usePecas, Peca } from '@/hooks/usePecas';
 import { toast } from 'sonner';
 import { usePermissionControl } from '@/hooks/usePermissionControl';
@@ -35,6 +36,7 @@ export default function CadastroPecasFiltrado() {
   const [saving, setSaving] = useState(false);
   const [editingPeca, setEditingPeca] = useState<Peca | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [selectedPecaForPopup, setSelectedPecaForPopup] = useState<Peca | null>(null);
 
   // Filtrar peças pela OF selecionada
   const pecasFiltradas = pecas.filter(peca => peca.of_number === ofSelecionada);
@@ -106,8 +108,12 @@ export default function CadastroPecasFiltrado() {
   };
 
   const handleOpenComponentPopup = (pecaId: string) => {
-    console.log('Abrir popup de componentes para peça:', pecaId);
-    toast.info('Funcionalidade de componentes será implementada em breve');
+    const found = pecas.find(p => p.id === pecaId);
+    if (found) {
+      setSelectedPecaForPopup(found);
+    } else {
+      toast.error('Peça não encontrada');
+    }
   };
 
   const handleImportPecas = async (pecasData: any[]) => {
@@ -282,6 +288,18 @@ export default function CadastroPecasFiltrado() {
             />
           </CardContent>
         </Card>
+
+        {/* Modal de Gerenciamento de Componentes */}
+        {selectedPecaForPopup && (
+          <ComponentesPopup
+            isOpen={!!selectedPecaForPopup}
+            onClose={() => {
+              setSelectedPecaForPopup(null);
+              loadPecas();
+            }}
+            peca={selectedPecaForPopup}
+          />
+        )}
       </div>
     </div>
   );

@@ -24,6 +24,17 @@ import {
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
 import { useAppLabels } from '@/hooks/useAppLabels';
+import { usePecas } from '@/hooks/usePecas';
+
+export interface ComponentItem {
+  marca: string;
+  quantidade: number;
+  perfil: string;
+  material: string;
+  comprimento: number;
+  pesoUnitario?: number;
+  pesoTotal: number;
+}
 
 export interface ExtractedPiece {
   of: string;
@@ -38,15 +49,7 @@ export interface ExtractedPiece {
   pesoUnit: number | string;
   pesoTotal: number | string;
   tratamentoSuperficial: string;
-}
-
-interface ComponentItem {
-  quantidade: number;
-  perfil: string;
-  material: string;
-  comprimento: number;
-  pesoUnitario?: number;
-  pesoTotal: number;
+  components?: ComponentItem[];
 }
 
 interface AssemblyItem {
@@ -127,9 +130,11 @@ const ensurePdfJs = async (): Promise<PdfJsLib> => {
 
 const AdvanceSteelConverterContent: React.FC = () => {
   const { labels, isComponente } = useAppLabels();
+  const { importPecas } = usePecas();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isDirectImporting, setIsDirectImporting] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedPiece[]>([]);
   const [headerOf, setHeaderOf] = useState<string>('');
   const [headerFase, setHeaderFase] = useState<string>('1');
@@ -488,13 +493,15 @@ const AdvanceSteelConverterContent: React.FC = () => {
       if (currentAssembly) {
         const isSubComp =
           itemMark === '-' ||
+          isComponente(itemMark) ||
           itemMark.includes('-100') ||
           itemMark.includes('-10') ||
-          (itemMark.match(/-\d+$/) && parseInt(itemMark.match(/-(\d+)$/)![1], 10) >= 1000);
+          (itemMark.match(/-\d+$/) && parseInt(itemMark.match(/-(\d+)$/)![1], 10) >= (labels.faixaComponenteMin || 1000));
 
         if (isSubComp) {
           currentAssembly.isComposed = 'SIM';
           currentAssembly.components.push({
+            marca: itemMark,
             quantidade: itemQuant,
             perfil: itemDesc || currentAssembly.descricao,
             material: detectedMaterial || 'A36',
@@ -548,17 +555,15 @@ const AdvanceSteelConverterContent: React.FC = () => {
         });
 
         if (bestComp) {
-          perfilPrincipal = bestComp.perfil || asm.descricao;
-          materialPrincipal = bestComp.material || 'A36';
-          maxComp = bestComp.comprimento;
+          perfilPrincipal = bestComp.perfil;
+          materialPrincipal = bestComp.material;
         }
 
-        // Se não obteve subtotal na linha isolada, usar a somatória dos componentes
-        if (!totalPeso || totalPeso === 0) {
+        if (sumComponentsWeight > 0) {
           totalPeso = sumComponentsWeight;
         }
 
-        // Fallback de segurança para conjunto caso a quantidade na linha 1 não tenha sido lida
+        // Se a quantidade do assembly principal veio 1 mas a soma unitária x total dá a razão
         if (asm.quantidade === 1 && sumUnitComponentsWeight > 0 && totalPeso > 0) {
           const ratio = Math.round(totalPeso / sumUnitComponentsWeight);
           if (ratio > 1) {
@@ -566,7 +571,7 @@ const AdvanceSteelConverterContent: React.FC = () => {
           }
         }
       } else {
-        // Monopeça simples
+        // Monopeça: se totalPeso não veio, calcula
         if (!totalPeso || totalPeso === 0) {
           totalPeso = (asm.pesoUnitario || 0) * asm.quantidade;
         }
@@ -595,7 +600,8 @@ const AdvanceSteelConverterContent: React.FC = () => {
         comprimentoMax: maxComp > 0 ? maxComp : '-',
         pesoUnit: pesoUnit > 0 ? pesoUnit.toFixed(2) : '-',
         pesoTotal: totalPeso > 0 ? totalPeso.toFixed(2) : '-',
-        tratamentoSuperficial: 'pintura'
+        tratamentoSuperficial: 'pintura',
+        components: isComposed ? asm.components : []
       };
     });
 
@@ -663,7 +669,8 @@ const AdvanceSteelConverterContent: React.FC = () => {
   const exportToExcel = () => {
     if (extractedData.length === 0) return;
 
-    const excelRows = extractedData.map((item) => ({
+    // Aba 1: Lista consolidada de Peças
+    const excelRowsPecas = extractedData.map((item) => ({
       OF: item.of,
       Fase: isNaN(Number(item.fase)) ? item.fase : Number(item.fase),
       Marca: item.marca,
@@ -672,35 +679,167 @@ const AdvanceSteelConverterContent: React.FC = () => {
       Quantidade: Number(item.quantidade),
       'Peso Unitário (kg)': item.pesoUnit === '-' ? '' : Number(item.pesoUnit),
       'Peso Total (kg)': item.pesoTotal === '-' ? '' : Number(item.pesoTotal),
-      'Tratamento Superficial': item.tratamentoSuperficial,
+      'Tratamento Superficial': item.tratamentoSuperficial || tratamentoGlobal,
       Material: item.material,
       'Perfil Principal': item.perfilPrincipal,
       'Comprimento Ref. (mm)': item.comprimentoMax === '-' ? '' : Number(item.comprimentoMax)
     }));
 
+    // Aba 2: Lista detalhada de Componentes
+    const excelRowsComponentes: any[] = [];
+    extractedData.forEach((item) => {
+      if (item.components && item.components.length > 0) {
+        item.components.forEach((comp) => {
+          const qtdPorPeca = Number(comp.quantidade) || 1;
+          const qtdTotal = qtdPorPeca * Number(item.quantidade);
+          excelRowsComponentes.push({
+            OF: item.of,
+            Fase: isNaN(Number(item.fase)) ? item.fase : Number(item.fase),
+            'Peça Principal': item.marca,
+            'Marca Componente': comp.marca || '-',
+            'Descrição Componente': comp.perfil || item.descricao,
+            Material: comp.material || item.material,
+            'Comprimento (mm)': comp.comprimento || '',
+            'Qtd / Peça': qtdPorPeca,
+            'Qtd Total no Lote': qtdTotal,
+            'Peso Unitário (kg)': comp.pesoUnitario || '',
+            'Peso Total (kg)': comp.pesoTotal || ''
+          });
+        });
+      }
+    });
+
+    // Aba 3: Formato Plano Oficial para Importação TrackSteel
+    const excelRowsImportacao: any[] = [];
+    extractedData.forEach((item) => {
+      if (item.components && item.components.length > 0) {
+        item.components.forEach((comp) => {
+          excelRowsImportacao.push({
+            of_number: item.of,
+            etapa_fase: item.fase,
+            marca: item.marca,
+            descricao: item.descricao,
+            quantidade: Number(item.quantidade),
+            peso_unitario: item.pesoUnit === '-' ? 0 : Number(item.pesoUnit),
+            peso_total: item.pesoTotal === '-' ? 0 : Number(item.pesoTotal),
+            tratamento_superficial: item.tratamentoSuperficial || tratamentoGlobal,
+            material: item.material,
+            perfil_principal: item.perfilPrincipal,
+            tem_componentes: true,
+            marca_componente: comp.marca || '',
+            descricao_componente: comp.perfil || item.descricao,
+            perfil_componente: comp.perfil || item.descricao,
+            peso_unitario_componente: comp.pesoUnitario || 0,
+            quantidade_por_peca: Number(comp.quantidade) || 1
+          });
+        });
+      } else {
+        excelRowsImportacao.push({
+          of_number: item.of,
+          etapa_fase: item.fase,
+          marca: item.marca,
+          descricao: item.descricao,
+          quantidade: Number(item.quantidade),
+          peso_unitario: item.pesoUnit === '-' ? 0 : Number(item.pesoUnit),
+          peso_total: item.pesoTotal === '-' ? 0 : Number(item.pesoTotal),
+          tratamento_superficial: item.tratamentoSuperficial || tratamentoGlobal,
+          material: item.material,
+          perfil_principal: item.perfilPrincipal,
+          tem_componentes: false,
+          marca_componente: '',
+          descricao_componente: '',
+          perfil_componente: '',
+          peso_unitario_componente: 0,
+          quantidade_por_peca: 0
+        });
+      }
+    });
+
     const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(excelRows);
-
-    ws['!cols'] = [
-      { wch: 12 },
-      { wch: 8 },
-      { wch: 12 },
-      { wch: 20 },
-      { wch: 15 },
-      { wch: 12 },
-      { wch: 18 },
-      { wch: 16 },
-      { wch: 22 },
-      { wch: 16 },
-      { wch: 22 },
-      { wch: 20 }
+    const wsPecas = XLSX.utils.json_to_sheet(excelRowsPecas);
+    wsPecas['!cols'] = [
+      { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 20 }, { wch: 15 },
+      { wch: 12 }, { wch: 18 }, { wch: 16 }, { wch: 22 }, { wch: 16 },
+      { wch: 22 }, { wch: 20 }
     ];
+    XLSX.utils.book_append_sheet(wb, wsPecas, 'Lista_Pecas');
 
-    XLSX.utils.book_append_sheet(wb, ws, 'Lista_Pecas');
+    if (excelRowsComponentes.length > 0) {
+      const wsComp = XLSX.utils.json_to_sheet(excelRowsComponentes);
+      wsComp['!cols'] = [
+        { wch: 12 }, { wch: 8 }, { wch: 16 }, { wch: 18 }, { wch: 22 },
+        { wch: 16 }, { wch: 18 }, { wch: 12 }, { wch: 16 }, { wch: 18 }, { wch: 16 }
+      ];
+      XLSX.utils.book_append_sheet(wb, wsComp, 'Lista_Componentes');
+    }
+
+    const wsImport = XLSX.utils.json_to_sheet(excelRowsImportacao);
+    XLSX.utils.book_append_sheet(wb, wsImport, 'Importacao_TrackSteel');
+
     const outFileName = `${headerOf || currentFileName}_Fase_${headerFase || '1'}_Lista_Pecas_AdvanceSteel.xlsx`;
     XLSX.writeFile(wb, outFileName);
-    addLog(`Planilha Excel baixada: ${outFileName}`);
-    toast.success(`Planilha padrão baixada com sucesso: ${outFileName}`);
+    addLog(`Planilha Excel baixada com ${excelRowsPecas.length} peças e ${excelRowsComponentes.length} componentes: ${outFileName}`);
+    toast.success(`Planilha gerada com sucesso: ${outFileName}`);
+  };
+
+  const handleDirectImport = async () => {
+    if (extractedData.length === 0) return;
+    setIsDirectImporting(true);
+    try {
+      const importacaoRows: any[] = [];
+      extractedData.forEach((item) => {
+        if (item.components && item.components.length > 0) {
+          item.components.forEach((comp) => {
+            importacaoRows.push({
+              of_number: item.of,
+              etapa_fase: item.fase,
+              marca: item.marca,
+              descricao: item.descricao,
+              quantidade: Number(item.quantidade),
+              peso_unitario: item.pesoUnit === '-' ? 0 : Number(item.pesoUnit),
+              peso_total: item.pesoTotal === '-' ? 0 : Number(item.pesoTotal),
+              tratamento_superficial: item.tratamentoSuperficial || tratamentoGlobal,
+              material: item.material,
+              perfil_principal: item.perfilPrincipal,
+              tem_componentes: true,
+              marca_componente: comp.marca || '',
+              descricao_componente: comp.perfil || item.descricao,
+              perfil_componente: comp.perfil || item.descricao,
+              peso_unitario_componente: comp.pesoUnitario || 0,
+              quantidade_por_peca: Number(comp.quantidade) || 1
+            });
+          });
+        } else {
+          importacaoRows.push({
+            of_number: item.of,
+            etapa_fase: item.fase,
+            marca: item.marca,
+            descricao: item.descricao,
+            quantidade: Number(item.quantidade),
+            peso_unitario: item.pesoUnit === '-' ? 0 : Number(item.pesoUnit),
+            peso_total: item.pesoTotal === '-' ? 0 : Number(item.pesoTotal),
+            tratamento_superficial: item.tratamentoSuperficial || tratamentoGlobal,
+            material: item.material,
+            perfil_principal: item.perfilPrincipal,
+            tem_componentes: false,
+            marca_componente: '',
+            descricao_componente: '',
+            perfil_componente: '',
+            peso_unitario_componente: 0,
+            quantidade_por_peca: 0
+          });
+        }
+      });
+
+      await importPecas(importacaoRows);
+      toast.success(`${extractedData.length} peças e seus componentes foram importados com sucesso!`);
+      addLog(`✅ Importação concluída: ${extractedData.length} peças gravadas no banco.`);
+    } catch (err: any) {
+      console.error('Erro na importação direta:', err);
+      toast.error(`Falha ao importar: ${err?.message || 'Erro no banco'}`);
+    } finally {
+      setIsDirectImporting(false);
+    }
   };
 
   const totalPesoGeral = extractedData.reduce((acc, curr) => {
@@ -880,10 +1019,29 @@ const AdvanceSteelConverterContent: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Button
                   onClick={exportToExcel}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-4 h-9 shadow-lg shadow-emerald-950/40"
+                  variant="outline"
+                  className="border-emerald-600/60 text-emerald-400 hover:bg-emerald-600/10 font-semibold text-xs px-3.5 h-9"
                 >
                   <Download className="w-4 h-4 mr-1.5" />
-                  Baixar Planilha Padrão (.xlsx)
+                  Baixar Planilha Excel
+                </Button>
+
+                <Button
+                  onClick={handleDirectImport}
+                  disabled={isDirectImporting}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs px-4 h-9 shadow-lg shadow-indigo-950/40"
+                >
+                  {isDirectImporting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+                      Gravando no Banco...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4 mr-1.5" />
+                      Importar no Sistema (Peças + Componentes)
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
