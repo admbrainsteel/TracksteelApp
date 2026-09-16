@@ -13,7 +13,8 @@ import {
   ChevronDown, 
   Layers, 
   Loader2,
-  ExternalLink
+  ExternalLink,
+  Minus
 } from 'lucide-react';
 import { Peca } from '@/hooks/usePecas';
 import { useComponentesPeca } from '@/hooks/useComponentesPeca';
@@ -110,11 +111,14 @@ export function TableRow({
           <PriorityBadge prioridade={peca.prioridade as any} />
         </TableCell>
         
-        <TableCell className="w-16 px-2 text-center">
-          <div className="flex justify-center">
+        <TableCell className="w-24 px-2 text-center">
+          <div className="flex justify-center items-center">
             {!peca.tem_componentes ? (
-              <div className="flex items-center justify-center w-5 h-5 bg-green-500 rounded-full shadow-sm" title="Monopeça (sem componentes)">
-                <Check className="h-3 w-3 text-white font-bold" />
+              <div 
+                className="flex items-center justify-center w-5 h-5 rounded-full bg-slate-800/90 border border-slate-700 text-slate-400 shadow-sm" 
+                title="Peça única (sem componentes)"
+              >
+                <Minus className="h-3 w-3 text-slate-400 font-bold" />
               </div>
             ) : (
               <div 

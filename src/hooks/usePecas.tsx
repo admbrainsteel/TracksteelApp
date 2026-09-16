@@ -567,15 +567,17 @@ export function usePecas() {
         }
       }
 
-      // 4. Inserir/Sincronizar Componentes
+      // 4. Inserir/Sincronizar Componentes (Limpa resíduos se a peça virou simples ou foi reimportada)
       let totalComponentesInseridos = 0;
-      if (componentesMap.size > 0) {
-        console.log('🔧 Inserindo e sincronizando componentes...');
-        
-        for (const [pecaKey, componentes] of componentesMap.entries()) {
-          const pecaId = pecaIdResolvedMap.get(pecaKey);
-          
-          if (pecaId && componentes.length > 0) {
+      console.log('🔧 Inserindo e sincronizando componentes...');
+      
+      for (const peca of pecasParaProcessar) {
+        const pecaKey = `${peca.of_number || ''}-${peca.etapa_fase || ''}-${peca.marca || ''}`;
+        const pecaId = pecaIdResolvedMap.get(pecaKey);
+        const componentes = componentesMap.get(pecaKey) || [];
+
+        if (pecaId) {
+          if (componentes.length > 0) {
             // Limpar componentes antigos desta peça para atualizar de forma limpa
             await supabase
               .from('componentes_peca')
@@ -596,6 +598,12 @@ export function usePecas() {
             } else {
               totalComponentesInseridos += componentesComPecaId.length;
             }
+          } else {
+            // Peça simples sem componentes: limpar componentes residuais antigos caso existissem
+            await supabase
+              .from('componentes_peca')
+              .delete()
+              .eq('peca_id', pecaId);
           }
         }
       }

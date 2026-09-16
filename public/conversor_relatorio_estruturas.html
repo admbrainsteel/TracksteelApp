@@ -618,11 +618,9 @@
         }
 
         if (currentAssembly) {
-          const isSubComp =
-            itemMark === '-' ||
-            itemMark.includes('-100') ||
-            itemMark.includes('-10') ||
-            (itemMark.match(/-\d+$/) && parseInt(itemMark.match(/-(\d+)$/)[1], 10) >= 1000);
+          const lastNumberMatch = itemMark.match(/(?:^|-)(\d+)$/);
+          const itemNum = lastNumberMatch ? parseInt(lastNumberMatch[1], 10) : (parseInt(itemMark, 10) || 0);
+          const isSubComp = itemMark === '-' || itemNum >= 1000;
 
           if (isSubComp) {
             currentAssembly.isComposed = 'SIM';

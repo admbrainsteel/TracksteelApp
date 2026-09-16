@@ -518,12 +518,12 @@ const AdvanceSteelConverterContent: React.FC = () => {
       }
 
       if (currentAssembly) {
-        const isSubComp =
-          itemMark === '-' ||
-          isComponente(itemMark) ||
-          itemMark.includes('-100') ||
-          itemMark.includes('-10') ||
-          (itemMark.match(/-\d+$/) && parseInt(itemMark.match(/-(\d+)$/)![1], 10) >= (labels.faixaComponenteMin || 1000));
+        // Extrai o número final da marca do item (ex: de "B134-13-1" -> 1, de "B134-13-1000" -> 1000, de "B133-13-1015" -> 1015, de "1000" -> 1000)
+        const lastNumberMatch = itemMark.match(/(?:^|-)(\d+)$/);
+        const itemNum = lastNumberMatch ? parseInt(lastNumberMatch[1], 10) : (parseInt(itemMark, 10) || 0);
+
+        // Um item é SUBCOMPONENTE apenas se sua numeração de marca for >= faixaComponenteMin (1000) OU se for explicitamente '-'
+        const isSubComp = itemMark === '-' || itemNum >= (labels.faixaComponenteMin || 1000);
 
         if (isSubComp) {
           currentAssembly.isComposed = 'SIM';

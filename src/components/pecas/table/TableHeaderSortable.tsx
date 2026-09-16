@@ -72,8 +72,8 @@ export function TableHeaderSortable({
         <SortButton field="prioridade">Prioridade</SortButton>
       </TableHead>
       
-      <TableHead className="w-16 px-2 text-center">
-        <SortButton field="tem_componentes">Tipo / {labels.componenteLabel}</SortButton>
+      <TableHead className="w-24 px-2 text-center">
+        <SortButton field="tem_componentes">Componentes</SortButton>
       </TableHead>
       
       <TableHead className="w-12 px-2 text-right">
