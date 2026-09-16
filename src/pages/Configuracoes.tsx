@@ -12,6 +12,7 @@ import { useBrandSettings } from '@/hooks/useBrandSettings';
 import { useIconStyle } from '@/hooks/useIconStyle';
 import { MenuBuilder } from '@/components/menu-builder/MenuBuilder';
 import { PrioridadesConfig } from '@/components/configuracoes/PrioridadesConfig';
+import { NomenclaturasConfig } from '@/components/configuracoes/NomenclaturasConfig';
 
 const FONT_OPTIONS = [{
   value: 'Arial',
@@ -290,6 +291,9 @@ const Configuracoes = () => {
 
         </CardContent>
       </Card>
+
+      {/* Configuração de Nomenclaturas e Identificação da Fábrica */}
+      <NomenclaturasConfig />
 
       {/* Configuração de Prioridades */}
       <PrioridadesConfig />

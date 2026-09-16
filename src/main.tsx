@@ -7,6 +7,7 @@ import { Toaster } from '@/components/ui/sonner'
 
 import { AuthProvider } from './hooks/useAuth'
 import { IconStyleProvider } from './hooks/useIconStyle'
+import { AppLabelsProvider } from './contexts/AppLabelsContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AppRoutes } from './components/AppRoutes'
 
@@ -38,12 +39,14 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <IconStyleProvider>
-            <ThemeProvider defaultTheme="system">
-              <BrowserRouter>
-                <AppRoutes />
-              </BrowserRouter>
-              <Toaster />
-            </ThemeProvider>
+            <AppLabelsProvider>
+              <ThemeProvider defaultTheme="system">
+                <BrowserRouter>
+                  <AppRoutes />
+                </BrowserRouter>
+                <Toaster />
+              </ThemeProvider>
+            </AppLabelsProvider>
           </IconStyleProvider>
         </AuthProvider>
       </QueryClientProvider>

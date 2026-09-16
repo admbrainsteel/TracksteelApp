@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
+import { useAppLabels } from '@/hooks/useAppLabels';
 
 export interface ExtractedPiece {
   of: string;
@@ -125,6 +126,7 @@ const ensurePdfJs = async (): Promise<PdfJsLib> => {
 };
 
 const AdvanceSteelConverterContent: React.FC = () => {
+  const { labels, isComponente } = useAppLabels();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -809,7 +811,7 @@ const AdvanceSteelConverterContent: React.FC = () => {
           {extractedData.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <div className="bg-slate-800/60 border border-slate-700/70 p-3 rounded-lg flex flex-col justify-between">
-                <span className="text-[11px] font-medium text-slate-400">OF (Obra)</span>
+                <span className="text-[11px] font-medium text-slate-400">{labels.ofLabel} (Obra)</span>
                 <Input
                   value={headerOf}
                   onChange={(e) => handleOfChange(e.target.value)}
@@ -818,7 +820,7 @@ const AdvanceSteelConverterContent: React.FC = () => {
               </div>
 
               <div className="bg-slate-800/60 border border-slate-700/70 p-3 rounded-lg flex flex-col justify-between">
-                <span className="text-[11px] font-medium text-slate-400">Fase</span>
+                <span className="text-[11px] font-medium text-slate-400">{labels.faseLabel}</span>
                 <Input
                   value={headerFase}
                   onChange={(e) => handleFaseChange(e.target.value)}
@@ -827,7 +829,7 @@ const AdvanceSteelConverterContent: React.FC = () => {
               </div>
 
               <div className="bg-slate-800/60 border border-slate-700/70 p-3 rounded-lg">
-                <span className="text-[11px] font-medium text-slate-400">Total de Peças</span>
+                <span className="text-[11px] font-medium text-slate-400">Total de {labels.pecaPlural}</span>
                 <div className="text-lg font-bold text-white mt-1 flex items-baseline gap-1">
                   {extractedData.length} <span className="text-xs font-normal text-slate-400">itens</span>
                 </div>
@@ -913,11 +915,11 @@ const AdvanceSteelConverterContent: React.FC = () => {
                 <table className="w-full text-xs text-left border-collapse">
                   <thead className="bg-slate-900 text-slate-300 font-mono text-[11px] sticky top-0 z-10 shadow-sm">
                     <tr>
-                      <th className="p-2.5 border-b border-slate-800">OF</th>
-                      <th className="p-2.5 border-b border-slate-800">Fase</th>
-                      <th className="p-2.5 border-b border-slate-800">Marca</th>
+                      <th className="p-2.5 border-b border-slate-800">{labels.ofLabel}</th>
+                      <th className="p-2.5 border-b border-slate-800">{labels.faseLabel}</th>
+                      <th className="p-2.5 border-b border-slate-800">{labels.pecaLabel}</th>
                       <th className="p-2.5 border-b border-slate-800">Descrição</th>
-                      <th className="p-2.5 border-b border-slate-800 text-center">Composto por Componentes</th>
+                      <th className="p-2.5 border-b border-slate-800 text-center">Com {labels.componentePlural}</th>
                       <th className="p-2.5 border-b border-slate-800 text-center">Quantidade</th>
                       <th className="p-2.5 border-b border-slate-800 text-right">Peso Unitário (kg)</th>
                       <th className="p-2.5 border-b border-slate-800 text-right">Peso Total (kg)</th>
