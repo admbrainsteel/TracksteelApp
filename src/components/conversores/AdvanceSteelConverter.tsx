@@ -228,40 +228,81 @@ const AdvanceSteelConverterContent: React.FC = () => {
   };
 
   const processPdfLines = (items: PdfItem[]) => {
-    items.sort((a, b) => {
-      if (a.page !== b.page) return a.page - b.page;
-      if (Math.abs(b.y - a.y) > 3) return b.y - a.y;
-      return a.x - b.x;
+    // 1. Agrupamento robusto de linhas por Clustering de Coordenada Y em cada página
+    const pagesMap = new Map<number, PdfItem[]>();
+    items.forEach((it) => {
+      if (!pagesMap.has(it.page)) pagesMap.set(it.page, []);
+      pagesMap.get(it.page)!.push(it);
     });
 
     const lines: PdfItem[][] = [];
-    let currentLine: PdfItem[] = [];
-    let lastY: number | null = null;
-    let lastPage: number | null = null;
+    const Y_TOLERANCE = 6.0; // Tolerância vertical em pixels para agrupar na mesma linha visual
 
-    items.forEach((item) => {
-      if (lastPage === null || item.page !== lastPage || Math.abs(item.y - (lastY ?? item.y)) > 4.5) {
-        if (currentLine.length > 0) {
-          lines.push(currentLine);
-        }
-        currentLine = [item];
-        lastY = item.y;
-        lastPage = item.page;
-      } else {
-        currentLine.push(item);
+    const pageNumbers = Array.from(pagesMap.keys()).sort((a, b) => a - b);
+    for (const pNum of pageNumbers) {
+      const pageItems = pagesMap.get(pNum)!;
+
+      interface LineCluster {
+        ySum: number;
+        count: number;
+        avgY: number;
+        items: PdfItem[];
       }
-    });
-    if (currentLine.length > 0) lines.push(currentLine);
+
+      const clusters: LineCluster[] = [];
+
+      // Ordena por Y decrescente (do topo da página para o rodapé)
+      pageItems.sort((a, b) => b.y - a.y);
+
+      for (const item of pageItems) {
+        let bestCluster: LineCluster | null = null;
+        let minDiff = Infinity;
+
+        for (const cluster of clusters) {
+          const diff = Math.abs(item.y - cluster.avgY);
+          if (diff <= Y_TOLERANCE && diff < minDiff) {
+            minDiff = diff;
+            bestCluster = cluster;
+          }
+        }
+
+        if (bestCluster) {
+          bestCluster.items.push(item);
+          bestCluster.ySum += item.y;
+          bestCluster.count += 1;
+          bestCluster.avgY = bestCluster.ySum / bestCluster.count;
+        } else {
+          clusters.push({
+            ySum: item.y,
+            count: 1,
+            avgY: item.y,
+            items: [item]
+          });
+        }
+      }
+
+      // Ordena as linhas do topo para o rodapé da página
+      clusters.sort((a, b) => b.avgY - a.avgY);
+
+      // Dentro de cada linha, ordena da esquerda para a direita (X crescente)
+      for (const cluster of clusters) {
+        cluster.items.sort((a, b) => a.x - b.x);
+        lines.push(cluster.items);
+      }
+    }
 
     addLog(`Total de linhas identificadas no PDF: ${lines.length}`);
 
     let defaultOf = '';
     for (const line of lines) {
       const lineText = line.map((i) => i.text).join(' ');
-      const matchTrabalho = lineText.match(/Trabalho:\s*([A-Za-z0-9-]+)/i) || lineText.match(/Projeto:\s*([A-Za-z0-9-]+)/i);
+      const matchTrabalho =
+        lineText.match(/Trabalho:\s*([A-Za-z0-9-]+)/i) ||
+        lineText.match(/Projeto:\s*([A-Za-z0-9-]+)/i);
       if (matchTrabalho) {
         defaultOf = matchTrabalho[1].replace(/-/g, '');
         addLog(`OF / Trabalho identificado no cabeçalho: ${defaultOf}`);
+        setHeaderOf(defaultOf);
         break;
       }
     }
@@ -292,6 +333,7 @@ const AdvanceSteelConverterContent: React.FC = () => {
       if (
         lineText.includes('LISTA DE PEÇAS') ||
         lineText.includes('LISTA ESTRUTURADA') ||
+        lineText.includes('Lista de Peças') ||
         lineText.includes('DetailDwgExtract') ||
         lineText.includes('Cliente:') ||
         lineText.includes('Desenhado') ||
@@ -299,17 +341,19 @@ const AdvanceSteelConverterContent: React.FC = () => {
         lineText.includes('Trabalho:') ||
         lineText.includes('Kg/piece') ||
         lineText.includes('( mm)') ||
+        lineText.toLowerCase().includes('peso total:') ||
         (lineText.toLowerCase().includes('marca') && lineText.toLowerCase().includes('nome'))
       ) {
         continue;
       }
 
-      // 1. Linha Mestre de Peça Principal (ex: "B133-1-20 Pl 6x160x154" ou "B133-1-20 2 Pl 6x160x154")
+      // 1. Linha Mestre de Peça Principal (ex: "B134-13-1 90 W 150x13.0" ou "B134-13-2 72 W 150x13.0")
+      // A primeira linha de cada registro contém a Marca, a Quantidade Total da Peça e o Nome/Perfil
       const masterMatch = lineText.match(/^([A-Za-z0-9]+(?:-\d+)+)(?:\s+(\d+))?\s+([A-Za-z].*)$/);
 
       if (masterMatch) {
         const fullMark = masterMatch[1];
-        const quant = masterMatch[2] ? parseInt(masterMatch[2], 10) : 1;
+        const quantFromLine = masterMatch[2] ? parseInt(masterMatch[2], 10) : 1;
         const descCandidate = masterMatch[3].trim();
         const parts = fullMark.split('-');
         const pieceNumber = parts[parts.length - 1];
@@ -319,18 +363,23 @@ const AdvanceSteelConverterContent: React.FC = () => {
         if (pieceNumInt < 1000) {
           const hasMaterial = KNOWN_MATERIALS.some((m) => descCandidate.includes(m));
 
+          // A linha mestre não possui indicação de material na descrição nem pesos
           if (!hasMaterial) {
             const ofCode = parts.length >= 2 ? parts[0] : defaultOf;
-            const phaseCode = parts.length >= 3 ? parts[1] : '0';
+            const phaseCode = parts.length >= 3 ? parts[1] : (parts.length === 2 ? parts[0] : '1');
+
+            if (phaseCode && phaseCode !== '0' && isNaN(Number(phaseCode)) === false) {
+              setHeaderFase(phaseCode);
+            }
 
             currentAssembly = {
               rawMark: fullMark,
               of: ofCode || defaultOf,
-              fase: phaseCode,
+              fase: phaseCode || '1',
               marca: pieceNumber,
               numeroPeca: pieceNumber,
               descricao: descCandidate || 'ESTRUTURA',
-              quantidade: quant > 0 ? quant : 1,
+              quantidade: quantFromLine > 0 ? quantFromLine : 1,
               material: '',
               comprimento: 0,
               pesoUnitario: 0,
@@ -345,7 +394,7 @@ const AdvanceSteelConverterContent: React.FC = () => {
         }
       }
 
-      // 2. Linha com Subtotal da Marca (ex: "81 3,07" ou "3,5 0,155" ou "2,6 0,25")
+      // 2. Linha com Subtotal da Marca (ex: "1.973,10 101,691" ou "408,70 20,434" ou "81 3,07")
       const tokens = lineText.split(/\s+/);
       const allTokensNumeric = tokens.length > 0 && tokens.every((tok) => /^[0-9.,]+$/.test(tok));
       if (allTokensNumeric && tokens.length <= 3) {
@@ -453,6 +502,7 @@ const AdvanceSteelConverterContent: React.FC = () => {
           });
         } else {
           // Monopeça (peça simples sem componentes subordinados)
+          // Preenche os dados técnicos da peça SEM sobrescrever a quantidade mestre
           if (!currentAssembly.material && detectedMaterial) {
             currentAssembly.material = detectedMaterial;
           }
@@ -490,7 +540,7 @@ const AdvanceSteelConverterContent: React.FC = () => {
             bestComp = c;
           }
           sumComponentsWeight += c.pesoTotal;
-          if (c.pesoUnitario > 0) {
+          if (c.pesoUnitario && c.pesoUnitario > 0) {
             sumUnitComponentsWeight += c.pesoUnitario * c.quantidade;
           }
         });
@@ -506,9 +556,22 @@ const AdvanceSteelConverterContent: React.FC = () => {
           totalPeso = sumComponentsWeight;
         }
 
-        // Detecção de quantidade de conjunto caso tenha vindo 1:
+        // Fallback de segurança para conjunto caso a quantidade na linha 1 não tenha sido lida
         if (asm.quantidade === 1 && sumUnitComponentsWeight > 0 && totalPeso > 0) {
           const ratio = Math.round(totalPeso / sumUnitComponentsWeight);
+          if (ratio > 1) {
+            asm.quantidade = ratio;
+          }
+        }
+      } else {
+        // Monopeça simples
+        if (!totalPeso || totalPeso === 0) {
+          totalPeso = (asm.pesoUnitario || 0) * asm.quantidade;
+        }
+
+        // Fallback de segurança para monopeça caso a quantidade mestre não tenha sido lida e veio 1
+        if (asm.quantidade === 1 && asm.pesoUnitario > 0 && totalPeso > asm.pesoUnitario) {
+          const ratio = Math.round(totalPeso / asm.pesoUnitario);
           if (ratio > 1) {
             asm.quantidade = ratio;
           }
@@ -516,7 +579,7 @@ const AdvanceSteelConverterContent: React.FC = () => {
       }
 
       // Regra de Ouro: Peso Unitário = Peso Total dividido pela Quantidade da peça principal
-      const pesoUnit = asm.quantidade > 0 ? totalPeso / asm.quantidade : totalPeso;
+      const pesoUnit = asm.quantidade > 0 ? totalPeso / asm.quantidade : (asm.pesoUnitario || totalPeso);
 
       return {
         of: asm.of,

@@ -386,30 +386,57 @@
     }
 
     function processPdfLines(items) {
-      items.sort((a, b) => {
-        if (a.page !== b.page) return a.page - b.page;
-        if (Math.abs(b.y - a.y) > 3) return b.y - a.y;
-        return a.x - b.x;
+      // 1. Agrupamento robusto de linhas por Clustering de Coordenada Y em cada página
+      const pagesMap = new Map();
+      items.forEach((it) => {
+        if (!pagesMap.has(it.page)) pagesMap.set(it.page, []);
+        pagesMap.get(it.page).push(it);
       });
 
       const lines = [];
-      let currentLine = [];
-      let lastY = null;
-      let lastPage = null;
+      const Y_TOLERANCE = 6.0;
 
-      items.forEach(item => {
-        if (lastPage === null || item.page !== lastPage || Math.abs(item.y - (lastY ?? item.y)) > 4.5) {
-          if (currentLine.length > 0) {
-            lines.push(currentLine);
+      const pageNumbers = Array.from(pagesMap.keys()).sort((a, b) => a - b);
+      for (const pNum of pageNumbers) {
+        const pageItems = pagesMap.get(pNum);
+        const clusters = [];
+
+        pageItems.sort((a, b) => b.y - a.y);
+
+        for (const item of pageItems) {
+          let bestCluster = null;
+          let minDiff = Infinity;
+
+          for (const cluster of clusters) {
+            const diff = Math.abs(item.y - cluster.avgY);
+            if (diff <= Y_TOLERANCE && diff < minDiff) {
+              minDiff = diff;
+              bestCluster = cluster;
+            }
           }
-          currentLine = [item];
-          lastY = item.y;
-          lastPage = item.page;
-        } else {
-          currentLine.push(item);
+
+          if (bestCluster) {
+            bestCluster.items.push(item);
+            bestCluster.ySum += item.y;
+            bestCluster.count += 1;
+            bestCluster.avgY = bestCluster.ySum / bestCluster.count;
+          } else {
+            clusters.push({
+              ySum: item.y,
+              count: 1,
+              avgY: item.y,
+              items: [item]
+            });
+          }
         }
-      });
-      if (currentLine.length > 0) lines.push(currentLine);
+
+        clusters.sort((a, b) => b.avgY - a.avgY);
+
+        for (const cluster of clusters) {
+          cluster.items.sort((a, b) => a.x - b.x);
+          lines.push(cluster.items);
+        }
+      }
 
       log(`Total de linhas identificadas: ${lines.length}`);
 
@@ -449,6 +476,7 @@
         if (
           lineText.includes('LISTA DE PEÇAS') ||
           lineText.includes('LISTA ESTRUTURADA') ||
+          lineText.includes('Lista de Peças') ||
           lineText.includes('DetailDwgExtract') ||
           lineText.includes('Cliente:') ||
           lineText.includes('Desenhado') ||
@@ -456,37 +484,37 @@
           lineText.includes('Trabalho:') ||
           lineText.includes('Kg/piece') ||
           lineText.includes('( mm)') ||
+          lineText.toLowerCase().includes('peso total:') ||
           (lineText.toLowerCase().includes('marca') && lineText.toLowerCase().includes('nome'))
         ) {
           continue;
         }
 
-        // 1. Linha Mestre de Peça Principal (ex: "B133-1-20 2 Pl 6x160x154" ou "B133-1-20 Pl 6x160x154")
+        // 1. Linha Mestre de Peça Principal (ex: "B134-13-1 90 W 150x13.0" ou "B134-13-2 72 W 150x13.0")
         const masterMatch = lineText.match(/^([A-Za-z0-9]+(?:-\d+)+)(?:\s+(\d+))?\s+([A-Za-z].*)$/);
         if (masterMatch) {
           const fullMark = masterMatch[1];
-          const inlineQuant = masterMatch[2] ? parseInt(masterMatch[2], 10) : 0;
+          const quantFromLine = masterMatch[2] ? parseInt(masterMatch[2], 10) : 1;
           const descCandidate = masterMatch[3].trim();
           const parts = fullMark.split('-');
           const pieceNumber = parts[parts.length - 1];
           const pieceNumInt = parseInt(pieceNumber, 10);
 
-          // Peça principal tem identificador < 1000 e não possui material na linha de cabeçalho da marca
           if (pieceNumInt < 1000) {
             const hasMaterial = KNOWN_MATERIALS.some(m => descCandidate.includes(m));
 
             if (!hasMaterial) {
               const ofCode = parts.length >= 2 ? parts[0] : defaultOf;
-              const phaseCode = parts.length >= 3 ? parts[1] : '0';
+              const phaseCode = parts.length >= 3 ? parts[1] : (parts.length === 2 ? parts[0] : '1');
 
               currentAssembly = {
                 rawMark: fullMark,
                 of: ofCode || defaultOf,
-                fase: phaseCode,
+                fase: phaseCode || '1',
                 marca: pieceNumber,
                 numeroPeca: pieceNumber,
                 descricao: descCandidate || 'ESTRUTURA',
-                quantidade: inlineQuant > 0 ? inlineQuant : 1,
+                quantidade: quantFromLine > 0 ? quantFromLine : 1,
                 material: '',
                 comprimento: 0,
                 pesoUnitario: 0,
@@ -501,7 +529,7 @@
           }
         }
 
-        // 2. Linha com Subtotal da Marca (ex: "81 3,07" ou "3,5 0,155" ou "2,6 0,25")
+        // 2. Linha com Subtotal da Marca
         const tokens = lineText.split(/\s+/);
         const allTokensNumeric = tokens.length > 0 && tokens.every(tok => /^[0-9.,]+$/.test(tok));
         if (allTokensNumeric && tokens.length <= 3) {
@@ -568,6 +596,7 @@
         const nums = numTokens.map(parseNumeric);
 
         let itemComp = 0;
+        let itemPUn = 0;
         let itemPesoTot = 0;
 
         if (nums.length >= 1) {
@@ -575,12 +604,16 @@
         }
 
         if (nums.length === 3) {
+          itemPUn = nums[1];
           itemPesoTot = nums[2];
         } else if (nums.length === 4) {
+          itemPUn = nums[1];
           itemPesoTot = nums[2];
         } else if (nums.length === 5) {
+          itemPUn = nums[1];
           itemPesoTot = nums[2];
         } else if (nums.length >= 6) {
+          itemPUn = nums[2];
           itemPesoTot = nums[3];
         }
 
@@ -598,14 +631,19 @@
               perfil: itemDesc || currentAssembly.descricao,
               material: detectedMaterial || 'A36',
               comprimento: itemComp,
+              pesoUnitario: itemPUn,
               pesoTotal: itemPesoTot
             });
           } else {
+            // Monopeça
             if (!currentAssembly.material && detectedMaterial) {
               currentAssembly.material = detectedMaterial;
             }
             if (itemComp > 0 && (!currentAssembly.comprimento || currentAssembly.comprimento === 0)) {
               currentAssembly.comprimento = itemComp;
+            }
+            if (itemPUn > 0 && (!currentAssembly.pesoUnitario || currentAssembly.pesoUnitario === 0)) {
+              currentAssembly.pesoUnitario = itemPUn;
             }
             if (itemPesoTot > 0 && (!currentAssembly.pesoTotal || currentAssembly.pesoTotal === 0)) {
               currentAssembly.pesoTotal = itemPesoTot;
@@ -623,10 +661,9 @@
         let maxComp = asm.comprimento || 0;
         let totalPeso = asm.subtotalPeso > 0 ? asm.subtotalPeso : asm.pesoTotal;
 
-        let finalQuant = asm.quantidade;
-
         if (isComposed) {
           let sumComponentsWeight = 0;
+          let sumUnitComponentsWeight = 0;
           let bestComp = asm.components[0];
           maxComp = 0;
 
@@ -636,6 +673,9 @@
               bestComp = c;
             }
             sumComponentsWeight += c.pesoTotal;
+            if (c.pesoUnitario && c.pesoUnitario > 0) {
+              sumUnitComponentsWeight += c.pesoUnitario * c.quantidade;
+            }
           });
 
           if (bestComp) {
@@ -648,23 +688,27 @@
             totalPeso = sumComponentsWeight;
           }
 
-          // Se a quantidade veio 1 (ou não veio no cabeçalho), calcular relação peso total / soma peso unitário dos componentes
-          if (finalQuant <= 1 && asm.components.length > 0) {
-            const sumUnitWeights = asm.components.reduce((acc, c) => {
-              const unitW = c.quantidade > 0 ? (c.pesoTotal / c.quantidade) : c.pesoTotal;
-              return acc + unitW;
-            }, 0);
-            if (sumUnitWeights > 0 && totalPeso > sumUnitWeights * 1.3) {
-              const ratio = Math.round(totalPeso / sumUnitWeights);
-              if (ratio > 1) {
-                finalQuant = ratio;
-              }
+          if (asm.quantidade === 1 && sumUnitComponentsWeight > 0 && totalPeso > 0) {
+            const ratio = Math.round(totalPeso / sumUnitComponentsWeight);
+            if (ratio > 1) {
+              asm.quantidade = ratio;
+            }
+          }
+        } else {
+          // Monopeça simples
+          if (!totalPeso || totalPeso === 0) {
+            totalPeso = (asm.pesoUnitario || 0) * asm.quantidade;
+          }
+
+          if (asm.quantidade === 1 && asm.pesoUnitario > 0 && totalPeso > asm.pesoUnitario) {
+            const ratio = Math.round(totalPeso / asm.pesoUnitario);
+            if (ratio > 1) {
+              asm.quantidade = ratio;
             }
           }
         }
 
-        // Regra de Ouro: Peso Unitário = Peso Total dividido pela quantidade da peça principal
-        const pesoUnit = finalQuant > 0 ? (totalPeso / finalQuant) : totalPeso;
+        const pesoUnit = asm.quantidade > 0 ? (totalPeso / asm.quantidade) : (asm.pesoUnitario || totalPeso);
 
         return {
           of: asm.of,
@@ -672,7 +716,7 @@
           marca: asm.marca,
           descricao: asm.descricao,
           isComposed: isComposed ? "SIM" : "NÃO",
-          quantidade: finalQuant,
+          quantidade: asm.quantidade,
           material: materialPrincipal,
           perfilPrincipal: perfilPrincipal,
           comprimentoMax: maxComp > 0 ? maxComp : "-",
