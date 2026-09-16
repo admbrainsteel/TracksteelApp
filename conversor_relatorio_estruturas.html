@@ -627,6 +627,7 @@
           if (isSubComp) {
             currentAssembly.isComposed = 'SIM';
             currentAssembly.components.push({
+              marca: itemMark,
               quantidade: itemQuant,
               perfil: itemDesc || currentAssembly.descricao,
               material: detectedMaterial || 'A36',
@@ -722,7 +723,8 @@
           comprimentoMax: maxComp > 0 ? maxComp : "-",
           pesoUnit: pesoUnit > 0 ? pesoUnit.toFixed(2) : "-",
           pesoTotal: totalPeso > 0 ? totalPeso.toFixed(2) : "-",
-          tratamentoSuperficial: "pintura"
+          tratamentoSuperficial: "pintura",
+          components: isComposed ? asm.components : []
         };
       });
 
@@ -781,19 +783,98 @@
         "Comprimento Ref. (mm)": item.comprimentoMax === "-" ? "" : Number(item.comprimentoMax)
       }));
 
+      const excelRowsComponentes = [];
+      extractedData.forEach(item => {
+        if (item.components && item.components.length > 0) {
+          item.components.forEach(comp => {
+            const qtdPorPeca = Number(comp.quantidade) || 1;
+            const qtdTotal = qtdPorPeca * Number(item.quantidade);
+            excelRowsComponentes.push({
+              "OF": item.of,
+              "Fase": isNaN(Number(item.fase)) ? item.fase : Number(item.fase),
+              "Peça Principal": item.marca,
+              "Marca Componente": comp.marca || "-",
+              "Descrição Componente": comp.perfil || item.descricao,
+              "Material": comp.material || item.material,
+              "Comprimento (mm)": comp.comprimento || "",
+              "Qtd / Peça": qtdPorPeca,
+              "Qtd Total no Lote": qtdTotal,
+              "Peso Unitário (kg)": comp.pesoUnitario || "",
+              "Peso Total (kg)": comp.pesoTotal || ""
+            });
+          });
+        }
+      });
+
+      const excelRowsImportacao = [];
+      extractedData.forEach(item => {
+        if (item.components && item.components.length > 0) {
+          item.components.forEach(comp => {
+            excelRowsImportacao.push({
+              of_number: item.of,
+              etapa_fase: item.fase,
+              marca: item.marca,
+              descricao: item.descricao,
+              quantidade: Number(item.quantidade),
+              peso_unitario: item.pesoUnit === "-" ? 0 : Number(item.pesoUnit),
+              peso_total: item.pesoTotal === "-" ? 0 : Number(item.pesoTotal),
+              tratamento_superficial: item.tratamentoSuperficial,
+              material: item.material,
+              perfil_principal: item.perfilPrincipal,
+              tem_componentes: true,
+              marca_componente: comp.marca || "",
+              descricao_componente: comp.perfil || item.descricao,
+              perfil_componente: comp.perfil || item.descricao,
+              peso_unitario_componente: comp.pesoUnitario || 0,
+              quantidade_por_peca: Number(comp.quantidade) || 1
+            });
+          });
+        } else {
+          excelRowsImportacao.push({
+            of_number: item.of,
+            etapa_fase: item.fase,
+            marca: item.marca,
+            descricao: item.descricao,
+            quantidade: Number(item.quantidade),
+            peso_unitario: item.pesoUnit === "-" ? 0 : Number(item.pesoUnit),
+            peso_total: item.pesoTotal === "-" ? 0 : Number(item.pesoTotal),
+            tratamento_superficial: item.tratamentoSuperficial,
+            material: item.material,
+            perfil_principal: item.perfilPrincipal,
+            tem_componentes: false,
+            marca_componente: "",
+            descricao_componente: "",
+            perfil_componente: "",
+            peso_unitario_componente: 0,
+            quantidade_por_peca: 0
+          });
+        }
+      });
+
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(excelRows);
-
       ws['!cols'] = [
         { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 20 },
         { wch: 15 }, { wch: 12 }, { wch: 18 }, { wch: 16 },
         { wch: 22 }, { wch: 16 }, { wch: 22 }, { wch: 20 }
       ];
-
       XLSX.utils.book_append_sheet(wb, ws, "Lista_Pecas");
+
+      if (excelRowsComponentes.length > 0) {
+        const wsComp = XLSX.utils.json_to_sheet(excelRowsComponentes);
+        wsComp['!cols'] = [
+          { wch: 12 }, { wch: 8 }, { wch: 16 }, { wch: 18 }, { wch: 22 },
+          { wch: 16 }, { wch: 18 }, { wch: 12 }, { wch: 16 }, { wch: 18 }, { wch: 16 }
+        ];
+        XLSX.utils.book_append_sheet(wb, wsComp, "Lista_Componentes");
+      }
+
+      const wsImport = XLSX.utils.json_to_sheet(excelRowsImportacao);
+      XLSX.utils.book_append_sheet(wb, wsImport, "Importacao_TrackSteel");
+
       const outFileName = `${currentFileName}_Corrigido.xlsx`;
       XLSX.writeFile(wb, outFileName);
-      log(`Arquivo Excel exportado: ${outFileName}`);
+      log(`Arquivo Excel exportado com ${excelRows.length} peças e ${excelRowsComponentes.length} componentes: ${outFileName}`);
     });
   </script>
 </body>

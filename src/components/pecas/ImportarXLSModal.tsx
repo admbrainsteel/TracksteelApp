@@ -29,6 +29,11 @@ export interface PecaXLSData {
   perfil_principal: string;
   tem_componentes: boolean;
   comprimento_ref?: number | string;
+  marca_componente?: string;
+  descricao_componente?: string;
+  perfil_componente?: string;
+  peso_unitario_componente?: number;
+  quantidade_por_peca?: number;
 }
 
 interface ImportarXLSModalProps {
@@ -74,19 +79,14 @@ export function ImportarXLSModal({
     if (val === null || val === undefined || val === '') return 0;
     if (typeof val === 'number') return isNaN(val) ? 0 : val;
     
-    // String: trata "1.413,00" ou "1,413.00" ou "1413"
     let str = String(val).trim();
-    // Se tiver vírgula e ponto, identifica separador decimal
     if (str.includes('.') && str.includes(',')) {
       if (str.indexOf('.') < str.indexOf(',')) {
-        // Ex: 1.413,00 (padrão BR)
         str = str.replace(/\./g, '').replace(',', '.');
       } else {
-        // Ex: 1,413.00 (padrão US)
         str = str.replace(/,/g, '');
       }
     } else if (str.includes(',')) {
-      // Ex: 1413,50
       str = str.replace(',', '.');
     }
     
@@ -107,11 +107,118 @@ export function ImportarXLSModal({
         return;
       }
 
+      // ESTRATÉGIA 1: Planilha com aba oficial "Importacao_TrackSteel"
+      if (workbook.SheetNames.includes('Importacao_TrackSteel')) {
+        const ws = workbook.Sheets['Importacao_TrackSteel'];
+        const jsonRows: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        if (jsonRows && jsonRows.length > 0) {
+          const lidas: PecaXLSData[] = jsonRows.map((r) => ({
+            of_number: String(r.of_number || ofDefault || 'B134').trim().replace(/^B-(\d+)/i, 'B$1'),
+            etapa_fase: String(r.etapa_fase || '1').trim(),
+            marca: String(r.marca || '').trim(),
+            descricao: String(r.descricao || '').trim(),
+            quantidade: Math.max(1, Math.round(parseNumber(r.quantidade) || 1)),
+            peso_unitario: parseNumber(r.peso_unitario),
+            peso_total: parseNumber(r.peso_total),
+            tratamento_superficial: String(r.tratamento_superficial || 'pintura').trim(),
+            material: String(r.material || 'Aço A36').trim(),
+            perfil_principal: String(r.perfil_principal || r.descricao || '').trim(),
+            tem_componentes: Boolean(r.tem_componentes || (r.marca_componente && String(r.marca_componente).trim() !== '')),
+            marca_componente: r.marca_componente ? String(r.marca_componente).trim() : undefined,
+            descricao_componente: r.descricao_componente ? String(r.descricao_componente).trim() : undefined,
+            perfil_componente: r.perfil_componente ? String(r.perfil_componente).trim() : undefined,
+            peso_unitario_componente: r.peso_unitario_componente !== undefined ? parseNumber(r.peso_unitario_componente) : undefined,
+            quantidade_por_peca: r.quantidade_por_peca !== undefined ? parseNumber(r.quantidade_por_peca) : undefined,
+          })).filter(p => p.marca && !p.marca.toLowerCase().includes('total'));
+
+          if (lidas.length > 0) {
+            setPecasProcessadas(lidas);
+            setStep('preview');
+            toast.success(`${lidas.length} registros (peças e componentes) identificados na aba Importacao_TrackSteel!`);
+            setIsProcessing(false);
+            return;
+          }
+        }
+      }
+
+      // ESTRATÉGIA 2: Planilha com abas "Lista_Pecas" e "Lista_Componentes"
+      if (workbook.SheetNames.includes('Lista_Pecas') && workbook.SheetNames.includes('Lista_Componentes')) {
+        const wsPecas = workbook.Sheets['Lista_Pecas'];
+        const wsComp = workbook.Sheets['Lista_Componentes'];
+        const pecasRows: any[] = XLSX.utils.sheet_to_json(wsPecas, { defval: '' });
+        const compRows: any[] = XLSX.utils.sheet_to_json(wsComp, { defval: '' });
+
+        const compMap = new Map<string, any[]>();
+        compRows.forEach((c) => {
+          const ofVal = String(c['OF'] || ofDefault || '').trim().replace(/^B-(\d+)/i, 'B$1');
+          const faseVal = String(c['Fase'] || '1').trim();
+          const marcaPeca = String(c['Peça Principal'] || c['Marca'] || '').trim();
+          const key = `${ofVal}-${faseVal}-${marcaPeca}`;
+          if (!compMap.has(key)) compMap.set(key, []);
+          compMap.get(key)!.push(c);
+        });
+
+        const merged: PecaXLSData[] = [];
+        pecasRows.forEach((p) => {
+          const ofVal = String(p['OF'] || ofDefault || 'B134').trim().replace(/^B-(\d+)/i, 'B$1');
+          const faseVal = String(p['Fase'] || '1').trim();
+          const marcaPeca = String(p['Marca'] || '').trim();
+          if (!marcaPeca || marcaPeca.toLowerCase().includes('total')) return;
+
+          const key = `${ofVal}-${faseVal}-${marcaPeca}`;
+          const comps = compMap.get(key) || [];
+          const temComp = comps.length > 0 || String(p['Composto por Componentes?'] || '').toLowerCase() === 'sim';
+
+          if (comps.length > 0) {
+            comps.forEach((c) => {
+              merged.push({
+                of_number: ofVal,
+                etapa_fase: faseVal,
+                marca: marcaPeca,
+                descricao: String(p['Descrição'] || '').trim(),
+                quantidade: Math.max(1, Math.round(parseNumber(p['Quantidade']) || 1)),
+                peso_unitario: parseNumber(p['Peso Unitário (kg)']),
+                peso_total: parseNumber(p['Peso Total (kg)']),
+                tratamento_superficial: String(p['Tratamento Superficial'] || 'pintura').trim(),
+                material: String(p['Material'] || 'Aço A36').trim(),
+                perfil_principal: String(p['Perfil Principal'] || p['Descrição'] || '').trim(),
+                tem_componentes: true,
+                marca_componente: String(c['Marca Componente'] || '').trim(),
+                descricao_componente: String(c['Descrição Componente'] || c['Descrição'] || '').trim(),
+                perfil_componente: String(c['Descrição Componente'] || c['Descrição'] || '').trim(),
+                peso_unitario_componente: parseNumber(c['Peso Unitário (kg)']),
+                quantidade_por_peca: parseNumber(c['Qtd / Peça']) || 1
+              });
+            });
+          } else {
+            merged.push({
+              of_number: ofVal,
+              etapa_fase: faseVal,
+              marca: marcaPeca,
+              descricao: String(p['Descrição'] || '').trim(),
+              quantidade: Math.max(1, Math.round(parseNumber(p['Quantidade']) || 1)),
+              peso_unitario: parseNumber(p['Peso Unitário (kg)']),
+              peso_total: parseNumber(p['Peso Total (kg)']),
+              tratamento_superficial: String(p['Tratamento Superficial'] || 'pintura').trim(),
+              material: String(p['Material'] || 'Aço A36').trim(),
+              perfil_principal: String(p['Perfil Principal'] || p['Descrição'] || '').trim(),
+              tem_componentes: temComp
+            });
+          }
+        });
+
+        if (merged.length > 0) {
+          setPecasProcessadas(merged);
+          setStep('preview');
+          toast.success(`${merged.length} registros extraídos das abas Peças e Componentes!`);
+          setIsProcessing(false);
+          return;
+        }
+      }
+
+      // ESTRATÉGIA 3: Fallback padrão de leitura da primeira aba
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
-
-      // Converte para matriz de linhas (array de arrays) para busca flexível do cabeçalho
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const rawRows: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
 
       if (!rawRows || rawRows.length === 0) {
@@ -341,10 +448,15 @@ export function ImportarXLSModal({
         material: p.material,
         perfil_principal: p.perfil_principal,
         tem_componentes: p.tem_componentes,
+        marca_componente: p.marca_componente,
+        descricao_componente: p.descricao_componente,
+        perfil_componente: p.perfil_componente,
+        peso_unitario_componente: p.peso_unitario_componente,
+        quantidade_por_peca: p.quantidade_por_peca,
       }));
 
       await onImport(pecasPayload);
-      toast.success(`${pecasProcessadas.length} peças importadas com sucesso para a OF!`);
+      toast.success(`${pecasProcessadas.length} registros importados com sucesso para a OF!`);
       handleModalOpenChange(false);
     } catch (err: unknown) {
       console.error('Erro ao importar peças do Excel:', err);
