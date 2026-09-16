@@ -442,13 +442,35 @@ export function usePecas() {
           pecasMap.set(pecaKey, pecaData);
         }
 
-        if (item.marca_componente && item.marca_componente.trim()) {
+        if (item.marca_componente && String(item.marca_componente).trim()) {
+          const rawMarca = String(item.marca_componente).trim();
+          let cleanMarca = rawMarca;
+          
+          // Extrair a marca numérica pura entre 1000 e 9999 (requisito do banco PostgreSQL)
+          const matchSuffix = rawMarca.match(/-?(\d{4,})$/) || rawMarca.match(/(\d{4,})/);
+          if (matchSuffix) {
+            cleanMarca = matchSuffix[1];
+          } else {
+            const digits = rawMarca.replace(/\D/g, '');
+            if (digits.length >= 4) {
+              cleanMarca = digits.slice(-4);
+            } else {
+              cleanMarca = String(1000 + (componentesMap.get(pecaKey)?.length || 0));
+            }
+          }
+
+          let numVal = parseInt(cleanMarca, 10);
+          if (isNaN(numVal) || numVal < 1000 || numVal > 9999) {
+            numVal = 1000 + (componentesMap.get(pecaKey)?.length || 0);
+          }
+          cleanMarca = String(numVal);
+
           const componenteData = {
-            marca_componente: item.marca_componente.trim(),
-            descricao: item.descricao_componente || '',
-            perfil: item.perfil_componente || '',
+            marca_componente: cleanMarca,
+            descricao: item.descricao_componente || item.descricao || '',
+            perfil: item.perfil_componente || item.perfil_principal || '',
             peso_unitario: Number(item.peso_unitario_componente) || 0,
-            quantidade_por_peca: Number(item.quantidade_por_peca) || 1,
+            quantidade_por_peca: Math.max(1, Math.round(Number(item.quantidade_por_peca) || 1)),
             user_id: user.id
           };
 

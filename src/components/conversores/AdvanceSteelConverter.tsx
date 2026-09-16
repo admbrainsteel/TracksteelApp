@@ -500,8 +500,17 @@ const AdvanceSteelConverterContent: React.FC = () => {
 
         if (isSubComp) {
           currentAssembly.isComposed = 'SIM';
+          
+          let cleanCompMark = itemMark;
+          const subMatch = itemMark.match(/-?(\d{4,})$/) || itemMark.match(/(\d{4,})/);
+          if (subMatch) {
+            cleanCompMark = subMatch[1];
+          } else if (itemMark === '-' || !/^\d{4}$/.test(itemMark)) {
+            cleanCompMark = String((labels.faixaComponenteMin || 1000) + currentAssembly.components.length);
+          }
+
           currentAssembly.components.push({
-            marca: itemMark,
+            marca: cleanCompMark,
             quantidade: itemQuant,
             perfil: itemDesc || currentAssembly.descricao,
             material: detectedMaterial || 'A36',
