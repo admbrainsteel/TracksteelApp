@@ -10,6 +10,7 @@ import { ComponentesPopup } from '@/components/pecas/ComponentesPopup';
 import { usePecas, Peca } from '@/hooks/usePecas';
 import { toast } from 'sonner';
 import { usePermissionControl } from '@/hooks/usePermissionControl';
+import { StandardPageLayout } from '@/components/layout/StandardPageLayout';
 
 export default function CadastroPecasFiltrado() {
   const { ofNumber } = useParams<{ ofNumber: string }>();
@@ -58,12 +59,12 @@ export default function CadastroPecasFiltrado() {
     }
   };
 
-  const handleUpdate = async (formData: any) => {
-    if (!canEdit() || !editingPeca) return false;
+  const handleUpdate = async (id: string, formData: any) => {
+    if (!canEdit()) return false;
     setSaving(true);
     try {
       const pecaComOF = { ...formData, of_number: ofSelecionada };
-      const success = await updatePeca(editingPeca.id, pecaComOF);
+      const success = await updatePeca(id, pecaComOF);
       if (success) {
         setEditingPeca(null);
         setShowForm(false);
@@ -174,9 +175,10 @@ export default function CadastroPecasFiltrado() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background p-6">
-        <div className="flex items-center justify-center h-64">
-          <div className="text-lg text-foreground">Carregando cadastro de peças...</div>
+      <div className="min-h-screen bg-background p-6 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="text-muted-foreground">Carregando peças da OF {ofSelecionada}...</p>
         </div>
       </div>
     );
@@ -189,10 +191,8 @@ export default function CadastroPecasFiltrado() {
   return (
     <StandardPageLayout
       title="Cadastro de Peças"
-      description="Gerencie as peças da OF selecionada"
-      badges={[
-        { label: `OF: ${ofSelecionada}`, variant: "secondary" }
-      ]}
+      subtitle="Gerencie as peças da OF selecionada"
+      badge={{ text: `OF: ${ofSelecionada}`, variant: "secondary" }}
       actions={
         <div className="flex gap-2">
           <Button 
@@ -232,7 +232,8 @@ export default function CadastroPecasFiltrado() {
             </CardHeader>
             <CardContent>
               <PecaForm
-                ofNumber={ofSelecionada}
+                ofNumbers={[ofSelecionada]}
+                ofDefault={ofSelecionada}
                 onSave={handleSave}
                 onUpdate={handleUpdate}
                 onImportCSV={handleImportCSV}
