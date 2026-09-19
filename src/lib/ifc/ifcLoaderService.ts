@@ -74,21 +74,40 @@ export async function loadAndAuditIFC(
   // 1. Initialize Web-IFC WASM locally with fallback
   if (onProgress) onProgress(10, 'Carregando motor Web-IFC (WASM)...');
 
-  const wasmPaths = [
-    '/wasm/',
-    'https://unpkg.com/web-ifc@0.0.57/',
-    'https://cdn.jsdelivr.net/npm/web-ifc@0.0.57/'
-  ];
+  const LOCAL_WASM_PATH = '/wasm/';
+  const CDN_WASM_PATH = 'https://unpkg.com/web-ifc@0.0.57/';
+
+  // Intercepta logs do console temporariamente para filtrar avisos internos da engine C++
+  const originalConsoleError = console.error;
+  const originalConsoleWarn = console.warn;
+  console.error = (...args: any[]) => {
+    if (typeof args[0] === 'string' && args[0].includes('[WEB-IFC]')) {
+      console.debug(...args);
+      return;
+    }
+    originalConsoleError.apply(console, args);
+  };
+  console.warn = (...args: any[]) => {
+    if (typeof args[0] === 'string' && args[0].includes('[WEB-IFC]')) {
+      console.debug(...args);
+      return;
+    }
+    originalConsoleWarn.apply(console, args);
+  };
 
   let wasmInitSuccess = false;
-  for (const path of wasmPaths) {
+  try {
+    ifcApi.SetWasmPath(LOCAL_WASM_PATH, true);
+    await ifcApi.Init();
+    wasmInitSuccess = true;
+  } catch (localErr) {
+    console.warn('[IFC Loader] Falha ao carregar WASM local (/wasm/), tentando CDN...', localErr);
     try {
-      ifcApi.SetWasmPath(path);
+      ifcApi.SetWasmPath(CDN_WASM_PATH, true);
       await ifcApi.Init();
       wasmInitSuccess = true;
-      break;
-    } catch {
-      // try next
+    } catch (cdnErr) {
+      console.error('[IFC Loader] Falha ao inicializar Web-IFC via CDN:', cdnErr);
     }
   }
 
@@ -212,6 +231,53 @@ export async function loadAndAuditIFC(
     }
   }
 
+  // 4.3 Element Properties Map from IFCRELDEFINESBYPROPERTIES
+  const elementPropertiesMap = new Map<number, Record<string, string>>();
+  try {
+    const relsProp = ifcApi.GetLineIDsWithType(modelID, WebIFC.IFCRELDEFINESBYPROPERTIES);
+    for (let i = 0; i < relsProp.size(); i++) {
+      const relId = relsProp.get(i);
+      if (relId && relId > 0) {
+        const rel = ifcApi.GetLine(modelID, relId);
+        if (rel && rel.RelatedObjects && rel.RelatingPropertyDefinition) {
+          const propDefId = rel.RelatingPropertyDefinition.value;
+          if (propDefId && typeof propDefId === 'number' && propDefId > 0) {
+            const propDef = ifcApi.GetLine(modelID, propDefId);
+            if (propDef && propDef.HasProperties) {
+              const props: Record<string, string> = {};
+              for (const pRef of propDef.HasProperties) {
+                const pId = pRef?.value;
+                if (pId && typeof pId === 'number' && pId > 0) {
+                  const pLine = ifcApi.GetLine(modelID, pId);
+                  if (pLine && pLine.Name) {
+                    const name = pLine.Name.value;
+                    let value = '';
+                    if (pLine.NominalValue) {
+                      value = String(pLine.NominalValue.value);
+                    }
+                    if (name && value) {
+                      props[name] = value;
+                    }
+                  }
+                }
+              }
+              const relatedObjs = Array.isArray(rel.RelatedObjects) ? rel.RelatedObjects : [rel.RelatedObjects];
+              for (const objRef of relatedObjs) {
+                const objId = objRef?.value || objRef;
+                if (objId && typeof objId === 'number') {
+                  const existing = elementPropertiesMap.get(objId) || {};
+                  elementPropertiesMap.set(objId, { ...existing, ...props });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch (propErr) {
+    console.debug('[IFC Loader] Property indexing note:', propErr);
+  }
+
   // Collect piece marks & properties
   const piecesByMark = new Map<string, PieceInfo[]>();
   const pieceByExpressID = new Map<number, PieceInfo>();
@@ -224,8 +290,9 @@ export async function loadAndAuditIFC(
     const assID = assemblies.get(i);
     try {
       const assObj = ifcApi.GetLine(modelID, assID);
-      const props = await getPropertiesForElement(ifcApi, modelID, assID);
-      const pmark = props.PieceMark || props.Reference || props.Mark || props.Tag || 'indefinido';
+      const props = elementPropertiesMap.get(assID) || {};
+      const rawProps = getSyncProperties(ifcApi, modelID, assID);
+      const pmark = props.PieceMark || props.Reference || props.Mark || props.Tag || rawProps.Name || 'indefinido';
       
       const children = assemblyToChildren.get(assID) || [];
       const piece: PieceInfo = {
@@ -273,15 +340,10 @@ export async function loadAndAuditIFC(
     const placedGeometries = flatMesh.geometries;
 
     // Check properties for this element
-    let pmark = '';
-    let section = '';
-    try {
-      const rawProps = getSyncProperties(ifcApi, modelID, expressID);
-      pmark = rawProps.PieceMark || rawProps.Reference || rawProps.Mark || '';
-      section = rawProps.Section || rawProps.Profile || '';
-    } catch {
-      // fallback
-    }
+    const props = elementPropertiesMap.get(expressID) || {};
+    const rawProps = getSyncProperties(ifcApi, modelID, expressID);
+    const pmark = props.PieceMark || props.Reference || props.Mark || props.Tag || rawProps.Name || '';
+    const section = props.Section || props.Profile || props.Description || rawProps.Name || '';
 
     // Determine section color
     const colorKey = section || 'PADRAO';
@@ -412,25 +474,6 @@ export async function loadAndAuditIFC(
 }
 
 // Helpers
-async function getPropertiesForElement(ifcApi: WebIFC.IfcAPI, modelID: number, expressID: number): Promise<Record<string, string>> {
-  const result: Record<string, string> = {};
-  try {
-    const psets = ifcApi.GetPropertySetsForLines(modelID, [expressID]);
-    for (const pset of psets) {
-      if (pset.HasProperties) {
-        for (const propRef of pset.HasProperties) {
-          const prop = ifcApi.GetLine(modelID, propRef.value);
-          if (prop && prop.Name && prop.NominalValue) {
-            result[prop.Name.value] = String(prop.NominalValue.value);
-          }
-        }
-      }
-    }
-  } catch {
-    // fallback
-  }
-  return result;
-}
 
 function getSyncProperties(ifcApi: WebIFC.IfcAPI, modelID: number, expressID: number): Record<string, string> {
   const result: Record<string, string> = {};

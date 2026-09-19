@@ -65,13 +65,19 @@ export default function Visualizador3D() {
       try {
         const { data, error } = await supabase
           .from('ordens_fabricacao' as any)
-          .select('id, of_number, descritivo, cliente, peso_total')
-          .order('created_at', { ascending: false });
+          .select('id, num_of, descritivo, peso_total')
+          .order('num_of', { ascending: false });
 
         if (!error && data) {
-          setOfs(data as any);
-          if (data.length > 0 && !selectedOF) {
-            setSelectedOF((data[0] as any).of_number);
+          const list: OFOption[] = (data as any[]).map(item => ({
+            id: item.id,
+            of_number: item.num_of || '',
+            descritivo: item.descritivo || '',
+            peso_total: Number(item.peso_total || 0)
+          }));
+          setOfs(list);
+          if (list.length > 0 && !selectedOF) {
+            setSelectedOF(list[0].of_number);
           }
         }
       } catch (err) {
@@ -90,13 +96,17 @@ export default function Visualizador3D() {
         // Fetch pecas
         const { data: pecasData } = await supabase
           .from('pecas' as any)
-          .select('*')
+          .select('id, of_number, etapa_fase, marca, descricao, quantidade, peso_unitario, peso_total, perfil_principal, material')
           .eq('of_number', selectedOF);
 
-        // Fetch apontamentos
+        // Fetch apontamentos com join de peca e processo
         const { data: apontamentosData } = await supabase
           .from('apontamentos_producao' as any)
-          .select('*')
+          .select(`
+            id, of_number, peca_id, quantidade_produzida,
+            peca:pecas(marca, etapa_fase),
+            processo:processos_fabricacao(nome, cor, ordem)
+          `)
           .eq('of_number', selectedOF);
 
         // Build phases list
@@ -109,15 +119,16 @@ export default function Visualizador3D() {
           pecasData.forEach((p: any) => {
             const fase = String(p.etapa_fase || '1');
             phases.add(fase);
-            totalPecas += p.quantidade || 0;
+            totalPecas += Number(p.quantidade || 0);
             totalPeso += Number(p.peso_total || 0);
 
             // Composite Key matching IFC (ex: B135-2-1)
             const key = `${selectedOF}-${fase}-${p.marca}`;
             prodMap.set(key, {
+              pecaId: p.id,
               marca: p.marca,
               fase,
-              totalQtd: p.quantidade || 1,
+              totalQtd: Number(p.quantidade || 1),
               pointedQtd: 0,
               currentProcessName: 'Pendente',
               processColor: '#64748b'
@@ -128,15 +139,19 @@ export default function Visualizador3D() {
         let pointedTotal = 0;
         if (apontamentosData) {
           apontamentosData.forEach((ap: any) => {
-            const key = `${selectedOF}-${ap.etapa_fase || '1'}-${ap.marca}`;
-            const existing = prodMap.get(key);
-            if (existing) {
-              const qty = Number(ap.quantidade_apontada || 0);
-              existing.pointedQtd += qty;
-              pointedTotal += qty;
-              if (ap.processo_nome) {
-                existing.currentProcessName = ap.processo_nome;
-                existing.processColor = PROCESS_COLORS[ap.processo_nome] || '#10b981';
+            const marca = ap.peca?.marca;
+            const fase = String(ap.peca?.etapa_fase || '1');
+            if (marca) {
+              const key = `${selectedOF}-${fase}-${marca}`;
+              const existing = prodMap.get(key);
+              if (existing) {
+                const qty = Number(ap.quantidade_produzida || 0);
+                existing.pointedQtd += qty;
+                pointedTotal += qty;
+                if (ap.processo?.nome) {
+                  existing.currentProcessName = ap.processo.nome;
+                  existing.processColor = ap.processo.cor || PROCESS_COLORS[ap.processo.nome] || '#10b981';
+                }
               }
             }
           });

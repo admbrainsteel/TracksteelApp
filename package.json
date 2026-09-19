@@ -61,7 +61,7 @@
     "tailwindcss-animate": "^1.0.7",
     "three": "^0.186.0",
     "three-stdlib": "^2.36.1",
-    "web-ifc": "^0.0.77",
+    "web-ifc": "0.0.57",
     "xlsx": "^0.18.5",
     "zod": "^3.25.76"
   },
