@@ -163,6 +163,13 @@ export const routeConfig: RouteDefinition[] = [
     resourceKey: 'producao-dashboard',
   },
 
+  // ── Visualizador 3D ──────────────────────────────────────
+  {
+    path: '/visualizador-3d',
+    component: () => import('@/pages/Visualizador3D'),
+    guard: 'protected',
+  },
+
   // ── Painel Industrial ────────────────────────────────────
   {
     path: '/painel-industrial',

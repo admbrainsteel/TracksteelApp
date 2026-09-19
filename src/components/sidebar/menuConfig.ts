@@ -5,6 +5,7 @@ import {
   Warehouse,
   FolderOpen,
   Building2,
+  Box,
   Monitor,
   Truck,
   HardHat,
@@ -143,6 +144,12 @@ export const menuGroups: MenuGroup[] = [
             url: "/prioridades-fabricacao",
           }
         ]
+      },
+      {
+        key: "visualizador-3d",
+        title: "Visualizador 3D",
+        url: "/visualizador-3d",
+        icon: Box,
       },
       {
         key: "painel-industrial",
