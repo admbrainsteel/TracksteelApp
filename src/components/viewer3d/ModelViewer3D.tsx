@@ -19,6 +19,8 @@ interface ModelViewer3DProps {
   modelData: LoadedIFCResult | null;
   productionData?: Map<string, ProductionPieceStatus>;
   selectedPieceMark?: string | null;
+  selectedOF?: string;
+  selectedPhase?: string;
   onSelectPiece?: (piece: PieceInfo | null) => void;
 }
 
@@ -26,6 +28,8 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
   modelData,
   productionData,
   selectedPieceMark,
+  selectedOF,
+  selectedPhase,
   onSelectPiece,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -232,48 +236,69 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     if (!modelData || !modelGroupRef.current) return;
 
     const group = modelGroupRef.current;
+    let matchedCount = 0;
+    let pointedCount = 0;
+    let totalMeshCount = 0;
+    let sampleMatch: any = null;
 
     group.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
-        const pmark = String(mesh.userData.pieceMark || '').trim();
-        const cleanMark = String(mesh.userData.cleanMark || pmark).trim();
+        totalMeshCount++;
 
-        if (colorMode === 'production' && productionData) {
-          // Look up production pointing status: tenta pmark, depois cleanMark, depois busca flexível
-          let prod = productionData.get(pmark) || productionData.get(cleanMark);
-          if (!prod) {
-            for (const [key, val] of productionData.entries()) {
-              if (
-                pmark === key ||
-                cleanMark === key ||
-                pmark === val.marca ||
-                cleanMark === val.marca ||
-                pmark.endsWith(`-${key}`) ||
-                pmark.endsWith(`-${val.marca}`) ||
-                key.endsWith(`-${pmark}`) ||
-                key.endsWith(`-${cleanMark}`)
-              ) {
-                prod = val;
-                break;
+        const pmark = String(mesh.userData.pieceMark || '').trim().toUpperCase();
+        const cleanMark = String(mesh.userData.cleanMark || pmark).trim().toUpperCase();
+        const assMark = String(mesh.userData.assemblyMark || '').trim().toUpperCase();
+        const cleanAssMark = String(mesh.userData.cleanAssemblyMark || cleanMark).trim().toUpperCase();
+        const section = String(mesh.userData.section || '').trim().toUpperCase();
+
+        if (colorMode === 'production' && productionData && productionData.size > 0) {
+          let prod: ProductionPieceStatus | undefined = undefined;
+
+          // 1. Prioridade: Busca pela Assembly Mark do conjunto estrutural (ex: B135-3-7 -> "B135-3-7", "3-7", "7")
+          if (assMark && assMark !== 'INDEFINIDO') {
+            prod = productionData.get(assMark) ||
+                   productionData.get(cleanAssMark) ||
+                   (selectedPhase && selectedPhase !== 'all' ? productionData.get(`${selectedPhase}-${cleanAssMark}`.toUpperCase()) : undefined) ||
+                   (selectedOF ? productionData.get(`${selectedOF}-${cleanAssMark}`.toUpperCase()) : undefined);
+          }
+
+          // 2. Busca pela marca própria da peça (ex: B135-3-22 -> "B135-3-22", "3-22", "22")
+          if (!prod && pmark && pmark !== 'INDEFINIDO') {
+            prod = productionData.get(pmark) ||
+                   productionData.get(cleanMark) ||
+                   (selectedPhase && selectedPhase !== 'all' ? productionData.get(`${selectedPhase}-${cleanMark}`.toUpperCase()) : undefined) ||
+                   (selectedOF ? productionData.get(`${selectedOF}-${cleanMark}`.toUpperCase()) : undefined);
+          }
+
+          // 3. Fallback inteligente para perfis / elementos sem marca (ex: barras redondas 'RD19', tubos 'Box150X150X9.')
+          if (!prod && section && section !== '-' && section !== 'INDEFINIDO') {
+            prod = productionData.get(`PERFIL:${section}`) ||
+                   productionData.get(`DESC:${section}`);
+
+            if (!prod) {
+              for (const [key, val] of productionData.entries()) {
+                if (key.startsWith('DESC:') || key.startsWith('PERFIL:')) {
+                  const term = key.replace('DESC:', '').replace('PERFIL:', '');
+                  if (term && (section.includes(term) || term.includes(section))) {
+                    prod = val;
+                    break;
+                  }
+                }
               }
             }
           }
 
-          // Debug log (primeiras 10 peças para validação no console)
-          if ((window as any)._debugIfcColors === undefined) (window as any)._debugIfcColors = 0;
-          if ((window as any)._debugIfcColors < 10) {
-            console.log(
-              `[IFC Color Debug] IFC pmark: "${pmark}" (clean: "${cleanMark}") -> DB match:`,
-              prod
-                ? `ACHOU! Marca DB: "${prod.marca}", Apontadas: ${prod.pointedQtd}/${prod.totalQtd}, Processo: "${prod.currentProcessName}", Cor: ${prod.processColor}`
-                : `NÃO ACHOU. Chaves DB disponíveis: ${Array.from(productionData.keys()).slice(0, 8).join(', ')}...`
-            );
-            (window as any)._debugIfcColors++;
+          if (prod) {
+            matchedCount++;
+            if (!sampleMatch && prod.pointedQtd > 0) {
+              sampleMatch = { pmark: assMark || pmark, dbMarca: prod.marca, proc: prod.currentProcessName, cor: prod.processColor };
+            }
           }
 
           if (prod && prod.pointedQtd > 0) {
-            // Peça apontada: aplica a cor do estágio de fabricação
+            pointedCount++;
+            // Peça apontada no banco: aplica com precisão a cor do estágio de fabricação
             const stageHex = prod.processColor || '#10b981';
             mesh.material = new THREE.MeshStandardMaterial({
               color: new THREE.Color(stageHex),
@@ -282,29 +307,20 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
               side: THREE.DoubleSide,
             });
           } else {
-            // Não apontada / Pendente: Cinza claro padrão industrial (#a1a1aa)
+            // Não apontada / Pendente ou Não vinculada: 100% CINZA CLARO INDUSTRIAL (#a1a1aa)
             mesh.material = new THREE.MeshStandardMaterial({
               color: new THREE.Color(0xa1a1aa),
-              metalness: 0.2,
-              roughness: 0.7,
+              metalness: 0.25,
+              roughness: 0.65,
               transparent: opacity < 100,
               opacity: opacity / 100,
               side: THREE.DoubleSide,
             });
           }
         } else {
-          // Color Mode "Descrição": Cores ricas por perfil e material idênticas ao SteelXR
-          const parentData = mesh.parent?.userData || {};
-          const label =
-            mesh.userData.section ||
-            parentData.section ||
-            mesh.userData.materialName ||
-            parentData.materialName ||
-            mesh.userData.pieceMark ||
-            'PADRAO';
-          const hsl = getColorForMaterialName(label);
+          // Todas as peças iniciam / permanecem em Cinza Claro Industrial (#a1a1aa)
           mesh.material = new THREE.MeshStandardMaterial({
-            color: new THREE.Color(hsl),
+            color: new THREE.Color(0xa1a1aa),
             metalness: 0.25,
             roughness: 0.65,
             transparent: opacity < 100,
@@ -327,7 +343,19 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
         }
       }
     });
-  }, [modelData, colorMode, productionData, opacity, isWireframe]);
+
+    if (totalMeshCount > 0 && productionData && productionData.size > 0) {
+      console.log(
+        `%c[IFC Sync] Amarração de Peças: ${matchedCount}/${totalMeshCount} malhas vinculadas | ${pointedCount} apontadas na produção | ${totalMeshCount - pointedCount} pendentes em cinza claro`,
+        'color: #06b6d4; font-weight: bold;'
+      );
+      if (sampleMatch) {
+        console.log(
+          `[IFC Sync] Exemplo de amarração: IFC "${sampleMatch.pmark}" -> Banco "${sampleMatch.dbMarca}" (Processo: ${sampleMatch.proc}, Cor: ${sampleMatch.cor})`
+        );
+      }
+    }
+  }, [modelData, colorMode, productionData, selectedPhase, selectedOF, opacity, isWireframe]);
 
   // Camera Toggle (Ortogonal / Perspectiva)
   const handleToggleCamera = useCallback(() => {

@@ -29,6 +29,7 @@ export interface PieceInfo {
   pieceMark: string;
   cleanMark?: string;
   assemblyMark?: string;
+  cleanAssemblyMark?: string;
   parentAssemblyID?: number;
   phase?: string;
   ofNumber?: string;
@@ -122,6 +123,14 @@ export function getCleanMarkValue(rawMark: string): string {
   }
 
   return cleaned;
+}
+
+// Helper: Identifica se uma marca é número de peça solta/corte (ex: 1000, 1001, 1002, 1010)
+export function isSinglePartCutNumber(val: string): boolean {
+  if (!val) return false;
+  const clean = getCleanMarkValue(val);
+  const num = parseInt(clean, 10);
+  return !isNaN(num) && num >= 1000;
 }
 
 // Helper: Mapeamento de nome de material idêntico ao SteelXR
@@ -440,6 +449,8 @@ export async function loadAndAuditIFC(
   function extractBestMark(expressID: number): {
     mark: string;
     cleanMark: string;
+    assemblyMark: string;
+    cleanAssemblyMark: string;
     section: string;
     description: string;
   } {
@@ -493,7 +504,10 @@ export async function loadAndAuditIFC(
       }
     }
 
-    if (!chosenMark && childToAssembly.has(expressID)) {
+    // Busca Assembly Mark no conjunto pai (IFCRELAGGREGATES)
+    let assemblyMark = '';
+    let cleanAssemblyMark = '';
+    if (childToAssembly.has(expressID)) {
       const parentId = childToAssembly.get(expressID)!;
       const parentProps = elementPropertiesMap.get(parentId) || {};
       try {
@@ -512,12 +526,29 @@ export async function loadAndAuditIFC(
         ];
         for (const pCand of parentCandidates) {
           if (pCand && isValidMark(pCand)) {
-            chosenMark = String(pCand).trim();
+            assemblyMark = String(pCand).trim();
+            cleanAssemblyMark = getCleanMarkValue(assemblyMark);
             break;
           }
         }
       } catch {}
     }
+
+    if (!assemblyMark && props.AssemblyMark && isValidMark(props.AssemblyMark)) {
+      assemblyMark = String(props.AssemblyMark).trim();
+      cleanAssemblyMark = getCleanMarkValue(assemblyMark);
+    }
+
+    // Em estruturas metálicas, a marca da peça apontada na produção é a marca do conjunto (Assembly Mark),
+    // a menos que a peça seja avulsa ou que não tenha conjunto pai
+    let finalMark = chosenMark;
+    if (assemblyMark && isValidMark(assemblyMark)) {
+      if (!finalMark || finalMark === 'indefinido' || isSinglePartCutNumber(finalMark)) {
+        finalMark = assemblyMark;
+      }
+    }
+
+    const clean = getCleanMarkValue(finalMark);
 
     const section =
       props.Section ||
@@ -528,11 +559,11 @@ export async function loadAndAuditIFC(
       rawName ||
       '';
 
-    const clean = getCleanMarkValue(chosenMark);
-
     return {
-      mark: chosenMark || 'indefinido',
-      cleanMark: clean || chosenMark || 'indefinido',
+      mark: finalMark || 'indefinido',
+      cleanMark: clean || finalMark || 'indefinido',
+      assemblyMark: assemblyMark || finalMark || '',
+      cleanAssemblyMark: cleanAssemblyMark || clean || '',
       section,
       description: rawDesc
     };
@@ -557,6 +588,8 @@ export async function loadAndAuditIFC(
         type: 'IFCELEMENTASSEMBLY',
         pieceMark: markInfo.mark,
         cleanMark: markInfo.cleanMark,
+        assemblyMark: markInfo.assemblyMark,
+        cleanAssemblyMark: markInfo.cleanAssemblyMark,
         childrenIDs: children,
         connectedMeshIDs: children,
         section: markInfo.section,
@@ -599,6 +632,8 @@ export async function loadAndAuditIFC(
       ifcId: expressID,
       pieceMark: markInfo.mark,
       cleanMark: markInfo.cleanMark,
+      assemblyMark: markInfo.assemblyMark,
+      cleanAssemblyMark: markInfo.cleanAssemblyMark,
       section: markInfo.section,
       materialName,
       connectedMeshIDs: connectedGroup
@@ -636,27 +671,22 @@ export async function loadAndAuditIFC(
       geometry.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
       geometry.setIndex(new THREE.BufferAttribute(indices, 1));
 
-      // Cor original nativa do IFC igual ao SteelXR
+      // Padrão industrial solicitado: O modelo 3D IFC SEMPRE inicia com todas as peças 100% em cinza claro (#a1a1aa)
       const color = placedGeometry.color;
-      const colorKey = (color.x * 255) << 16 | (color.y * 255) << 8 | (color.z * 255);
-      let material = materialsCache.get(colorKey);
-      if (!material) {
-        material = new THREE.MeshStandardMaterial({
-          color: new THREE.Color(color.x, color.y, color.z),
-          metalness: 0.25,
-          roughness: 0.65,
-          transparent: color.w < 1,
-          opacity: color.w,
-          side: THREE.DoubleSide,
-        });
-        materialsCache.set(colorKey, material);
-      }
+      const initialGrayMaterial = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(0xa1a1aa),
+        metalness: 0.25,
+        roughness: 0.65,
+        side: THREE.DoubleSide,
+      });
 
-      const mesh3 = new THREE.Mesh(geometry, material);
+      const mesh3 = new THREE.Mesh(geometry, initialGrayMaterial);
       mesh3.userData = {
         ifcId: expressID,
         pieceMark: markInfo.mark,
         cleanMark: markInfo.cleanMark,
+        assemblyMark: markInfo.assemblyMark,
+        cleanAssemblyMark: markInfo.cleanAssemblyMark,
         section: markInfo.section,
         materialName,
         nativeColor: new THREE.Color(color.x, color.y, color.z),

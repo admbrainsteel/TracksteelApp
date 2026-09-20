@@ -144,12 +144,26 @@ export default function Visualizador3D() {
 
             // Indexa por marca simples (ex: "4")
             prodMap.set(marcaStr, item);
+            prodMap.set(marcaStr.toUpperCase(), item);
             // Indexa por fase e marca (ex: "2-4")
             prodMap.set(`${fase}-${marcaStr}`, item);
+            prodMap.set(`${fase}-${marcaStr}`.toUpperCase(), item);
             // Indexa por OF, fase e marca (ex: "B135-2-4")
             prodMap.set(`${selectedOF}-${fase}-${marcaStr}`, item);
+            prodMap.set(`${selectedOF}-${fase}-${marcaStr}`.toUpperCase(), item);
             // Indexa por OF e marca (ex: "B135-4")
             prodMap.set(`${selectedOF}-${marcaStr}`, item);
+            prodMap.set(`${selectedOF}-${marcaStr}`.toUpperCase(), item);
+
+            // Indexa descrição e perfil principal para amarração de elementos sem numeração (ex: barras redondas RD19)
+            if (p.descricao) {
+              const d = String(p.descricao).trim().toUpperCase();
+              prodMap.set(`DESC:${d}`, item);
+            }
+            if (p.perfil_principal) {
+              const perf = String(p.perfil_principal).trim().toUpperCase();
+              prodMap.set(`PERFIL:${perf}`, item);
+            }
           });
         }
 
@@ -436,6 +450,8 @@ export default function Visualizador3D() {
         <ModelViewer3D
           modelData={modelData}
           productionData={productionMap}
+          selectedOF={selectedOF}
+          selectedPhase={selectedPhase}
         />
       </div>
 
