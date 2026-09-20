@@ -45,7 +45,7 @@ const PROCESS_COLORS: Record<string, string> = {
 export default function Visualizador3D() {
   const { toast } = useToast();
   const [ofs, setOfs] = useState<OFOption[]>([]);
-  const [selectedOF, setSelectedOF] = useState<string>('B135');
+  const [selectedOF, setSelectedOF] = useState<string>('');
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
   const [phasesList, setPhasesList] = useState<string[]>([]);
 
@@ -88,9 +88,6 @@ export default function Visualizador3D() {
             ifc_updated_at: item.ifc_updated_at || null,
           }));
           setOfs(list);
-          if (list.length > 0 && !selectedOF) {
-            setSelectedOF(list[0].of_number);
-          }
         }
       } catch (err) {
         console.error('Erro ao carregar OFs:', err);
@@ -495,12 +492,12 @@ export default function Visualizador3D() {
               onChange={(e) => setSelectedOF(e.target.value)}
               className="bg-transparent text-sm font-bold text-cyan-300 focus:outline-none cursor-pointer"
             >
+              <option value="" disabled className="text-slate-500">Selecione a OF...</option>
               {ofs.map((ofItem) => (
                 <option key={ofItem.id} value={ofItem.of_number} className="bg-slate-900 text-white">
                   {ofItem.of_number} {ofItem.descritivo ? `— ${ofItem.descritivo}` : ''}
                 </option>
               ))}
-              {ofs.length === 0 && <option value="B135">B135 — Cobert. Embarque</option>}
             </select>
           </div>
 
