@@ -247,6 +247,14 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
               }
             }
           }
+
+          // Debug log (somente primeira vez para as primeiras 5 peças para não travar o console)
+          if ((window as any)._debugIfcColors === undefined) (window as any)._debugIfcColors = 0;
+          if ((window as any)._debugIfcColors < 10) {
+            console.log(`[IFC Color Debug] IFC pmark: "${pmark}" -> DB match:`, prod ? `Achou! Marca DB: "${prod.marca}", Qtd: ${prod.pointedQtd}, Cor: ${prod.processColor}` : `NÃO ACHOU. Chaves disponíveis: ${Array.from(productionData.keys()).slice(0,5).join(', ')}...`);
+            (window as any)._debugIfcColors++;
+          }
+
           if (prod && prod.pointedQtd > 0) {
             // Apply stage color (e.g., Light Green #4ade80 for pointed)
             const stageHex = prod.processColor || '#4ade80';

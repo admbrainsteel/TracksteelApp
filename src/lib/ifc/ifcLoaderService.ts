@@ -133,8 +133,9 @@ export async function loadAndAuditIFC(
   // 3. Open Model
   if (onProgress) onProgress(40, 'Decodificando entidades IFC...');
   const modelID = ifcApi.OpenModel(data, {
-    COORDINATE_TO_ORIGIN: true
-  });
+    COORDINATE_TO_ORIGIN: true,
+    USE_FAST_BOOLS: true
+  } as any);
   if (modelID < 0) {
     throw new Error('Falha ao decodificar a estrutura do arquivo IFC.');
   }
