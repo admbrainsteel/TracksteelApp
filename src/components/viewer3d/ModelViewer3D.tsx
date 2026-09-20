@@ -46,7 +46,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
   const [isOrthographic, setIsOrthographic] = useState<boolean>(false);
   const [isWireframe, setIsWireframe] = useState<boolean>(false);
   const [navMode, setNavMode] = useState<'orbit' | 'walk'>('orbit');
-  const [colorMode, setColorMode] = useState<'description' | 'production'>('description');
+  const [colorMode, setColorMode] = useState<'description' | 'production'>('production');
   const [hasSectionPlanes, setHasSectionPlanes] = useState<boolean>(false);
   const [isMeasuring, setIsMeasuring] = useState<boolean>(false);
 
