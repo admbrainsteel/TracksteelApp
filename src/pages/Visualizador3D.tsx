@@ -1,20 +1,21 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { loadAndAuditIFC, LoadedIFCResult, IFCQualityAudit } from '@/lib/ifc/ifcLoaderService';
+import { uploadIFCToCloud, fetchSavedIFCModel, removeSavedIFCModel } from '@/lib/ifc/ifcStorageService';
 import { ModelViewer3D } from '@/components/viewer3d/ModelViewer3D';
 import { IFCQualityModal } from '@/components/viewer3d/IFCQualityModal';
+import { useToast } from '@/hooks/use-toast';
 import {
   Upload,
   Box,
   Layers,
   ShieldCheck,
   CheckCircle2,
-  FileCode2,
   Loader2,
   TrendingUp,
   Weight,
-  Sparkles,
-  Info
+  Cloud,
+  Trash2
 } from 'lucide-react';
 
 interface OFOption {
@@ -23,6 +24,10 @@ interface OFOption {
   descritivo?: string;
   cliente?: string;
   peso_total?: number;
+  ifc_url?: string | null;
+  ifc_filename?: string | null;
+  ifc_file_size?: number | null;
+  ifc_updated_at?: string | null;
 }
 
 const PROCESS_COLORS: Record<string, string> = {
@@ -38,6 +43,7 @@ const PROCESS_COLORS: Record<string, string> = {
 };
 
 export default function Visualizador3D() {
+  const { toast } = useToast();
   const [ofs, setOfs] = useState<OFOption[]>([]);
   const [selectedOF, setSelectedOF] = useState<string>('B135');
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
@@ -45,6 +51,7 @@ export default function Visualizador3D() {
 
   // Production pointing data from Supabase
   const [productionMap, setProductionMap] = useState<Map<string, any>>(new Map());
+  const [uniqueItemsList, setUniqueItemsList] = useState<any[]>([]);
   const [totalPecasBD, setTotalPecasBD] = useState<number>(0);
   const [totalApontadasBD, setTotalApontadasBD] = useState<number>(0);
   const [pesoTotalBD, setPesoTotalBD] = useState<number>(0);
@@ -60,21 +67,25 @@ export default function Visualizador3D() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 1. Fetch OFs
+  // 1. Fetch OFs (com colunas de IFC para persistência na nuvem)
   useEffect(() => {
     async function fetchOFs() {
       try {
         const { data, error } = await supabase
           .from('ordens_fabricacao' as any)
-          .select('id, num_of, descritivo, peso_total')
+          .select('id, num_of, descritivo, peso_total, ifc_url, ifc_filename, ifc_file_size, ifc_updated_at')
           .order('num_of', { ascending: false });
 
         if (!error && data) {
-          const list: OFOption[] = (data as any[]).map(item => ({
+          const list: OFOption[] = (data as any[]).map((item) => ({
             id: item.id,
             of_number: item.num_of || '',
             descritivo: item.descritivo || '',
-            peso_total: Number(item.peso_total || 0)
+            peso_total: Number(item.peso_total || 0),
+            ifc_url: item.ifc_url || null,
+            ifc_filename: item.ifc_filename || null,
+            ifc_file_size: item.ifc_file_size ? Number(item.ifc_file_size) : null,
+            ifc_updated_at: item.ifc_updated_at || null,
           }));
           setOfs(list);
           if (list.length > 0 && !selectedOF) {
@@ -100,7 +111,7 @@ export default function Visualizador3D() {
           .select('id, of_number, etapa_fase, marca, descricao, quantidade, peso_unitario, peso_total, perfil_principal, material')
           .eq('of_number', selectedOF);
 
-        // Fetch apontamentos com join de peca e processo usando constraints explicitas para evitar PGRST201
+        // Fetch apontamentos com join de peca e processo
         const { data: apontamentosData, error: errorApontamentos } = await supabase
           .from('apontamentos_producao' as any)
           .select(`
@@ -111,7 +122,7 @@ export default function Visualizador3D() {
           .eq('of_number', selectedOF);
 
         if (errorApontamentos) {
-          console.error("Erro ao buscar apontamentos no visualizador:", errorApontamentos);
+          console.error('Erro ao buscar apontamentos no visualizador:', errorApontamentos);
         }
 
         const phases = new Set<string>();
@@ -134,28 +145,26 @@ export default function Visualizador3D() {
               fase,
               ofNumber: selectedOF,
               totalQtd: Number(p.quantidade || 1),
+              pesoTotal: Number(p.peso_total || 0),
+              pesoUnitario: Number(p.peso_unitario || 0),
               pointedQtd: 0,
               currentProcessName: 'Pendente',
               processColor: '#64748b',
-              processOrdem: 0
+              processOrdem: 0,
             };
 
             uniqueItems.push(item);
 
-            // Indexa por marca simples (ex: "4")
+            // Indexações para amarração gráfica flexível
             prodMap.set(marcaStr, item);
             prodMap.set(marcaStr.toUpperCase(), item);
-            // Indexa por fase e marca (ex: "2-4")
             prodMap.set(`${fase}-${marcaStr}`, item);
             prodMap.set(`${fase}-${marcaStr}`.toUpperCase(), item);
-            // Indexa por OF, fase e marca (ex: "B135-2-4")
             prodMap.set(`${selectedOF}-${fase}-${marcaStr}`, item);
             prodMap.set(`${selectedOF}-${fase}-${marcaStr}`.toUpperCase(), item);
-            // Indexa por OF e marca (ex: "B135-4")
             prodMap.set(`${selectedOF}-${marcaStr}`, item);
             prodMap.set(`${selectedOF}-${marcaStr}`.toUpperCase(), item);
 
-            // Indexa descrição e perfil principal para amarração de elementos sem numeração (ex: barras redondas RD19)
             if (p.descricao) {
               const d = String(p.descricao).trim().toUpperCase();
               prodMap.set(`DESC:${d}`, item);
@@ -168,7 +177,6 @@ export default function Visualizador3D() {
         }
 
         if (apontamentosData) {
-          // Ordenar apontamentos do menor processo para o maior (assim o processo mais avançado sobressai por último)
           apontamentosData.sort((a: any, b: any) => (a.processo?.ordem || 0) - (b.processo?.ordem || 0));
 
           apontamentosData.forEach((ap: any) => {
@@ -183,7 +191,6 @@ export default function Visualizador3D() {
               if (existing) {
                 const qty = Number(ap.quantidade_produzida || 0);
                 if (qty > 0) {
-                  // Atualiza a peça para o estágio mais avançado alcançado
                   existing.pointedQtd = Math.max(existing.pointedQtd, qty);
                   existing.currentProcessName = ap.processo?.nome || existing.currentProcessName;
                   existing.processColor = ap.processo?.cor || PROCESS_COLORS[ap.processo?.nome || ''] || '#10b981';
@@ -195,20 +202,24 @@ export default function Visualizador3D() {
         }
 
         let pointedTotal = 0;
-        let sumProgress = 0; // Para evolução da OF
+        let sumProgress = 0;
 
-        // Itera sobre uniqueItems para não duplicar métricas com os múltiplos índices de busca
         uniqueItems.forEach((val) => {
           pointedTotal += val.pointedQtd;
-          // Considerando maxOrdem = 5 como final para cálculo de %.
           const pecaProgress = val.pointedQtd > 0 ? Math.min(val.processOrdem / 5, 1) * (val.pointedQtd / val.totalQtd) : 0;
           sumProgress += pecaProgress * val.totalQtd;
         });
-        
+
         const progressoGeralPercent = totalPecas > 0 ? Math.min(Math.round((sumProgress / totalPecas) * 100), 100) : 0;
 
-        setPhasesList(Array.from(phases).sort());
+        setPhasesList(Array.from(phases).sort((a, b) => {
+          const na = Number(a);
+          const nb = Number(b);
+          return !isNaN(na) && !isNaN(nb) ? na - nb : a.localeCompare(b);
+        }));
+
         setProductionMap(prodMap);
+        setUniqueItemsList(uniqueItems);
         setTotalPecasBD(totalPecas);
         setTotalApontadasBD(pointedTotal);
         setPesoTotalBD(totalPeso);
@@ -221,41 +232,243 @@ export default function Visualizador3D() {
     fetchProductionData();
   }, [selectedOF]);
 
-  // Handle File Upload
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  // Função auxiliar de carregamento de modelo salvo
+  const loadSavedModel = useCallback(async (ofNumber: string, url: string, filename?: string | null) => {
     setIsLoadingModel(true);
-    setLoadingStep('Iniciando processamento...');
-    setLoadingPercent(5);
+    setLoadingStep('Buscando modelo 3D vinculado...');
+    setLoadingPercent(15);
 
     try {
-      const result = await loadAndAuditIFC(file, (percent, step) => {
+      const buffer = await fetchSavedIFCModel(ofNumber, url, (percent, step) => {
         setLoadingPercent(percent);
+        setLoadingStep(step);
+      });
+
+      setLoadingStep('Decodificando entidades e montagens IFC...');
+      setLoadingPercent(55);
+
+      const result = await loadAndAuditIFC(buffer, (percent, step) => {
+        setLoadingPercent(55 + Math.round(percent * 0.45));
         setLoadingStep(step);
       });
 
       setModelData(result);
       setAuditData(result.audit);
-      setIsAuditModalOpen(true); // Open quality audit automatically on load
+
+      // Mescla fases detectadas no IFC às fases da OF
+      if (result.detectedPhases && result.detectedPhases.length > 0) {
+        setPhasesList((prev) => {
+          const combined = new Set([...prev, ...result.detectedPhases]);
+          return Array.from(combined).sort((a, b) => {
+            const na = Number(a);
+            const nb = Number(b);
+            return !isNaN(na) && !isNaN(nb) ? na - nb : a.localeCompare(b);
+          });
+        });
+      }
+
+      toast({
+        title: 'Modelo 3D Carregado',
+        description: `Modelo da OF ${ofNumber} carregado automaticamente da nuvem.`,
+      });
     } catch (err: any) {
-      console.error('Erro ao carregar IFC:', err);
-      alert(`Falha no carregamento do IFC: ${err.message || 'Erro desconhecido'}`);
+      console.error('Erro ao carregar modelo salvo:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Falha no Carregamento Automático',
+        description: `Não foi possível carregar o modelo salvo: ${err.message || 'Erro de rede'}`,
+      });
+    } finally {
+      setIsLoadingModel(false);
+    }
+  }, [toast]);
+
+  // 3. Efeito para verificar e carregar automaticamente o modelo IFC salvo ao selecionar uma obra
+  useEffect(() => {
+    if (!selectedOF) return;
+
+    // Reseta visualizador para a nova OF
+    setModelData(null);
+    setAuditData(null);
+    setSelectedPhase('all');
+
+    const currentOF = ofs.find((o) => o.of_number === selectedOF);
+
+    if (currentOF && currentOF.ifc_url) {
+      loadSavedModel(selectedOF, currentOF.ifc_url, currentOF.ifc_filename);
+    } else if (ofs.length === 0) {
+      // Caso a lista de ofs ainda esteja sendo buscada, tenta consulta direta rápida
+      async function checkDirect() {
+        try {
+          const { data } = await supabase
+            .from('ordens_fabricacao' as any)
+            .select('ifc_url, ifc_filename')
+            .eq('num_of', selectedOF)
+            .maybeSingle();
+
+          if (data && (data as any).ifc_url) {
+            loadSavedModel(selectedOF, (data as any).ifc_url, (data as any).ifc_filename);
+          }
+        } catch (err) {
+          console.debug('Checagem direta de IFC:', err);
+        }
+      }
+      checkDirect();
+    }
+  }, [selectedOF, ofs, loadSavedModel]);
+
+  // Handle File Upload: Processa, audita e salva automaticamente na nuvem
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsLoadingModel(true);
+    setLoadingStep('Iniciando processamento e auditoria...');
+    setLoadingPercent(10);
+
+    try {
+      // 1. Processa e audita localmente para renderização imediata
+      const result = await loadAndAuditIFC(file, (percent, step) => {
+        setLoadingPercent(Math.min(percent, 70));
+        setLoadingStep(step);
+      });
+
+      setModelData(result);
+      setAuditData(result.audit);
+      setIsAuditModalOpen(true); // Abre modal de qualidade automaticamente
+
+      // Mescla fases detectadas no IFC
+      if (result.detectedPhases && result.detectedPhases.length > 0) {
+        setPhasesList((prev) => {
+          const combined = new Set([...prev, ...result.detectedPhases]);
+          return Array.from(combined).sort((a, b) => {
+            const na = Number(a);
+            const nb = Number(b);
+            return !isNaN(na) && !isNaN(nb) ? na - nb : a.localeCompare(b);
+          });
+        });
+      }
+
+      // 2. Upload e armazenamento permanente no banco de dados e nuvem
+      setLoadingStep(`Salvando modelo no banco de dados da OF ${selectedOF}...`);
+      setLoadingPercent(75);
+
+      const { publicUrl } = await uploadIFCToCloud(
+        file,
+        selectedOF,
+        result.audit,
+        (step, percent) => {
+          setLoadingStep(step);
+          setLoadingPercent(75 + Math.round(percent * 0.25));
+        }
+      );
+
+      // Atualiza o estado local das OFs com o novo arquivo vinculado
+      setOfs((prev) =>
+        prev.map((o) =>
+          o.of_number === selectedOF
+            ? {
+                ...o,
+                ifc_url: publicUrl,
+                ifc_filename: file.name,
+                ifc_file_size: file.size,
+                ifc_updated_at: new Date().toISOString(),
+              }
+            : o
+        )
+      );
+
+      toast({
+        title: 'Modelo IFC Gravado no Banco!',
+        description: `O arquivo "${file.name}" foi salvo com sucesso e carregará automaticamente ao entrar na OF ${selectedOF}.`,
+      });
+    } catch (err: any) {
+      console.error('Erro ao carregar e salvar IFC:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Erro no Carregamento',
+        description: `Falha: ${err.message || 'Erro desconhecido'}`,
+      });
     } finally {
       setIsLoadingModel(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const progressPercent = totalPecasBD > 0 ? Math.min(Math.round((totalApontadasBD / totalPecasBD) * 100), 100) : 0; // Será substituido pelo state local caso quisermos, mas o totalApontadasBD já não vai estourar.
+  // Remover modelo salvo
+  const handleRemoveSavedModel = async () => {
+    if (!confirm(`Deseja remover o modelo IFC vinculado à OF ${selectedOF}?`)) return;
 
+    try {
+      await removeSavedIFCModel(selectedOF);
+      setOfs((prev) =>
+        prev.map((o) =>
+          o.of_number === selectedOF
+            ? { ...o, ifc_url: null, ifc_filename: null, ifc_file_size: null, ifc_updated_at: null }
+            : o
+        )
+      );
+      setModelData(null);
+      setAuditData(null);
+      toast({
+        title: 'Modelo Removido',
+        description: `O modelo vinculado à OF ${selectedOF} foi desvinculado com sucesso.`,
+      });
+    } catch (err: any) {
+      console.error('Erro ao remover modelo:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao desvincular',
+        description: err.message,
+      });
+    }
+  };
+
+  // Métricas dinâmicas refletindo a fase selecionada
+  const activeMetrics = useMemo(() => {
+    if (selectedPhase === 'all' || !selectedPhase) {
+      return {
+        totalPecas: totalPecasBD,
+        apontadas: totalApontadasBD,
+        peso: pesoTotalBD,
+        progresso: progressoOF,
+        phaseLabel: null,
+      };
+    }
+
+    const filtered = uniqueItemsList.filter((item) => String(item.fase) === String(selectedPhase));
+    let pTotal = 0;
+    let pApontadas = 0;
+    let pPeso = 0;
+    let sumProg = 0;
+
+    filtered.forEach((item) => {
+      pTotal += item.totalQtd;
+      pApontadas += item.pointedQtd;
+      pPeso += (item.pesoTotal || 0);
+      const pecaProgress = item.pointedQtd > 0 ? Math.min(item.processOrdem / 5, 1) * (item.pointedQtd / item.totalQtd) : 0;
+      sumProg += pecaProgress * item.totalQtd;
+    });
+
+    const progPercent = pTotal > 0 ? Math.min(Math.round((sumProg / pTotal) * 100), 100) : 0;
+
+    return {
+      totalPecas: pTotal,
+      apontadas: pApontadas,
+      peso: pPeso,
+      progresso: progPercent,
+      phaseLabel: `Fase ${selectedPhase}`,
+    };
+  }, [selectedPhase, totalPecasBD, totalApontadasBD, pesoTotalBD, progressoOF, uniqueItemsList]);
+
+  const currentOFInfo = ofs.find((o) => o.of_number === selectedOF);
+  const hasSavedModel = Boolean(currentOFInfo?.ifc_url);
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] p-4 md:p-6 space-y-4 max-w-[1920px] mx-auto overflow-hidden">
       {/* Top Header Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-2xl shadow-xl">
-        {/* Left: Title & OF Selector */}
+        {/* Left: Title, OF Selector & Phase Filter */}
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-3">
             <div className="p-2.5 bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-xl shadow-lg shadow-cyan-500/10">
@@ -291,14 +504,35 @@ export default function Visualizador3D() {
             </select>
           </div>
 
-          {/* Phase Filter */}
+          {/* Cloud Stored Model Badge */}
+          {hasSavedModel && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs">
+              <Cloud className="w-3.5 h-3.5 text-emerald-400" />
+              <span
+                className="text-emerald-300 font-mono font-medium max-w-[170px] truncate"
+                title={currentOFInfo?.ifc_filename || 'Modelo IFC Vinculado'}
+              >
+                {currentOFInfo?.ifc_filename || 'Modelo Salvo'}
+              </span>
+              <button
+                onClick={handleRemoveSavedModel}
+                disabled={isLoadingModel}
+                className="text-slate-400 hover:text-red-400 transition-colors ml-1 p-0.5 rounded"
+                title="Desvincular modelo desta OF"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Phase Filter Buttons */}
           {phasesList.length > 0 && (
             <div className="flex items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
               <button
                 onClick={() => setSelectedPhase('all')}
                 className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
                   selectedPhase === 'all'
-                    ? 'bg-cyan-500 text-slate-950 font-bold'
+                    ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/30'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
               >
@@ -310,7 +544,7 @@ export default function Visualizador3D() {
                   onClick={() => setSelectedPhase(f)}
                   className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
                     selectedPhase === f
-                      ? 'bg-cyan-500 text-slate-950 font-bold'
+                      ? 'bg-cyan-500 text-slate-950 font-bold shadow-md shadow-cyan-500/30'
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
@@ -345,17 +579,17 @@ export default function Visualizador3D() {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isLoadingModel}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-50 cursor-pointer"
           >
             {isLoadingModel ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Carregando ({loadingPercent}%)...</span>
+                <span>{loadingStep || `Carregando (${loadingPercent}%)...`}</span>
               </>
             ) : (
               <>
                 <Upload className="w-4 h-4" />
-                <span>Carregar Modelo IFC</span>
+                <span>{hasSavedModel ? 'Substituir Modelo IFC' : 'Carregar Modelo IFC'}</span>
               </>
             )}
           </button>
@@ -367,10 +601,10 @@ export default function Visualizador3D() {
         <div className="bg-slate-900/80 border border-slate-800 p-3 rounded-xl flex items-center justify-between">
           <div>
             <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400 block">
-              Total de Peças
+              Total de Peças {activeMetrics.phaseLabel ? `(${activeMetrics.phaseLabel})` : ''}
             </span>
             <span className="text-lg font-mono font-extrabold text-white">
-              {totalPecasBD || 39} peças
+              {activeMetrics.totalPecas} peças
             </span>
           </div>
           <Layers className="w-5 h-5 text-cyan-400" />
@@ -379,10 +613,10 @@ export default function Visualizador3D() {
         <div className="bg-slate-900/80 border border-slate-800 p-3 rounded-xl flex items-center justify-between">
           <div>
             <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400 block">
-              Apontamentos Realizados
+              Apontamentos Realizados {activeMetrics.phaseLabel ? `(${activeMetrics.phaseLabel})` : ''}
             </span>
             <span className="text-lg font-mono font-extrabold text-emerald-400">
-              {totalApontadasBD} apontadas
+              {activeMetrics.apontadas} apontadas
             </span>
           </div>
           <CheckCircle2 className="w-5 h-5 text-emerald-400" />
@@ -391,10 +625,10 @@ export default function Visualizador3D() {
         <div className="bg-slate-900/80 border border-slate-800 p-3 rounded-xl flex items-center justify-between">
           <div>
             <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400 block">
-              Evolução da OF
+              Evolução {activeMetrics.phaseLabel ? `(${activeMetrics.phaseLabel})` : 'da OF'}
             </span>
             <span className="text-lg font-mono font-extrabold text-amber-400">
-              {progressoOF}% concluído
+              {activeMetrics.progresso}% concluído
             </span>
           </div>
           <TrendingUp className="w-5 h-5 text-amber-400" />
@@ -403,10 +637,10 @@ export default function Visualizador3D() {
         <div className="bg-slate-900/80 border border-slate-800 p-3 rounded-xl flex items-center justify-between">
           <div>
             <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400 block">
-              Peso da Estrutura
+              Peso {activeMetrics.phaseLabel ? `(${activeMetrics.phaseLabel})` : 'da Estrutura'}
             </span>
             <span className="text-lg font-mono font-extrabold text-cyan-300">
-              {pesoTotalBD > 0 ? `${(pesoTotalBD / 1000).toFixed(1)} ton` : '15.0 ton'}
+              {activeMetrics.peso > 0 ? `${(activeMetrics.peso / 1000).toFixed(1)} ton` : '0.0 ton'}
             </span>
           </div>
           <Weight className="w-5 h-5 text-cyan-400" />
@@ -439,9 +673,9 @@ export default function Visualizador3D() {
               <Box className="w-16 h-16 stroke-[1.2]" />
             </div>
             <div className="space-y-1 max-w-md">
-              <h2 className="text-lg font-bold text-white">Nenhum modelo IFC carregado</h2>
+              <h2 className="text-lg font-bold text-white">Nenhum modelo IFC carregado para {selectedOF}</h2>
               <p className="text-xs text-slate-400 leading-relaxed">
-                Clique no botão <span className="text-cyan-300 font-semibold">"Carregar Modelo IFC"</span> acima para importar o arquivo de fabricação da OF e visualizar a estrutura com seus apontamentos em tempo real.
+                Clique no botão <span className="text-cyan-300 font-semibold">"Carregar Modelo IFC"</span> acima para importar o arquivo de fabricação desta obra. Ele será gravado no banco de dados e recarregado automaticamente nas próximas visitas.
               </p>
             </div>
           </div>

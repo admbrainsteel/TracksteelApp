@@ -252,10 +252,11 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
         const cleanAssMark = String(mesh.userData.cleanAssemblyMark || cleanMark).trim().toUpperCase();
         const section = String(mesh.userData.section || '').trim().toUpperCase();
 
-        if (colorMode === 'production' && productionData && productionData.size > 0) {
-          let prod: ProductionPieceStatus | undefined = undefined;
+        // 1. Determinação da fase e vínculo de produção
+        let prod: ProductionPieceStatus | undefined = undefined;
 
-          // 1. Prioridade: Busca pela Assembly Mark do conjunto estrutural (ex: B135-3-7 -> "B135-3-7", "3-7", "7")
+        if (colorMode === 'production' && productionData && productionData.size > 0) {
+          // Prioridade 1: Busca pela Assembly Mark do conjunto estrutural
           if (assMark && assMark !== 'INDEFINIDO') {
             prod = productionData.get(assMark) ||
                    productionData.get(cleanAssMark) ||
@@ -263,7 +264,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
                    (selectedOF ? productionData.get(`${selectedOF}-${cleanAssMark}`.toUpperCase()) : undefined);
           }
 
-          // 2. Busca pela marca própria da peça (ex: B135-3-22 -> "B135-3-22", "3-22", "22")
+          // Prioridade 2: Busca pela marca própria da peça
           if (!prod && pmark && pmark !== 'INDEFINIDO') {
             prod = productionData.get(pmark) ||
                    productionData.get(cleanMark) ||
@@ -271,7 +272,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
                    (selectedOF ? productionData.get(`${selectedOF}-${cleanMark}`.toUpperCase()) : undefined);
           }
 
-          // 3. Fallback inteligente para perfis / elementos sem marca (ex: barras redondas 'RD19', tubos 'Box150X150X9.')
+          // Prioridade 3: Fallback para perfis / bitolas
           if (!prod && section && section !== '-' && section !== 'INDEFINIDO') {
             prod = productionData.get(`PERFIL:${section}`) ||
                    productionData.get(`DESC:${section}`);
@@ -288,7 +289,38 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
               }
             }
           }
+        }
 
+        // 2. Extração da fase deste elemento (Banco > Propriedade IFC > Regex na Marca)
+        let elementPhase = '';
+        if (prod && prod.fase) {
+          elementPhase = String(prod.fase).trim();
+        }
+        if (!elementPhase && mesh.userData.phase) {
+          elementPhase = String(mesh.userData.phase).trim();
+        }
+        if (!elementPhase) {
+          const raw = assMark || pmark;
+          const match = raw.match(/^(?:[A-Za-z0-9]+-)?(\d+)-/i);
+          if (match) {
+            elementPhase = match[1];
+          }
+        }
+
+        // 3. Controle Estrito de Visibilidade por Fase
+        const isVisibleByPhase =
+          !selectedPhase ||
+          selectedPhase === 'all' ||
+          elementPhase === selectedPhase ||
+          String(elementPhase).toLowerCase() === String(selectedPhase).toLowerCase();
+
+        mesh.visible = isVisibleByPhase;
+
+        // Se o elemento não estiver visível na fase atual, pula estilização detalhada
+        if (!isVisibleByPhase) return;
+
+        // 4. Aplicação de Cores / Materiais
+        if (colorMode === 'production' && productionData && productionData.size > 0) {
           if (prod) {
             matchedCount++;
             if (!sampleMatch && prod.pointedQtd > 0) {
@@ -343,6 +375,10 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
         }
       }
     });
+
+    if (selectedPhase && selectedPhase !== 'all') {
+      console.log(`[Viewer3D] Filtrando modelo 3D pela Fase: "${selectedPhase}"`);
+    }
 
     if (totalMeshCount > 0 && productionData && productionData.size > 0) {
       console.log(

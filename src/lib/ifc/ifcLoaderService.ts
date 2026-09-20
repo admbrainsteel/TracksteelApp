@@ -49,6 +49,7 @@ export interface LoadedIFCResult {
   weldedGroupMap: Map<number, number[]>;
   materialsByColor: Map<string, THREE.Material>;
   totalMeshes: number;
+  detectedPhases: string[];
 }
 
 /**
@@ -453,6 +454,7 @@ export async function loadAndAuditIFC(
     cleanAssemblyMark: string;
     section: string;
     description: string;
+    phase: string;
   } {
     const props = elementPropertiesMap.get(expressID) || {};
 
@@ -559,13 +561,60 @@ export async function loadAndAuditIFC(
       rawName ||
       '';
 
+    // Extração inteligente de Fase
+    const phaseCandidates = [
+      props.Phase,
+      props.Fase,
+      props['Phase Number'],
+      props['Phase Name'],
+      props['Tekla Assembly.Phase'],
+      props['Tekla Common.Phase'],
+      props['Tekla Assembly.Phase Name'],
+      props.Etapa,
+      props.Sequence,
+      props.Batch
+    ];
+    let chosenPhase = '';
+    for (const pCand of phaseCandidates) {
+      if (pCand && isValidMark(pCand)) {
+        chosenPhase = String(pCand).trim();
+        break;
+      }
+    }
+    if (!chosenPhase && childToAssembly.has(expressID)) {
+      const parentId = childToAssembly.get(expressID)!;
+      const parentProps = elementPropertiesMap.get(parentId) || {};
+      const parentPhaseCandidates = [
+        parentProps.Phase,
+        parentProps.Fase,
+        parentProps['Phase Number'],
+        parentProps['Phase Name'],
+        parentProps['Tekla Assembly.Phase'],
+        parentProps['Tekla Common.Phase'],
+        parentProps['Tekla Assembly.Phase Name'],
+        parentProps.Etapa,
+        parentProps.Sequence,
+        parentProps.Batch
+      ];
+      for (const pCand of parentPhaseCandidates) {
+        if (pCand && isValidMark(pCand)) {
+          chosenPhase = String(pCand).trim();
+          break;
+        }
+      }
+    }
+    if (!chosenPhase) {
+      chosenPhase = extractPhaseFromMark(assemblyMark || finalMark);
+    }
+
     return {
       mark: finalMark || 'indefinido',
       cleanMark: clean || finalMark || 'indefinido',
       assemblyMark: assemblyMark || finalMark || '',
       cleanAssemblyMark: cleanAssemblyMark || clean || '',
       section,
-      description: rawDesc
+      description: rawDesc,
+      phase: chosenPhase
     };
   }
 
@@ -573,6 +622,7 @@ export async function loadAndAuditIFC(
   const piecesByMark = new Map<string, PieceInfo[]>();
   const pieceByExpressID = new Map<number, PieceInfo>();
   const uniqueMarksSet = new Set<string>();
+  const detectedPhasesSet = new Set<string>();
 
   for (let i = 0; i < assemblies.size(); i++) {
     const assID = assemblies.get(i);
@@ -580,6 +630,10 @@ export async function loadAndAuditIFC(
       const assObj = ifcApi.GetLine(modelID, assID);
       const markInfo = extractBestMark(assID);
       const children = assemblyToChildren.get(assID) || [];
+
+      if (markInfo.phase) {
+        detectedPhasesSet.add(markInfo.phase);
+      }
 
       const piece: PieceInfo = {
         expressID: assID,
@@ -593,7 +647,7 @@ export async function loadAndAuditIFC(
         childrenIDs: children,
         connectedMeshIDs: children,
         section: markInfo.section,
-        phase: extractPhaseFromMark(markInfo.mark),
+        phase: markInfo.phase || extractPhaseFromMark(markInfo.mark),
         ofNumber: extractOFFromMark(markInfo.mark)
       };
 
@@ -625,6 +679,10 @@ export async function loadAndAuditIFC(
     const materialName = elementMaterialMap.get(expressID) ?? '';
     const connectedGroup = weldedGroupMap.get(expressID) || [expressID];
 
+    if (markInfo.phase) {
+      detectedPhasesSet.add(markInfo.phase);
+    }
+
     const elementGroup = new THREE.Group();
     elementGroup.name = `ifc_${expressID}`;
     elementGroup.userData = {
@@ -635,6 +693,7 @@ export async function loadAndAuditIFC(
       assemblyMark: markInfo.assemblyMark,
       cleanAssemblyMark: markInfo.cleanAssemblyMark,
       section: markInfo.section,
+      phase: markInfo.phase,
       materialName,
       connectedMeshIDs: connectedGroup
     };
@@ -688,6 +747,7 @@ export async function loadAndAuditIFC(
         assemblyMark: markInfo.assemblyMark,
         cleanAssemblyMark: markInfo.cleanAssemblyMark,
         section: markInfo.section,
+        phase: markInfo.phase,
         materialName,
         nativeColor: new THREE.Color(color.x, color.y, color.z),
         connectedMeshIDs: connectedGroup
@@ -710,6 +770,7 @@ export async function loadAndAuditIFC(
           pieceMark: markInfo.mark,
           cleanMark: markInfo.cleanMark,
           section: markInfo.section,
+          phase: markInfo.phase,
           material: materialName,
           connectedMeshIDs: connectedGroup,
           mesh: mesh3
@@ -781,14 +842,31 @@ export async function loadAndAuditIFC(
     pieceByExpressID,
     weldedGroupMap,
     materialsByColor: materialsCache as any,
-    totalMeshes
+    totalMeshes,
+    detectedPhases: Array.from(detectedPhasesSet).sort((a, b) => {
+      const na = Number(a);
+      const nb = Number(b);
+      return !isNaN(na) && !isNaN(nb) ? na - nb : a.localeCompare(b);
+    })
   };
 }
 
-function extractPhaseFromMark(mark: string): string {
+export function extractPhaseFromMark(mark: string): string {
+  if (!mark || mark === 'indefinido') return '';
   const parts = mark.split('-');
-  if (parts.length >= 3) return parts[1];
-  return '1';
+  if (parts.length >= 3) {
+    const p1 = parts[1].trim();
+    if (p1 && /^\d+$/.test(p1)) return p1;
+    return p1;
+  }
+  if (parts.length === 2) {
+    const p0 = parts[0].trim();
+    if (p0 && /^\d+$/.test(p0)) return p0;
+  }
+  const match = mark.match(/(?:fase|phase|etapa)\s*(\d+)/i);
+  if (match) return match[1];
+
+  return '';
 }
 
 function extractOFFromMark(mark: string): string {
