@@ -99,17 +99,25 @@ export default function Visualizador3D() {
           .select('id, of_number, etapa_fase, marca, descricao, quantidade, peso_unitario, peso_total, perfil_principal, material')
           .eq('of_number', selectedOF);
 
-        // Fetch apontamentos com join de peca e processo
+        // Fetch apontamentos
         const { data: apontamentosData } = await supabase
           .from('apontamentos_producao' as any)
-          .select(`
-            id, of_number, peca_id, quantidade_produzida,
-            peca:pecas(marca, etapa_fase),
-            processo:processos_fabricacao(nome, cor, ordem)
-          `)
+          .select('id, of_number, peca_id, processo_id, quantidade_produzida')
           .eq('of_number', selectedOF);
 
-        // Build phases list
+        // Fetch processos de fabricação
+        const { data: processosData } = await supabase
+          .from('processos_fabricacao' as any)
+          .select('id, nome, cor, ordem');
+
+        const processoById = new Map<string, any>();
+        if (processosData) {
+          processosData.forEach((pr: any) => {
+            processoById.set(pr.id, pr);
+          });
+        }
+
+        const pecaById = new Map<string, any>();
         const phases = new Set<string>();
         const prodMap = new Map<string, any>();
         let totalPecas = 0;
@@ -117,40 +125,57 @@ export default function Visualizador3D() {
 
         if (pecasData) {
           pecasData.forEach((p: any) => {
+            pecaById.set(p.id, p);
             const fase = String(p.etapa_fase || '1');
+            const marca = String(p.marca || '').trim();
             phases.add(fase);
             totalPecas += Number(p.quantidade || 0);
             totalPeso += Number(p.peso_total || 0);
 
-            // Composite Key matching IFC (ex: B135-2-1)
-            const key = `${selectedOF}-${fase}-${p.marca}`;
-            prodMap.set(key, {
+            const pieceStatus = {
               pecaId: p.id,
-              marca: p.marca,
+              marca,
               fase,
+              of_number: selectedOF,
               totalQtd: Number(p.quantidade || 1),
               pointedQtd: 0,
               currentProcessName: 'Pendente',
               processColor: '#64748b'
-            });
+            };
+
+            // Register multiple lookup keys for resilient matching:
+            // 1. OF-Fase-Marca: e.g. "B135-3-21"
+            prodMap.set(`${selectedOF}-${fase}-${marca}`, pieceStatus);
+            // 2. Fase-Marca: e.g. "3-21"
+            prodMap.set(`${fase}-${marca}`, pieceStatus);
+            // 3. Marca only: e.g. "21"
+            prodMap.set(marca, pieceStatus);
+            // 4. OF-Marca: e.g. "B135-21"
+            prodMap.set(`${selectedOF}-${marca}`, pieceStatus);
           });
         }
 
         let pointedTotal = 0;
         if (apontamentosData) {
           apontamentosData.forEach((ap: any) => {
-            const marca = ap.peca?.marca;
-            const fase = String(ap.peca?.etapa_fase || '1');
-            if (marca) {
+            const peca = pecaById.get(ap.peca_id);
+            if (peca) {
+              const marca = String(peca.marca || '').trim();
+              const fase = String(peca.etapa_fase || '1');
               const key = `${selectedOF}-${fase}-${marca}`;
               const existing = prodMap.get(key);
               if (existing) {
                 const qty = Number(ap.quantidade_produzida || 0);
                 existing.pointedQtd += qty;
                 pointedTotal += qty;
-                if (ap.processo?.nome) {
-                  existing.currentProcessName = ap.processo.nome;
-                  existing.processColor = ap.processo.cor || PROCESS_COLORS[ap.processo.nome] || '#10b981';
+                
+                const proc = processoById.get(ap.processo_id);
+                if (proc) {
+                  existing.currentProcessName = proc.nome;
+                  existing.processColor = proc.cor || PROCESS_COLORS[proc.nome] || '#22c55e';
+                } else {
+                  existing.currentProcessName = 'Apontado';
+                  existing.processColor = '#22c55e';
                 }
               }
             }

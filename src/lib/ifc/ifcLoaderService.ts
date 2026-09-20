@@ -160,14 +160,23 @@ export async function loadAndAuditIFC(
   // 4.1 Native Aggregates mapping (IFCRELAGGREGATES)
   const aggregates = ifcApi.GetLineIDsWithType(modelID, WebIFC.IFCRELAGGREGATES);
   const assemblyToChildren = new Map<number, number[]>();
+  const childToAssemblyMap = new Map<number, number>();
 
   for (let i = 0; i < aggregates.size(); i++) {
     const relID = aggregates.get(i);
     try {
       const rel = ifcApi.GetLine(modelID, relID);
       if (rel && rel.RelatingObject && rel.RelatedObjects) {
-        const parentID = rel.RelatingObject.value;
-        const childIDs = (rel.RelatedObjects as any[]).map((r: any) => r.value);
+        const parentID = typeof rel.RelatingObject === 'number' ? rel.RelatingObject : rel.RelatingObject.value;
+        const childObjs = Array.isArray(rel.RelatedObjects) ? rel.RelatedObjects : [rel.RelatedObjects];
+        const childIDs: number[] = [];
+        for (const c of childObjs) {
+          const cId = typeof c === 'number' ? c : c?.value;
+          if (typeof cId === 'number' && cId > 0) {
+            childIDs.push(cId);
+            childToAssemblyMap.set(cId, parentID);
+          }
+        }
         assemblyToChildren.set(parentID, childIDs);
       }
     } catch {
@@ -240,31 +249,35 @@ export async function loadAndAuditIFC(
       if (relId && relId > 0) {
         const rel = ifcApi.GetLine(modelID, relId);
         if (rel && rel.RelatedObjects && rel.RelatingPropertyDefinition) {
-          const propDefId = rel.RelatingPropertyDefinition.value;
+          const propDefId = typeof rel.RelatingPropertyDefinition === 'number'
+            ? rel.RelatingPropertyDefinition
+            : rel.RelatingPropertyDefinition.value;
+
           if (propDefId && typeof propDefId === 'number' && propDefId > 0) {
             const propDef = ifcApi.GetLine(modelID, propDefId);
             if (propDef && propDef.HasProperties) {
               const props: Record<string, string> = {};
               for (const pRef of propDef.HasProperties) {
-                const pId = pRef?.value;
+                const pId = typeof pRef === 'number' ? pRef : pRef?.value;
                 if (pId && typeof pId === 'number' && pId > 0) {
                   const pLine = ifcApi.GetLine(modelID, pId);
                   if (pLine && pLine.Name) {
-                    const name = pLine.Name.value;
+                    const name = pLine.Name.value || pLine.Name;
                     let value = '';
                     if (pLine.NominalValue) {
-                      value = String(pLine.NominalValue.value);
+                      value = String(pLine.NominalValue.value !== undefined ? pLine.NominalValue.value : pLine.NominalValue);
                     }
                     if (name && value) {
-                      props[name] = value;
+                      props[String(name)] = value;
                     }
                   }
                 }
               }
+
               const relatedObjs = Array.isArray(rel.RelatedObjects) ? rel.RelatedObjects : [rel.RelatedObjects];
               for (const objRef of relatedObjs) {
-                const objId = objRef?.value || objRef;
-                if (objId && typeof objId === 'number') {
+                const objId = typeof objRef === 'number' ? objRef : objRef?.value;
+                if (objId && typeof objId === 'number' && objId > 0) {
                   const existing = elementPropertiesMap.get(objId) || {};
                   elementPropertiesMap.set(objId, { ...existing, ...props });
                 }
@@ -292,7 +305,8 @@ export async function loadAndAuditIFC(
       const assObj = ifcApi.GetLine(modelID, assID);
       const props = elementPropertiesMap.get(assID) || {};
       const rawProps = getSyncProperties(ifcApi, modelID, assID);
-      const pmark = props.PieceMark || props.Reference || props.Mark || props.Tag || rawProps.Name || 'indefinido';
+      let pmark = props.PieceMark || props.Reference || props.Mark || props.Tag || rawProps.Name || 'indefinido';
+      if (pmark === 'indefinido') pmark = '';
       
       const children = assemblyToChildren.get(assID) || [];
       const piece: PieceInfo = {
@@ -308,7 +322,7 @@ export async function loadAndAuditIFC(
         ofNumber: extractOFFromMark(pmark)
       };
 
-      if (pmark !== 'indefinido') {
+      if (pmark) {
         uniqueMarksSet.add(pmark);
         if (!piecesByMark.has(pmark)) piecesByMark.set(pmark, []);
         piecesByMark.get(pmark)!.push(piece);
@@ -324,10 +338,11 @@ export async function loadAndAuditIFC(
   const sceneGroup = new THREE.Group();
   sceneGroup.name = 'IFC_ROOT_MODEL';
 
-  const defaultGrayMat = new THREE.MeshStandardMaterial({
-    color: 0x94a3b8,
-    metalness: 0.35,
-    roughness: 0.55,
+  // Base metallic light gray material
+  const defaultSteelMat = new THREE.MeshStandardMaterial({
+    color: 0xb0bec5, // Metallic Light Gray
+    metalness: 0.58,
+    roughness: 0.38,
     side: THREE.DoubleSide
   });
 
@@ -342,7 +357,34 @@ export async function loadAndAuditIFC(
     // Check properties for this element
     const props = elementPropertiesMap.get(expressID) || {};
     const rawProps = getSyncProperties(ifcApi, modelID, expressID);
-    const pmark = props.PieceMark || props.Reference || props.Mark || props.Tag || rawProps.Name || '';
+    
+    // Look up mark from element properties OR parent assembly OR weld group peers
+    let pmark = props.PieceMark || props.Reference || props.Mark || props.Tag || rawProps.Name || '';
+    if (pmark === 'indefinido') pmark = '';
+
+    if (!pmark) {
+      const parentID = childToAssemblyMap.get(expressID);
+      if (parentID) {
+        const parentProps = elementPropertiesMap.get(parentID) || {};
+        const parentRaw = getSyncProperties(ifcApi, modelID, parentID);
+        pmark = parentProps.PieceMark || parentProps.Reference || parentProps.Mark || parentProps.Tag || parentRaw.Name || '';
+        if (pmark === 'indefinido') pmark = '';
+      }
+    }
+
+    const connectedGroup = weldedGroupMap.get(expressID) || [expressID];
+    if (!pmark) {
+      for (const peerID of connectedGroup) {
+        const peerProps = elementPropertiesMap.get(peerID) || {};
+        const peerRaw = getSyncProperties(ifcApi, modelID, peerID);
+        const peerMark = peerProps.PieceMark || peerProps.Reference || peerProps.Mark || peerProps.Tag || peerRaw.Name || '';
+        if (peerMark && peerMark !== 'indefinido') {
+          pmark = peerMark;
+          break;
+        }
+      }
+    }
+
     const section = props.Section || props.Profile || props.Description || rawProps.Name || '';
 
     // Determine section color
@@ -364,10 +406,7 @@ export async function loadAndAuditIFC(
         })
       );
     }
-    const mat = materialCache.get(hexColor) || defaultGrayMat;
-
-    // Get welded connected peers (Fallback topology)
-    const connectedGroup = weldedGroupMap.get(expressID) || [expressID];
+    const mat = defaultSteelMat;
 
     for (let g = 0; g < placedGeometries.size(); g++) {
       const placedGeo = placedGeometries.get(g);

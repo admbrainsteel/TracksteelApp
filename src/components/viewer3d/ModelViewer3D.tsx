@@ -46,7 +46,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
   const [isOrthographic, setIsOrthographic] = useState<boolean>(false);
   const [isWireframe, setIsWireframe] = useState<boolean>(false);
   const [navMode, setNavMode] = useState<'orbit' | 'walk'>('orbit');
-  const [colorMode, setColorMode] = useState<'description' | 'production'>('description');
+  const [colorMode, setColorMode] = useState<'description' | 'production'>('production');
   const [hasSectionPlanes, setHasSectionPlanes] = useState<boolean>(false);
   const [isMeasuring, setIsMeasuring] = useState<boolean>(false);
 
@@ -55,16 +55,39 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
   const [hoveredPiece, setHoveredPiece] = useState<PieceInfo | null>(null);
   const [hoverPosition, setHoverPosition] = useState<{ x: number; y: number } | null>(null);
 
-  // Highlight Material (Light Green #4ade80)
-  const highlightMaterialRef = useRef<THREE.MeshStandardMaterial>(
-    new THREE.MeshStandardMaterial({
-      color: 0x4ade80,
-      emissive: 0x22c55e,
-      emissiveIntensity: 0.35,
-      metalness: 0.3,
-      roughness: 0.4,
-      side: THREE.DoubleSide,
-    })
+  // Smart Matcher: Matches any mark format (e.g. "B135-3-21", "3-21", "21", "B135-21") against production data
+  const getPieceProductionStatus = useCallback(
+    (rawMark: string): ProductionPieceStatus | undefined => {
+      if (!productionData || !rawMark) return undefined;
+
+      const clean = rawMark.trim();
+      // 1. Direct map lookup
+      if (productionData.has(clean)) return productionData.get(clean);
+
+      // 2. Tokenize by -, /, ., _, space
+      const tokens = clean.split(/[-/._\s]+/).filter(Boolean);
+
+      // Suffix combinations e.g. "3-21"
+      if (tokens.length >= 2) {
+        const lastTwo = `${tokens[tokens.length - 2]}-${tokens[tokens.length - 1]}`;
+        if (productionData.has(lastTwo)) return productionData.get(lastTwo);
+      }
+
+      // Last token is the specific piece mark (e.g. "21" in "B135-3-21")
+      if (tokens.length > 0) {
+        const lastTok = tokens[tokens.length - 1];
+        if (productionData.has(lastTok)) return productionData.get(lastTok);
+      }
+
+      // 3. Fallback scan across map values
+      for (const [key, val] of productionData.entries()) {
+        if (val.marca === clean) return val;
+        if (tokens.length > 0 && val.marca === tokens[tokens.length - 1]) return val;
+      }
+
+      return undefined;
+    },
+    [productionData]
   );
 
   // Initialize Scene
@@ -119,7 +142,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     controlsRef.current = controls;
 
     // 5. Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
     scene.add(ambientLight);
 
     const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.2);
@@ -127,11 +150,11 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     dirLight1.castShadow = true;
     scene.add(dirLight1);
 
-    const dirLight2 = new THREE.DirectionalLight(0x94a3b8, 0.6);
+    const dirLight2 = new THREE.DirectionalLight(0x94a3b8, 0.7);
     dirLight2.position.set(-100, -50, -100);
     scene.add(dirLight2);
 
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x1e293b, 0.5);
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x1e293b, 0.6);
     scene.add(hemiLight);
 
     // 6. Floor Grid
@@ -229,59 +252,116 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     if (!modelData || !modelGroupRef.current) return;
 
     const group = modelGroupRef.current;
+    const allMeshes: THREE.Mesh[] = [];
 
     group.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-        const pmark = mesh.userData.pieceMark || '';
-
-        if (colorMode === 'production' && productionData) {
-          // Look up production pointing status
-          const prod = productionData.get(pmark);
-          if (prod && prod.pointedQtd > 0) {
-            // Apply stage color (e.g., Light Green #4ade80 for pointed)
-            const stageHex = prod.processColor || '#4ade80';
-            mesh.material = new THREE.MeshStandardMaterial({
-              color: new THREE.Color(stageHex),
-              metalness: 0.35,
-              roughness: 0.45,
-              side: THREE.DoubleSide,
-            });
-          } else {
-            // Unpointed / Pending (Default Gray)
-            mesh.material = new THREE.MeshStandardMaterial({
-              color: 0x64748b,
-              metalness: 0.3,
-              roughness: 0.6,
-              transparent: opacity < 100,
-              opacity: opacity / 100,
-              side: THREE.DoubleSide,
-            });
-          }
-        } else {
-          // Color Mode "Descrição" (Palette by Profile/Section)
-          const colorKey = mesh.userData.colorKey;
-          const cachedMat = modelData.materialsByColor.get(colorKey);
-          if (cachedMat) {
-            mesh.material = cachedMat;
-          }
-        }
-
-        // Apply Opacity & Wireframe
-        if (Array.isArray(mesh.material)) {
-          mesh.material.forEach((m) => {
-            m.transparent = opacity < 100;
-            m.opacity = opacity / 100;
-            if ('wireframe' in m) (m as any).wireframe = isWireframe;
-          });
-        } else if (mesh.material) {
-          mesh.material.transparent = opacity < 100;
-          mesh.material.opacity = opacity / 100;
-          if ('wireframe' in mesh.material) (mesh.material as any).wireframe = isWireframe;
-        }
+        allMeshes.push(child as THREE.Mesh);
       }
     });
-  }, [modelData, colorMode, productionData, opacity, isWireframe]);
+
+    if (colorMode === 'production') {
+      // Group meshes by their resolved piece/assembly mark
+      const meshesByMark = new Map<string, THREE.Mesh[]>();
+
+      allMeshes.forEach((mesh) => {
+        let pmark = mesh.userData.pieceMark || '';
+        if (!pmark && mesh.userData.expressID && modelData.pieceByExpressID) {
+          const pInfo = modelData.pieceByExpressID.get(mesh.userData.expressID);
+          pmark = pInfo?.pieceMark || '';
+        }
+
+        const prod = getPieceProductionStatus(pmark);
+        const groupKey = prod ? `${prod.fase}-${prod.marca}` : (pmark || `mesh-${mesh.id}`);
+
+        if (!meshesByMark.has(groupKey)) {
+          meshesByMark.set(groupKey, []);
+        }
+        meshesByMark.get(groupKey)!.push(mesh);
+      });
+
+      // Apply proportional coloring for each mark
+      meshesByMark.forEach((meshes, groupKey) => {
+        const sampleMark = meshes[0]?.userData.pieceMark || groupKey;
+        const prod = getPieceProductionStatus(sampleMark);
+
+        if (prod && prod.pointedQtd > 0) {
+          // If pointed, calculate how many mesh instances to highlight green
+          // Example: 2 of 2 un. -> all 2 green. 2 of 4 un. -> 2 green, 2 gray.
+          const totalQtd = Math.max(prod.totalQtd || 1, 1);
+          const pointedQtd = Math.max(prod.pointedQtd, 0);
+
+          // If there are multiple meshes, highlight proportional count
+          const ratio = Math.min(pointedQtd / totalQtd, 1.0);
+          const countToHighlight = Math.max(1, Math.min(meshes.length, Math.round(meshes.length * ratio)));
+
+          meshes.forEach((mesh, idx) => {
+            const isPointed = idx < countToHighlight;
+            if (isPointed) {
+              // Vibrant Light Green (#4ade80) for pointed pieces
+              mesh.material = new THREE.MeshStandardMaterial({
+                color: 0x4ade80,
+                emissive: 0x16a34a,
+                emissiveIntensity: 0.28,
+                metalness: 0.35,
+                roughness: 0.4,
+                side: THREE.DoubleSide,
+              });
+            } else {
+              // Sleek Metallic Light Gray for unpointed
+              mesh.material = new THREE.MeshStandardMaterial({
+                color: 0xb0bec5,
+                metalness: 0.58,
+                roughness: 0.38,
+                side: THREE.DoubleSide,
+              });
+            }
+          });
+        } else {
+          // Unpointed / Pending -> Sleek Metallic Light Gray (Steel)
+          meshes.forEach((mesh) => {
+            mesh.material = new THREE.MeshStandardMaterial({
+              color: 0xb0bec5,
+              metalness: 0.58,
+              roughness: 0.38,
+              side: THREE.DoubleSide,
+            });
+          });
+        }
+      });
+    } else {
+      // Color Mode "Descrição" (Palette by Profile/Section)
+      allMeshes.forEach((mesh) => {
+        const colorKey = mesh.userData.colorKey;
+        const cachedMat = modelData.materialsByColor.get(colorKey);
+        if (cachedMat) {
+          mesh.material = cachedMat;
+        } else {
+          mesh.material = new THREE.MeshStandardMaterial({
+            color: 0xb0bec5,
+            metalness: 0.58,
+            roughness: 0.38,
+            side: THREE.DoubleSide,
+          });
+        }
+      });
+    }
+
+    // Apply Opacity & Wireframe to all meshes
+    allMeshes.forEach((mesh) => {
+      if (Array.isArray(mesh.material)) {
+        mesh.material.forEach((m) => {
+          m.transparent = opacity < 100;
+          m.opacity = opacity / 100;
+          if ('wireframe' in m) (m as any).wireframe = isWireframe;
+        });
+      } else if (mesh.material) {
+        mesh.material.transparent = opacity < 100;
+        mesh.material.opacity = opacity / 100;
+        if ('wireframe' in mesh.material) (mesh.material as any).wireframe = isWireframe;
+      }
+    });
+  }, [modelData, colorMode, productionData, opacity, isWireframe, getPieceProductionStatus]);
 
   // Camera Toggle (Ortogonal / Perspectiva)
   const handleToggleCamera = useCallback(() => {
@@ -353,6 +433,39 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     }
   }, []);
 
+  // Click Selection
+  const handleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current || !activeCameraRef.current || !modelGroupRef.current) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    const mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    const clickPos = new THREE.Vector2(mouseX, mouseY);
+
+    raycasterRef.current.setFromCamera(clickPos, activeCameraRef.current);
+    const intersects = raycasterRef.current.intersectObjects(modelGroupRef.current.children, true);
+
+    if (intersects.length > 0) {
+      const hitMesh = intersects[0].object as THREE.Mesh;
+      const expressID = hitMesh.userData.expressID;
+      const pmark = hitMesh.userData.pieceMark;
+
+      if (modelData && expressID) {
+        const piece = modelData.pieceByExpressID.get(expressID) || {
+          expressID,
+          guid: '',
+          name: hitMesh.userData.section || 'Peça',
+          type: 'PIECE',
+          pieceMark: pmark,
+          section: hitMesh.userData.section,
+        };
+        onSelectPiece?.(piece);
+      }
+    } else {
+      onSelectPiece?.(null);
+    }
+  };
+
   // 1.5-Second Hover Detection
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!containerRef.current || !activeCameraRef.current || !modelGroupRef.current) return;
@@ -411,6 +524,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
   return (
     <div
       ref={containerRef}
+      onClick={handleClick}
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
       className="relative w-full h-full min-h-[600px] bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl select-none"
@@ -426,12 +540,17 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
         position={hoverPosition}
         productionInfo={
           hoveredPiece?.pieceMark && productionData
-            ? {
-                pointedQty: productionData.get(hoveredPiece.pieceMark)?.pointedQtd,
-                totalQty: productionData.get(hoveredPiece.pieceMark)?.totalQtd,
-                currentStage: productionData.get(hoveredPiece.pieceMark)?.currentProcessName,
-                stageColor: productionData.get(hoveredPiece.pieceMark)?.processColor,
-              }
+            ? (() => {
+                const prod = getPieceProductionStatus(hoveredPiece.pieceMark);
+                return prod
+                  ? {
+                      pointedQty: prod.pointedQtd,
+                      totalQty: prod.totalQtd,
+                      currentStage: prod.currentProcessName,
+                      stageColor: prod.processColor,
+                    }
+                  : undefined;
+              })()
             : undefined
         }
       />
