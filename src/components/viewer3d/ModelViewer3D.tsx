@@ -233,31 +233,45 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     group.traverse((child) => {
       if ((child as THREE.Mesh).isMesh) {
         const mesh = child as THREE.Mesh;
-        const pmark = mesh.userData.pieceMark || '';
+        const pmark = String(mesh.userData.pieceMark || '').trim();
+        const cleanMark = String(mesh.userData.cleanMark || pmark).trim();
 
         if (colorMode === 'production' && productionData) {
-          // Look up production pointing status
-          let prod = productionData.get(pmark);
+          // Look up production pointing status: tenta pmark, depois cleanMark, depois busca flexível
+          let prod = productionData.get(pmark) || productionData.get(cleanMark);
           if (!prod) {
-            // Fallback lookup: IFC marks sometimes have prefixes like B135-1-V1 or suffixes.
             for (const [key, val] of productionData.entries()) {
-              if (pmark === key || pmark.endsWith(`-${key}`) || key.endsWith(`-${pmark}`) || pmark.includes(key)) {
+              if (
+                pmark === key ||
+                cleanMark === key ||
+                pmark === val.marca ||
+                cleanMark === val.marca ||
+                pmark.endsWith(`-${key}`) ||
+                pmark.endsWith(`-${val.marca}`) ||
+                key.endsWith(`-${pmark}`) ||
+                key.endsWith(`-${cleanMark}`)
+              ) {
                 prod = val;
                 break;
               }
             }
           }
 
-          // Debug log (somente primeira vez para as primeiras 5 peças para não travar o console)
+          // Debug log (primeiras 10 peças para validação no console)
           if ((window as any)._debugIfcColors === undefined) (window as any)._debugIfcColors = 0;
           if ((window as any)._debugIfcColors < 10) {
-            console.log(`[IFC Color Debug] IFC pmark: "${pmark}" -> DB match:`, prod ? `Achou! Marca DB: "${prod.marca}", Qtd: ${prod.pointedQtd}, Cor: ${prod.processColor}` : `NÃO ACHOU. Chaves disponíveis: ${Array.from(productionData.keys()).slice(0,5).join(', ')}...`);
+            console.log(
+              `[IFC Color Debug] IFC pmark: "${pmark}" (clean: "${cleanMark}") -> DB match:`,
+              prod
+                ? `ACHOU! Marca DB: "${prod.marca}", Apontadas: ${prod.pointedQtd}/${prod.totalQtd}, Processo: "${prod.currentProcessName}", Cor: ${prod.processColor}`
+                : `NÃO ACHOU. Chaves DB disponíveis: ${Array.from(productionData.keys()).slice(0, 8).join(', ')}...`
+            );
             (window as any)._debugIfcColors++;
           }
 
           if (prod && prod.pointedQtd > 0) {
-            // Apply stage color (e.g., Light Green #4ade80 for pointed)
-            const stageHex = prod.processColor || '#4ade80';
+            // Peça apontada: aplica a cor do estágio de fabricação
+            const stageHex = prod.processColor || '#10b981';
             mesh.material = new THREE.MeshStandardMaterial({
               color: new THREE.Color(stageHex),
               metalness: 0.35,
@@ -265,11 +279,11 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
               side: THREE.DoubleSide,
             });
           } else {
-            // Unpointed / Pending (Default Gray)
+            // Não apontada / Pendente: Cinza claro padrão industrial
             mesh.material = new THREE.MeshStandardMaterial({
-              color: 0x64748b,
-              metalness: 0.3,
-              roughness: 0.6,
+              color: 0x94a3b8,
+              metalness: 0.25,
+              roughness: 0.65,
               transparent: opacity < 100,
               opacity: opacity / 100,
               side: THREE.DoubleSide,

@@ -114,9 +114,9 @@ export default function Visualizador3D() {
           console.error("Erro ao buscar apontamentos no visualizador:", errorApontamentos);
         }
 
-        // Build phases list
         const phases = new Set<string>();
         const prodMap = new Map<string, any>();
+        const uniqueItems: any[] = [];
         let totalPecas = 0;
         let totalPeso = 0;
 
@@ -127,17 +127,29 @@ export default function Visualizador3D() {
             totalPecas += Number(p.quantidade || 0);
             totalPeso += Number(p.peso_total || 0);
 
-            const key = p.marca;
-            prodMap.set(key, {
+            const marcaStr = String(p.marca || '').trim();
+            const item = {
               pecaId: p.id,
-              marca: p.marca,
+              marca: marcaStr,
               fase,
+              ofNumber: selectedOF,
               totalQtd: Number(p.quantidade || 1),
               pointedQtd: 0,
               currentProcessName: 'Pendente',
               processColor: '#64748b',
               processOrdem: 0
-            });
+            };
+
+            uniqueItems.push(item);
+
+            // Indexa por marca simples (ex: "4")
+            prodMap.set(marcaStr, item);
+            // Indexa por fase e marca (ex: "2-4")
+            prodMap.set(`${fase}-${marcaStr}`, item);
+            // Indexa por OF, fase e marca (ex: "B135-2-4")
+            prodMap.set(`${selectedOF}-${fase}-${marcaStr}`, item);
+            // Indexa por OF e marca (ex: "B135-4")
+            prodMap.set(`${selectedOF}-${marcaStr}`, item);
           });
         }
 
@@ -146,15 +158,19 @@ export default function Visualizador3D() {
           apontamentosData.sort((a: any, b: any) => (a.processo?.ordem || 0) - (b.processo?.ordem || 0));
 
           apontamentosData.forEach((ap: any) => {
-            const marca = ap.peca?.marca;
+            const marca = ap.peca?.marca ? String(ap.peca.marca).trim() : '';
+            const fase = ap.peca?.etapa_fase ? String(ap.peca.etapa_fase).trim() : '';
             if (marca) {
-              const key = marca;
-              const existing = prodMap.get(key);
+              const existing =
+                prodMap.get(`${selectedOF}-${fase}-${marca}`) ||
+                prodMap.get(`${fase}-${marca}`) ||
+                prodMap.get(marca);
+
               if (existing) {
                 const qty = Number(ap.quantidade_produzida || 0);
                 if (qty > 0) {
                   // Atualiza a peça para o estágio mais avançado alcançado
-                  existing.pointedQtd = Math.max(existing.pointedQtd, qty); // Evita duplicar apontamentos de processos anteriores
+                  existing.pointedQtd = Math.max(existing.pointedQtd, qty);
                   existing.currentProcessName = ap.processo?.nome || existing.currentProcessName;
                   existing.processColor = ap.processo?.cor || PROCESS_COLORS[ap.processo?.nome || ''] || '#10b981';
                   existing.processOrdem = ap.processo?.ordem || existing.processOrdem;
@@ -167,9 +183,10 @@ export default function Visualizador3D() {
         let pointedTotal = 0;
         let sumProgress = 0; // Para evolução da OF
 
-        prodMap.forEach((val) => {
+        // Itera sobre uniqueItems para não duplicar métricas com os múltiplos índices de busca
+        uniqueItems.forEach((val) => {
           pointedTotal += val.pointedQtd;
-          // Considerando maxOrdem = 5 como final para cálculo de %. Ajuste conforme necessário.
+          // Considerando maxOrdem = 5 como final para cálculo de %.
           const pecaProgress = val.pointedQtd > 0 ? Math.min(val.processOrdem / 5, 1) * (val.pointedQtd / val.totalQtd) : 0;
           sumProgress += pecaProgress * val.totalQtd;
         });
