@@ -99,15 +99,19 @@ export default function Visualizador3D() {
           .select('id, of_number, etapa_fase, marca, descricao, quantidade, peso_unitario, peso_total, perfil_principal, material')
           .eq('of_number', selectedOF);
 
-        // Fetch apontamentos com join de peca e processo
-        const { data: apontamentosData } = await supabase
+        // Fetch apontamentos com join de peca e processo usando constraints explicitas para evitar PGRST201
+        const { data: apontamentosData, error: errorApontamentos } = await supabase
           .from('apontamentos_producao' as any)
           .select(`
             id, of_number, peca_id, quantidade_produzida,
-            peca:pecas(marca, etapa_fase),
-            processo:processos_fabricacao(nome, cor, ordem)
+            peca:pecas!apontamentos_producao_peca_id_fkey(marca, etapa_fase),
+            processo:processos_fabricacao!apontamentos_producao_processo_id_fkey(nome, cor, ordem)
           `)
           .eq('of_number', selectedOF);
+
+        if (errorApontamentos) {
+          console.error("Erro ao buscar apontamentos no visualizador:", errorApontamentos);
+        }
 
         // Build phases list
         const phases = new Set<string>();
