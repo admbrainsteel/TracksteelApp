@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three-stdlib';
-import { PieceInfo, LoadedIFCResult } from '@/lib/ifc/ifcLoaderService';
+import { PieceInfo, LoadedIFCResult, getColorForMaterialName } from '@/lib/ifc/ifcLoaderService';
 import { ViewCube } from './ViewCube';
 import { Viewer3DToolbar } from './Viewer3DToolbar';
 import { PieceHoverTooltip } from './PieceHoverTooltip';
@@ -99,12 +99,15 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
 
     activeCameraRef.current = perspCamera;
 
-    // 3. Renderer
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    // 3. Renderer com padronizacao grafica idêntica ao SteelXR
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     renderer.setSize(width, height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.type = THREE.PCFShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     rendererRef.current = renderer;
 
     containerRef.current.innerHTML = '';
@@ -279,23 +282,35 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
               side: THREE.DoubleSide,
             });
           } else {
-            // Não apontada / Pendente: Cinza claro padrão industrial
+            // Não apontada / Pendente: Cinza claro padrão industrial (#a1a1aa)
             mesh.material = new THREE.MeshStandardMaterial({
-              color: 0x94a3b8,
-              metalness: 0.25,
-              roughness: 0.65,
+              color: new THREE.Color(0xa1a1aa),
+              metalness: 0.2,
+              roughness: 0.7,
               transparent: opacity < 100,
               opacity: opacity / 100,
               side: THREE.DoubleSide,
             });
           }
         } else {
-          // Color Mode "Descrição" (Palette by Profile/Section)
-          const colorKey = mesh.userData.colorKey;
-          const cachedMat = modelData.materialsByColor.get(colorKey);
-          if (cachedMat) {
-            mesh.material = cachedMat;
-          }
+          // Color Mode "Descrição": Cores ricas por perfil e material idênticas ao SteelXR
+          const parentData = mesh.parent?.userData || {};
+          const label =
+            mesh.userData.section ||
+            parentData.section ||
+            mesh.userData.materialName ||
+            parentData.materialName ||
+            mesh.userData.pieceMark ||
+            'PADRAO';
+          const hsl = getColorForMaterialName(label);
+          mesh.material = new THREE.MeshStandardMaterial({
+            color: new THREE.Color(hsl),
+            metalness: 0.25,
+            roughness: 0.65,
+            transparent: opacity < 100,
+            opacity: opacity / 100,
+            side: THREE.DoubleSide,
+          });
         }
 
         // Apply Opacity & Wireframe

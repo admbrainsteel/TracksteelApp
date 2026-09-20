@@ -50,21 +50,20 @@ export interface LoadedIFCResult {
   totalMeshes: number;
 }
 
-// Paleta por Descrição/Seção (Modo "Descrição")
-const DESCRIPTION_PALETTE = [
-  '#3b82f6', // azul
-  '#ec4899', // rosa
-  '#10b981', // esmeralda
-  '#f59e0b', // ambar
-  '#8b5cf6', // roxo
-  '#06b6d4', // ciano
-  '#ef4444', // vermelho
-  '#84cc16', // lima
-  '#6366f1', // indigo
-  '#14b8a6', // teal
-  '#f97316', // laranja
-  '#eab308', // amarelo
-];
+/**
+ * Função idêntica ao SteelXR para gerar cores vibrantes e distintas por descrição / perfil / material.
+ */
+export function getColorForMaterialName(name: string): string {
+  if (!name) return '#a1a1aa';
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const h = Math.abs(hash) % 360;
+  const s = 65 + (Math.abs(hash >> 8) % 15);
+  const l = 45 + (Math.abs(hash >> 16) % 10);
+  return `hsl(${h}, ${s}%, ${l}%)`;
+}
 
 // Helper: Valida se um valor extraído é uma marca útil real
 export function isValidMark(val: any): boolean {
@@ -111,14 +110,12 @@ export function getCleanMarkValue(rawMark: string): string {
   if (!rawMark) return '';
   let cleaned = rawMark.trim();
 
-  // Se tiver hífen, o último segmento costuma ser a marca unitária da peça (ex: OF-FASE-MARCA -> MARCA)
   if (cleaned.includes('-')) {
     const parts = cleaned.split('-');
     const last = parts[parts.length - 1].trim();
     if (last && isValidMark(last)) return last;
   }
 
-  // Se contiver prefixo tipo "Pos: 4" ou "Mark: 4"
   const prefixMatch = cleaned.match(/(?:Mark|Pos|Marca|Posicao)[:\s=]*([^\s,;]+)/i);
   if (prefixMatch && isValidMark(prefixMatch[1])) {
     return prefixMatch[1].trim();
@@ -127,19 +124,66 @@ export function getCleanMarkValue(rawMark: string): string {
   return cleaned;
 }
 
+// Helper: Mapeamento de nome de material idêntico ao SteelXR
+function getMaterialName(ifcApi: WebIFC.IfcAPI, modelID: number, matRef: any): string | null {
+  if (!matRef) return null;
+  const matId = matRef.value;
+  if (!matId) return null;
+  try {
+    const matLine = ifcApi.GetLine(modelID, matId);
+    if (!matLine) return null;
+
+    if (matLine.Name && matLine.Name.value) {
+      return matLine.Name.value;
+    }
+
+    if (matLine.Materials) {
+      for (const mRef of matLine.Materials) {
+        const name = getMaterialName(ifcApi, modelID, mRef);
+        if (name) return name;
+      }
+    }
+
+    if (matLine.MaterialConstituents) {
+      for (const mcRef of matLine.MaterialConstituents) {
+        const mcLine = ifcApi.GetLine(modelID, mcRef.value);
+        if (mcLine && mcLine.Material) {
+          const name = getMaterialName(ifcApi, modelID, mcLine.Material);
+          if (name) return name;
+        }
+      }
+    }
+
+    if (matLine.MaterialProfileSet) {
+      return getMaterialName(ifcApi, modelID, matLine.MaterialProfileSet);
+    }
+    if (matLine.MaterialProfiles) {
+      for (const mpRef of matLine.MaterialProfiles) {
+        const mpLine = ifcApi.GetLine(modelID, mpRef.value);
+        if (mpLine && mpLine.Material) {
+          const name = getMaterialName(ifcApi, modelID, mpLine.Material);
+          if (name) return name;
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
 export async function loadAndAuditIFC(
   fileOrBuffer: File | ArrayBuffer,
   onProgress?: (percent: number, step: string) => void
 ): Promise<LoadedIFCResult> {
   const ifcApi = new WebIFC.IfcAPI();
 
-  // 1. Inicializa Web-IFC WASM com fallback
-  if (onProgress) onProgress(10, 'Carregando motor Web-IFC (WASM)...');
+  // 1. Inicializa Web-IFC com a versão 0.0.57 (mesma versão estável do SteelXR)
+  if (onProgress) onProgress(10, 'Carregando motor SteelXR IFC (WASM)...');
 
-  const LOCAL_WASM_PATH = '/wasm/';
-  const CDN_WASM_PATH = 'https://unpkg.com/web-ifc@0.0.74/';
+  const WASM_PATH_057 = 'https://unpkg.com/web-ifc@0.0.57/';
 
-  // Intercepta logs do console temporariamente para filtrar avisos internos da engine C++
+  // Filtra avisos internos da biblioteca C++ para manter o console limpo
   const originalConsoleError = console.error;
   const originalConsoleWarn = console.warn;
   console.error = (...args: any[]) => {
@@ -159,17 +203,17 @@ export async function loadAndAuditIFC(
 
   let wasmInitSuccess = false;
   try {
-    ifcApi.SetWasmPath(LOCAL_WASM_PATH, true);
+    ifcApi.SetWasmPath(WASM_PATH_057, true);
     await ifcApi.Init();
     wasmInitSuccess = true;
-  } catch (localErr) {
-    console.warn('[IFC Loader] Falha ao carregar WASM local (/wasm/), tentando CDN...', localErr);
+  } catch (cdnErr) {
+    console.warn('[IFC Loader] Tentando fallback para /wasm/...', cdnErr);
     try {
-      ifcApi.SetWasmPath(CDN_WASM_PATH, true);
+      ifcApi.SetWasmPath('/wasm/', true);
       await ifcApi.Init();
       wasmInitSuccess = true;
-    } catch (cdnErr) {
-      console.error('[IFC Loader] Falha ao inicializar Web-IFC via CDN:', cdnErr);
+    } catch (localErr) {
+      console.error('[IFC Loader] Falha ao inicializar Web-IFC:', localErr);
     }
   }
 
@@ -192,12 +236,9 @@ export async function loadAndAuditIFC(
     rawHeader = decoder.decode(data.slice(0, 4096));
   }
 
-  // 3. Abertura do Modelo com suporte a coordenadas relativas
+  // 3. Abertura do Modelo idêntica ao SteelXR (OpenModel puro, compatibilidade máxima)
   if (onProgress) onProgress(40, 'Decodificando entidades IFC...');
-  const modelID = ifcApi.OpenModel(data, {
-    COORDINATE_TO_ORIGIN: true,
-    USE_FAST_BOOLS: true
-  } as any);
+  const modelID = ifcApi.OpenModel(data);
   if (modelID < 0) {
     throw new Error('Falha ao decodificar a estrutura do arquivo IFC.');
   }
@@ -244,7 +285,27 @@ export async function loadAndAuditIFC(
     }
   }
 
-  // 4.2 Grafo de Soldas (IFCRELCONNECTSWITHREALIZINGELEMENTS)
+  // 4.2 Mapeamento de Materiais do SteelXR (IFCRELASSOCIATESMATERIAL)
+  const elementMaterialMap = new Map<number, string>();
+  try {
+    const rels = ifcApi.GetLineIDsWithType(modelID, WebIFC.IFCRELASSOCIATESMATERIAL);
+    for (let i = 0; i < rels.size(); i++) {
+      const relId = rels.get(i);
+      const rel = ifcApi.GetLine(modelID, relId);
+      if (rel && rel.RelatedObjects && rel.RelatingMaterial) {
+        const matName = getMaterialName(ifcApi, modelID, rel.RelatingMaterial);
+        if (matName) {
+          for (const objRef of rel.RelatedObjects) {
+            elementMaterialMap.set(objRef.value, matName);
+          }
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  // 4.3 Mapeamento de Soldas (IFCRELCONNECTSWITHREALIZINGELEMENTS)
   const weldConnections = ifcApi.GetLineIDsWithType(modelID, WebIFC.IFCRELCONNECTSWITHREALIZINGELEMENTS);
   const adjacencyList = new Map<number, Set<number>>();
 
@@ -269,7 +330,6 @@ export async function loadAndAuditIFC(
     }
   }
 
-  // Componentes conectados soldados
   const visited = new Set<number>();
   const weldedGroupMap = new Map<number, number[]>();
   let totalWeldedGroups = 0;
@@ -299,7 +359,7 @@ export async function loadAndAuditIFC(
     }
   }
 
-  // 4.3 Indexação profunda de propriedades (IFCRELDEFINESBYPROPERTIES)
+  // 4.4 Indexação completa de propriedades (IFCRELDEFINESBYPROPERTIES) idêntica ao SteelXR
   const elementPropertiesMap = new Map<number, Record<string, string>>();
   try {
     const relsProp = ifcApi.GetLineIDsWithType(modelID, WebIFC.IFCRELDEFINESBYPROPERTIES);
@@ -314,7 +374,7 @@ export async function loadAndAuditIFC(
             if (propDef) {
               const props: Record<string, string> = {};
 
-              // Leitura de HasProperties (Pset_*)
+              // HasProperties (Pset_*)
               if (propDef.HasProperties && Array.isArray(propDef.HasProperties)) {
                 for (const pRef of propDef.HasProperties) {
                   const pId = pRef?.value;
@@ -338,7 +398,7 @@ export async function loadAndAuditIFC(
                 }
               }
 
-              // Leitura de Quantities (Qto_*)
+              // Quantities (Qto_*)
               if (propDef.Quantities && Array.isArray(propDef.Quantities)) {
                 for (const qRef of propDef.Quantities) {
                   const qId = qRef?.value;
@@ -401,7 +461,6 @@ export async function loadAndAuditIFC(
 
     const descParsed = parseDescriptionFields(rawDesc);
 
-    // Prioridade de propriedades que representam Marca/Posição da peça
     const candidates: (string | undefined)[] = [
       props.PieceMark,
       props.PartMark,
@@ -421,7 +480,7 @@ export async function loadAndAuditIFC(
       props.PartNumber,
       rawTag,
       props.Tag,
-      props.Reference, // Validado por isValidMark
+      props.Reference,
       rawObjType,
       rawName
     ];
@@ -434,7 +493,6 @@ export async function loadAndAuditIFC(
       }
     }
 
-    // Se não encontrou no próprio elemento, tenta herdar da montagem pai
     if (!chosenMark && childToAssembly.has(expressID)) {
       const parentId = childToAssembly.get(expressID)!;
       const parentProps = elementPropertiesMap.get(parentId) || {};
@@ -484,8 +542,6 @@ export async function loadAndAuditIFC(
   const piecesByMark = new Map<string, PieceInfo[]>();
   const pieceByExpressID = new Map<number, PieceInfo>();
   const uniqueMarksSet = new Set<string>();
-  const sectionColorMap = new Map<string, string>();
-  let colorIndex = 0;
 
   for (let i = 0; i < assemblies.size(); i++) {
     const assID = assemblies.get(i);
@@ -520,57 +576,48 @@ export async function loadAndAuditIFC(
     }
   }
 
-  // 5. Geração de Malhas 3D com Three.js corrigindo o empacotamento de vértices/normais
+  // 5. Geração de Malhas 3D idêntica ao SteelXR
   if (onProgress) onProgress(75, 'Gerando malhas geométricas 3D...');
   const sceneGroup = new THREE.Group();
   sceneGroup.name = 'IFC_ROOT_MODEL';
 
-  const defaultGrayMat = new THREE.MeshStandardMaterial({
-    color: 0x94a3b8,
-    metalness: 0.3,
-    roughness: 0.6,
-    side: THREE.DoubleSide
-  });
-
-  const materialCache = new Map<string, THREE.MeshStandardMaterial>();
+  const materialsCache: Map<number, THREE.MeshStandardMaterial> = new Map();
   let totalMeshes = 0;
 
-  ifcApi.StreamAllMeshes(modelID, (flatMesh: WebIFC.FlatMesh) => {
-    const expressID = flatMesh.expressID;
-    const placedGeometries = flatMesh.geometries;
+  ifcApi.StreamAllMeshes(modelID, (mesh: WebIFC.FlatMesh) => {
+    const placedGeometries = mesh.geometries;
+    const expressID = (mesh as unknown as { expressID?: number }).expressID ?? 0;
 
     const markInfo = extractBestMark(expressID);
-    const colorKey = markInfo.section || 'PADRAO';
-
-    if (!sectionColorMap.has(colorKey)) {
-      sectionColorMap.set(colorKey, DESCRIPTION_PALETTE[colorIndex % DESCRIPTION_PALETTE.length]);
-      colorIndex++;
-    }
-
-    const hexColor = sectionColorMap.get(colorKey)!;
-    if (!materialCache.has(hexColor)) {
-      materialCache.set(
-        hexColor,
-        new THREE.MeshStandardMaterial({
-          color: new THREE.Color(hexColor),
-          metalness: 0.35,
-          roughness: 0.55,
-          side: THREE.DoubleSide
-        })
-      );
-    }
-    const mat = materialCache.get(hexColor) || defaultGrayMat;
+    const materialName = elementMaterialMap.get(expressID) ?? '';
     const connectedGroup = weldedGroupMap.get(expressID) || [expressID];
 
-    for (let g = 0; g < placedGeometries.size(); g++) {
-      const placedGeo = placedGeometries.get(g);
-      const ifcGeo = ifcApi.GetGeometry(modelID, placedGeo.geometryExpressID);
+    const elementGroup = new THREE.Group();
+    elementGroup.name = `ifc_${expressID}`;
+    elementGroup.userData = {
+      ifcElement: true,
+      ifcId: expressID,
+      pieceMark: markInfo.mark,
+      cleanMark: markInfo.cleanMark,
+      section: markInfo.section,
+      materialName,
+      connectedMeshIDs: connectedGroup
+    };
 
-      // Web-IFC GetVertexArray retorna [px, py, pz, nx, ny, nz, ...] (interleaved de 6 floats)
-      const verts = ifcApi.GetVertexArray(ifcGeo.GetVertexData(), ifcGeo.GetVertexDataSize());
-      const indices = ifcApi.GetIndexArray(ifcGeo.GetIndexData(), ifcGeo.GetIndexDataSize());
+    for (let i = 0; i < placedGeometries.size(); i++) {
+      const placedGeometry = placedGeometries.get(i);
+      const ifcGeometry = ifcApi.GetGeometry(modelID, placedGeometry.geometryExpressID);
 
-      const bufferGeo = new THREE.BufferGeometry();
+      const verts = ifcApi.GetVertexArray(
+        ifcGeometry.GetVertexData(),
+        ifcGeometry.GetVertexDataSize()
+      );
+      const indices = ifcApi.GetIndexArray(
+        ifcGeometry.GetIndexData(),
+        ifcGeometry.GetIndexDataSize()
+      );
+
+      const geometry = new THREE.BufferGeometry();
       const numVerts = verts.length / 6;
       const positionArray = new Float32Array(numVerts * 3);
       const normalArray = new Float32Array(numVerts * 3);
@@ -585,26 +632,43 @@ export async function loadAndAuditIFC(
         normalArray[idx * 3 + 2] = verts[j + 5];
       }
 
-      bufferGeo.setAttribute('position', new THREE.BufferAttribute(positionArray, 3));
-      bufferGeo.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
-      bufferGeo.setIndex(new THREE.BufferAttribute(new Uint32Array(indices), 1));
+      geometry.setAttribute('position', new THREE.BufferAttribute(positionArray, 3));
+      geometry.setAttribute('normal', new THREE.BufferAttribute(normalArray, 3));
+      geometry.setIndex(new THREE.BufferAttribute(indices, 1));
 
-      const mesh = new THREE.Mesh(bufferGeo, mat);
-      const matrix = new THREE.Matrix4();
-      matrix.fromArray(placedGeo.flatTransformation);
-      mesh.applyMatrix4(matrix);
+      // Cor original nativa do IFC igual ao SteelXR
+      const color = placedGeometry.color;
+      const colorKey = (color.x * 255) << 16 | (color.y * 255) << 8 | (color.z * 255);
+      let material = materialsCache.get(colorKey);
+      if (!material) {
+        material = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(color.x, color.y, color.z),
+          metalness: 0.25,
+          roughness: 0.65,
+          transparent: color.w < 1,
+          opacity: color.w,
+          side: THREE.DoubleSide,
+        });
+        materialsCache.set(colorKey, material);
+      }
 
-      mesh.userData = {
-        expressID,
+      const mesh3 = new THREE.Mesh(geometry, material);
+      mesh3.userData = {
+        ifcId: expressID,
         pieceMark: markInfo.mark,
         cleanMark: markInfo.cleanMark,
         section: markInfo.section,
-        colorKey,
+        materialName,
+        nativeColor: new THREE.Color(color.x, color.y, color.z),
         connectedMeshIDs: connectedGroup
       };
 
-      sceneGroup.add(mesh);
-      ifcGeo.delete();
+      const matrix = new THREE.Matrix4();
+      matrix.fromArray(placedGeometry.flatTransformation);
+      mesh3.applyMatrix4(matrix);
+
+      elementGroup.add(mesh3);
+      ifcGeometry.delete();
       totalMeshes++;
 
       if (!pieceByExpressID.has(expressID)) {
@@ -616,8 +680,9 @@ export async function loadAndAuditIFC(
           pieceMark: markInfo.mark,
           cleanMark: markInfo.cleanMark,
           section: markInfo.section,
+          material: materialName,
           connectedMeshIDs: connectedGroup,
-          mesh
+          mesh: mesh3
         };
         pieceByExpressID.set(expressID, piece);
         if (markInfo.mark && markInfo.mark !== 'indefinido') {
@@ -626,14 +691,14 @@ export async function loadAndAuditIFC(
           if (!piecesByMark.has(markInfo.mark)) piecesByMark.set(markInfo.mark, []);
           piecesByMark.get(markInfo.mark)!.push(piece);
         }
-      } else {
-        pieceByExpressID.get(expressID)!.mesh = mesh;
-        pieceByExpressID.get(expressID)!.connectedMeshIDs = connectedGroup;
       }
+    }
+
+    if (elementGroup.children.length > 0) {
+      sceneGroup.add(elementGroup);
     }
   });
 
-  // Fecha o modelo após extração para liberar memória
   try {
     ifcApi.CloseModel(modelID);
   } catch {}
@@ -649,7 +714,7 @@ export async function loadAndAuditIFC(
     qualityMessage = 'Modelo exportado no padrão AISC EM.11 (SteelFabricationView). Todas as montagens e marcas principais de conjuntos estão 100% integradas nativamente.';
   } else if (totalWeldedGroups > 0 || uniqueMarksSet.size > 0) {
     qualityScore = 'BOM';
-    qualityMessage = `Modo Avançado Ativado: ${uniqueMarksSet.size} marcas de peças e ${totalWeldedGroups} conjuntos topológicos identificados com sucesso.`;
+    qualityMessage = `Modo SteelXR Ativado: ${uniqueMarksSet.size} marcas e conjuntos identificados com qualidade gráfica calibrada.`;
     recommendation = 'O modelo está totalmente operacional e sincronizado com os apontamentos da fábrica.';
   } else {
     qualityScore = 'ATENÇÃO';
@@ -685,7 +750,7 @@ export async function loadAndAuditIFC(
     piecesByMark,
     pieceByExpressID,
     weldedGroupMap,
-    materialsByColor: materialCache as any,
+    materialsByColor: materialsCache as any,
     totalMeshes
   };
 }
