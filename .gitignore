@@ -46,3 +46,8 @@ scripts/auto-synchome.ps1
 # Arquivos temporários
 *.tmp
 *.temp
+
+# Arquivos de teste e dados temporários
+test_*.js
+test_*.cjs
+*.ifc

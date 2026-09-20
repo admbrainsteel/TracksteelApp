@@ -562,49 +562,49 @@ export async function loadAndAuditIFC(
       '';
 
     // Extração inteligente de Fase
-    const phaseCandidates = [
-      props.Phase,
-      props.Fase,
-      props['Phase Number'],
-      props['Phase Name'],
-      props['Tekla Assembly.Phase'],
-      props['Tekla Common.Phase'],
-      props['Tekla Assembly.Phase Name'],
-      props.Etapa,
-      props.Sequence,
-      props.Batch
-    ];
-    let chosenPhase = '';
-    for (const pCand of phaseCandidates) {
-      if (pCand && isValidMark(pCand)) {
-        chosenPhase = String(pCand).trim();
-        break;
-      }
-    }
-    if (!chosenPhase && childToAssembly.has(expressID)) {
-      const parentId = childToAssembly.get(expressID)!;
-      const parentProps = elementPropertiesMap.get(parentId) || {};
-      const parentPhaseCandidates = [
-        parentProps.Phase,
-        parentProps.Fase,
-        parentProps['Phase Number'],
-        parentProps['Phase Name'],
-        parentProps['Tekla Assembly.Phase'],
-        parentProps['Tekla Common.Phase'],
-        parentProps['Tekla Assembly.Phase Name'],
-        parentProps.Etapa,
-        parentProps.Sequence,
-        parentProps.Batch
+    let chosenPhase = extractPhaseFromMark(assemblyMark || finalMark);
+
+    if (!chosenPhase) {
+      const phaseCandidates = [
+        props.Phase,
+        props.Fase,
+        props['Phase Number'],
+        props['Phase Name'],
+        props['Tekla Assembly.Phase'],
+        props['Tekla Common.Phase'],
+        props['Tekla Assembly.Phase Name'],
+        props.Etapa,
+        props.Sequence,
+        props.Batch
       ];
-      for (const pCand of parentPhaseCandidates) {
+      for (const pCand of phaseCandidates) {
         if (pCand && isValidMark(pCand)) {
           chosenPhase = String(pCand).trim();
           break;
         }
       }
-    }
-    if (!chosenPhase) {
-      chosenPhase = extractPhaseFromMark(assemblyMark || finalMark);
+      if (!chosenPhase && childToAssembly.has(expressID)) {
+        const parentId = childToAssembly.get(expressID)!;
+        const parentProps = elementPropertiesMap.get(parentId) || {};
+        const parentPhaseCandidates = [
+          parentProps.Phase,
+          parentProps.Fase,
+          parentProps['Phase Number'],
+          parentProps['Phase Name'],
+          parentProps['Tekla Assembly.Phase'],
+          parentProps['Tekla Common.Phase'],
+          parentProps['Tekla Assembly.Phase Name'],
+          parentProps.Etapa,
+          parentProps.Sequence,
+          parentProps.Batch
+        ];
+        for (const pCand of parentPhaseCandidates) {
+          if (pCand && isValidMark(pCand)) {
+            chosenPhase = String(pCand).trim();
+            break;
+          }
+        }
+      }
     }
 
     return {
@@ -631,7 +631,7 @@ export async function loadAndAuditIFC(
       const markInfo = extractBestMark(assID);
       const children = assemblyToChildren.get(assID) || [];
 
-      if (markInfo.phase) {
+      if (markInfo.phase && markInfo.mark && markInfo.mark !== 'indefinido') {
         detectedPhasesSet.add(markInfo.phase);
       }
 
@@ -679,7 +679,7 @@ export async function loadAndAuditIFC(
     const materialName = elementMaterialMap.get(expressID) ?? '';
     const connectedGroup = weldedGroupMap.get(expressID) || [expressID];
 
-    if (markInfo.phase) {
+    if (markInfo.phase && markInfo.mark && markInfo.mark !== 'indefinido') {
       detectedPhasesSet.add(markInfo.phase);
     }
 
@@ -856,14 +856,13 @@ export function extractPhaseFromMark(mark: string): string {
   const parts = mark.split('-');
   if (parts.length >= 3) {
     const p1 = parts[1].trim();
-    if (p1 && /^\d+$/.test(p1)) return p1;
-    return p1;
+    if (p1 && /^[a-zA-Z0-9]+$/.test(p1)) return p1; // Can be 11, 12, A, etc.
   }
   if (parts.length === 2) {
     const p0 = parts[0].trim();
     if (p0 && /^\d+$/.test(p0)) return p0;
   }
-  const match = mark.match(/(?:fase|phase|etapa)\s*(\d+)/i);
+  const match = mark.match(/(?:fase|phase|etapa)\s*([a-zA-Z0-9]+)/i);
   if (match) return match[1];
 
   return '';

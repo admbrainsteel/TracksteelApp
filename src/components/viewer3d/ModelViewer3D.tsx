@@ -13,6 +13,7 @@ interface ProductionPieceStatus {
   pointedQtd: number;
   currentProcessName?: string;
   processColor?: string;
+  processOrdem?: number;
 }
 
 interface ModelViewer3DProps {
@@ -252,27 +253,46 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
         const cleanAssMark = String(mesh.userData.cleanAssemblyMark || cleanMark).trim().toUpperCase();
         const section = String(mesh.userData.section || '').trim().toUpperCase();
 
-        // 1. Determinação da fase e vínculo de produção
+        // 1. Extração da fase deste elemento (Propriedade IFC > Regex na Marca)
+        let elementPhase = '';
+        if (mesh.userData.phase) {
+          elementPhase = String(mesh.userData.phase).trim();
+        }
+        if (!elementPhase) {
+          const raw = assMark || pmark;
+          const match = raw.match(/^(?:[A-Za-z0-9]+-)?(\d+)-/i);
+          if (match) {
+            elementPhase = match[1];
+          }
+        }
+
+        // 2. Determinação do vínculo de produção (com matching rigoroso de fase)
         let prod: ProductionPieceStatus | undefined = undefined;
 
         if (colorMode === 'production' && productionData && productionData.size > 0) {
-          // Prioridade 1: Busca pela Assembly Mark do conjunto estrutural
-          if (assMark && assMark !== 'INDEFINIDO') {
-            prod = productionData.get(assMark) ||
-                   productionData.get(cleanAssMark) ||
-                   (selectedPhase && selectedPhase !== 'all' ? productionData.get(`${selectedPhase}-${cleanAssMark}`.toUpperCase()) : undefined) ||
-                   (selectedOF ? productionData.get(`${selectedOF}-${cleanAssMark}`.toUpperCase()) : undefined);
+          const searchKeys = [
+            elementPhase && selectedOF ? `${selectedOF}-${elementPhase}-${cleanAssMark}` : '',
+            elementPhase ? `${elementPhase}-${cleanAssMark}` : '',
+            elementPhase && selectedOF ? `${selectedOF}-${elementPhase}-${cleanMark}` : '',
+            elementPhase ? `${elementPhase}-${cleanMark}` : '',
+            assMark,
+            pmark,
+            cleanAssMark,
+            cleanMark
+          ].filter(Boolean).map(k => k.toUpperCase());
+
+          for (const key of searchKeys) {
+            const match = productionData.get(key);
+            // Se encontramos, mas ele tem fase e nós temos fase, elas precisam bater.
+            if (match) {
+               if (!elementPhase || !match.fase || String(match.fase) === String(elementPhase)) {
+                   prod = match;
+                   break;
+               }
+            }
           }
 
-          // Prioridade 2: Busca pela marca própria da peça
-          if (!prod && pmark && pmark !== 'INDEFINIDO') {
-            prod = productionData.get(pmark) ||
-                   productionData.get(cleanMark) ||
-                   (selectedPhase && selectedPhase !== 'all' ? productionData.get(`${selectedPhase}-${cleanMark}`.toUpperCase()) : undefined) ||
-                   (selectedOF ? productionData.get(`${selectedOF}-${cleanMark}`.toUpperCase()) : undefined);
-          }
-
-          // Prioridade 3: Fallback para perfis / bitolas
+          // Fallback para perfis / bitolas
           if (!prod && section && section !== '-' && section !== 'INDEFINIDO') {
             prod = productionData.get(`PERFIL:${section}`) ||
                    productionData.get(`DESC:${section}`);
@@ -288,22 +308,6 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
                 }
               }
             }
-          }
-        }
-
-        // 2. Extração da fase deste elemento (Banco > Propriedade IFC > Regex na Marca)
-        let elementPhase = '';
-        if (prod && prod.fase) {
-          elementPhase = String(prod.fase).trim();
-        }
-        if (!elementPhase && mesh.userData.phase) {
-          elementPhase = String(mesh.userData.phase).trim();
-        }
-        if (!elementPhase) {
-          const raw = assMark || pmark;
-          const match = raw.match(/^(?:[A-Za-z0-9]+-)?(\d+)-/i);
-          if (match) {
-            elementPhase = match[1];
           }
         }
 
@@ -330,10 +334,17 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
 
           if (prod && prod.pointedQtd > 0) {
             pointedCount++;
-            // Peça apontada no banco: aplica com precisão a cor do estágio de fabricação
-            const stageHex = prod.processColor || '#10b981';
+            // Cores baseadas no progresso: verde claro -> verde escuro
+            const qtyPercent = Math.min(prod.pointedQtd / prod.totalQtd, 1.0);
+            const processPercent = Math.min((prod.processOrdem || 1) / 5, 1.0);
+            const percent = qtyPercent * processPercent;
+            
+            const colorLight = new THREE.Color('#4ade80'); // Verde claro
+            const colorDark = new THREE.Color('#14532d'); // Verde escuro
+            const finalColor = new THREE.Color().lerpColors(colorLight, colorDark, percent);
+
             mesh.material = new THREE.MeshStandardMaterial({
-              color: new THREE.Color(stageHex),
+              color: finalColor,
               metalness: 0.35,
               roughness: 0.45,
               side: THREE.DoubleSide,

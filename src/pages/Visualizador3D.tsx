@@ -133,8 +133,8 @@ export default function Visualizador3D() {
 
         if (pecasData) {
           pecasData.forEach((p: any) => {
-            const fase = String(p.etapa_fase || '1');
-            phases.add(fase);
+            const fase = String(p.etapa_fase || '').trim();
+            if (fase) phases.add(fase);
             totalPecas += Number(p.quantidade || 0);
             totalPeso += Number(p.peso_total || 0);
 
