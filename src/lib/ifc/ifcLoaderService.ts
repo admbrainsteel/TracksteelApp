@@ -455,6 +455,7 @@ export async function loadAndAuditIFC(
     section: string;
     description: string;
     phase: string;
+    ofNumber: string;
   } {
     const props = elementPropertiesMap.get(expressID) || {};
 
@@ -563,6 +564,7 @@ export async function loadAndAuditIFC(
 
     // Extração inteligente de Fase
     let chosenPhase = extractPhaseFromMark(assemblyMark || finalMark);
+    let chosenOF = extractOFFromMark(assemblyMark || finalMark);
 
     if (!chosenPhase) {
       const phaseCandidates = [
@@ -614,7 +616,8 @@ export async function loadAndAuditIFC(
       cleanAssemblyMark: cleanAssemblyMark || clean || '',
       section,
       description: rawDesc,
-      phase: chosenPhase
+      phase: chosenPhase,
+      ofNumber: chosenOF
     };
   }
 
@@ -647,8 +650,8 @@ export async function loadAndAuditIFC(
         childrenIDs: children,
         connectedMeshIDs: children,
         section: markInfo.section,
-        phase: markInfo.phase || extractPhaseFromMark(markInfo.mark),
-        ofNumber: extractOFFromMark(markInfo.mark)
+        phase: markInfo.phase,
+        ofNumber: markInfo.ofNumber
       };
 
       if (markInfo.mark !== 'indefinido') {
@@ -769,8 +772,11 @@ export async function loadAndAuditIFC(
           type: 'ELEMENT',
           pieceMark: markInfo.mark,
           cleanMark: markInfo.cleanMark,
+          assemblyMark: markInfo.assemblyMark,
+          cleanAssemblyMark: markInfo.cleanAssemblyMark,
           section: markInfo.section,
           phase: markInfo.phase,
+          ofNumber: markInfo.ofNumber,
           material: materialName,
           connectedMeshIDs: connectedGroup,
           mesh: mesh3
@@ -868,8 +874,11 @@ export function extractPhaseFromMark(mark: string): string {
   return '';
 }
 
-function extractOFFromMark(mark: string): string {
+export function extractOFFromMark(mark: string): string {
+  if (!mark || mark === 'indefinido') return '';
   const parts = mark.split('-');
-  if (parts.length >= 1) return parts[0];
+  if (parts.length > 1) {
+    return parts[0].trim();
+  }
   return '';
 }
