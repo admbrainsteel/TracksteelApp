@@ -75,7 +75,7 @@ export async function loadAndAuditIFC(
   if (onProgress) onProgress(10, 'Carregando motor Web-IFC (WASM)...');
 
   const LOCAL_WASM_PATH = '/wasm/';
-  const CDN_WASM_PATH = 'https://unpkg.com/web-ifc@0.0.57/';
+  const CDN_WASM_PATH = 'https://unpkg.com/web-ifc@0.0.74/';
 
   // Intercepta logs do console temporariamente para filtrar avisos internos da engine C++
   const originalConsoleError = console.error;
@@ -132,7 +132,9 @@ export async function loadAndAuditIFC(
 
   // 3. Open Model
   if (onProgress) onProgress(40, 'Decodificando entidades IFC...');
-  const modelID = ifcApi.OpenModel(data);
+  const modelID = ifcApi.OpenModel(data, {
+    COORDINATE_TO_ORIGIN: true
+  });
   if (modelID < 0) {
     throw new Error('Falha ao decodificar a estrutura do arquivo IFC.');
   }
