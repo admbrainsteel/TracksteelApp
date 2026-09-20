@@ -292,23 +292,8 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
             }
           }
 
-          // Fallback para perfis / bitolas
-          if (!prod && section && section !== '-' && section !== 'INDEFINIDO') {
-            prod = productionData.get(`PERFIL:${section}`) ||
-                   productionData.get(`DESC:${section}`);
-
-            if (!prod) {
-              for (const [key, val] of productionData.entries()) {
-                if (key.startsWith('DESC:') || key.startsWith('PERFIL:')) {
-                  const term = key.replace('DESC:', '').replace('PERFIL:', '');
-                  if (term && (section.includes(term) || term.includes(section))) {
-                    prod = val;
-                    break;
-                  }
-                }
-              }
-            }
-          }
+          // Fallback para perfis / bitolas removido para evitar falsos positivos
+          // Peças genéricas (como diagonais sem marca) não devem herdar apontamento de outras peças com o mesmo perfil.
         }
 
         // 3. Controle Estrito de Visibilidade por Fase
