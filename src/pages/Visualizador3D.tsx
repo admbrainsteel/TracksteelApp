@@ -48,6 +48,7 @@ export default function Visualizador3D() {
   const [totalPecasBD, setTotalPecasBD] = useState<number>(0);
   const [totalApontadasBD, setTotalApontadasBD] = useState<number>(0);
   const [pesoTotalBD, setPesoTotalBD] = useState<number>(0);
+  const [progressoOF, setProgressoOF] = useState<number>(0);
 
   // 3D Model and Quality State
   const [modelData, setModelData] = useState<LoadedIFCResult | null>(null);
@@ -126,8 +127,7 @@ export default function Visualizador3D() {
             totalPecas += Number(p.quantidade || 0);
             totalPeso += Number(p.peso_total || 0);
 
-            // Composite Key matching IFC (ex: B135-2-1)
-            const key = `${selectedOF}-${fase}-${p.marca}`;
+            const key = p.marca;
             prodMap.set(key, {
               pecaId: p.id,
               marca: p.marca,
@@ -135,37 +135,53 @@ export default function Visualizador3D() {
               totalQtd: Number(p.quantidade || 1),
               pointedQtd: 0,
               currentProcessName: 'Pendente',
-              processColor: '#64748b'
+              processColor: '#64748b',
+              processOrdem: 0
             });
           });
         }
 
-        let pointedTotal = 0;
         if (apontamentosData) {
+          // Ordenar apontamentos do menor processo para o maior (assim o processo mais avançado sobressai por último)
+          apontamentosData.sort((a: any, b: any) => (a.processo?.ordem || 0) - (b.processo?.ordem || 0));
+
           apontamentosData.forEach((ap: any) => {
             const marca = ap.peca?.marca;
-            const fase = String(ap.peca?.etapa_fase || '1');
             if (marca) {
-              const key = `${selectedOF}-${fase}-${marca}`;
+              const key = marca;
               const existing = prodMap.get(key);
               if (existing) {
                 const qty = Number(ap.quantidade_produzida || 0);
-                existing.pointedQtd += qty;
-                pointedTotal += qty;
-                if (ap.processo?.nome) {
-                  existing.currentProcessName = ap.processo.nome;
-                  existing.processColor = ap.processo.cor || PROCESS_COLORS[ap.processo.nome] || '#10b981';
+                if (qty > 0) {
+                  // Atualiza a peça para o estágio mais avançado alcançado
+                  existing.pointedQtd = Math.max(existing.pointedQtd, qty); // Evita duplicar apontamentos de processos anteriores
+                  existing.currentProcessName = ap.processo?.nome || existing.currentProcessName;
+                  existing.processColor = ap.processo?.cor || PROCESS_COLORS[ap.processo?.nome || ''] || '#10b981';
+                  existing.processOrdem = ap.processo?.ordem || existing.processOrdem;
                 }
               }
             }
           });
         }
 
+        let pointedTotal = 0;
+        let sumProgress = 0; // Para evolução da OF
+
+        prodMap.forEach((val) => {
+          pointedTotal += val.pointedQtd;
+          // Considerando maxOrdem = 5 como final para cálculo de %. Ajuste conforme necessário.
+          const pecaProgress = val.pointedQtd > 0 ? Math.min(val.processOrdem / 5, 1) * (val.pointedQtd / val.totalQtd) : 0;
+          sumProgress += pecaProgress * val.totalQtd;
+        });
+        
+        const progressoGeralPercent = totalPecas > 0 ? Math.min(Math.round((sumProgress / totalPecas) * 100), 100) : 0;
+
         setPhasesList(Array.from(phases).sort());
         setProductionMap(prodMap);
         setTotalPecasBD(totalPecas);
         setTotalApontadasBD(pointedTotal);
         setPesoTotalBD(totalPeso);
+        setProgressoOF(progressoGeralPercent);
       } catch (err) {
         console.error('Erro ao carregar dados de produção da OF:', err);
       }
@@ -201,7 +217,8 @@ export default function Visualizador3D() {
     }
   };
 
-  const progressPercent = totalPecasBD > 0 ? Math.min(Math.round((totalApontadasBD / totalPecasBD) * 100), 100) : 0;
+  const progressPercent = totalPecasBD > 0 ? Math.min(Math.round((totalApontadasBD / totalPecasBD) * 100), 100) : 0; // Será substituido pelo state local caso quisermos, mas o totalApontadasBD já não vai estourar.
+
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)] p-4 md:p-6 space-y-4 max-w-[1920px] mx-auto overflow-hidden">
@@ -346,7 +363,7 @@ export default function Visualizador3D() {
               Evolução da OF
             </span>
             <span className="text-lg font-mono font-extrabold text-amber-400">
-              {progressPercent}% concluído
+              {progressoOF}% concluído
             </span>
           </div>
           <TrendingUp className="w-5 h-5 text-amber-400" />

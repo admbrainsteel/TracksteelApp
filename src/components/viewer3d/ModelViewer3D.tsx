@@ -237,7 +237,16 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
 
         if (colorMode === 'production' && productionData) {
           // Look up production pointing status
-          const prod = productionData.get(pmark);
+          let prod = productionData.get(pmark);
+          if (!prod) {
+            // Fallback lookup: IFC marks sometimes have prefixes like B135-1-V1 or suffixes.
+            for (const [key, val] of productionData.entries()) {
+              if (pmark === key || pmark.endsWith(`-${key}`) || key.endsWith(`-${pmark}`) || pmark.includes(key)) {
+                prod = val;
+                break;
+              }
+            }
+          }
           if (prod && prod.pointedQtd > 0) {
             // Apply stage color (e.g., Light Green #4ade80 for pointed)
             const stageHex = prod.processColor || '#4ade80';
