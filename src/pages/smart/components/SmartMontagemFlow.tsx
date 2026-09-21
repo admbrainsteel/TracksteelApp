@@ -112,11 +112,11 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
         };
       });
 
-      // Ordenar: primeiro os com saldo > 0
+      // Ordenar: primeiro os com saldo > 0 e com ordenação alfanumérica natural
       lista.sort((a, b) => {
         if (a.saldo_disponivel > 0 && b.saldo_disponivel === 0) return -1;
         if (a.saldo_disponivel === 0 && b.saldo_disponivel > 0) return 1;
-        return a.marca.localeCompare(b.marca);
+        return a.marca.localeCompare(b.marca, undefined, { numeric: true, sensitivity: 'base' });
       });
 
       setItens(lista);
@@ -148,20 +148,26 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
       return rdoExistente.id;
     }
 
-    // Criar novo RDO para o dia
+    const nomeOperador = user?.email?.split('@')[0] || 'Operador Smart';
+
+    // Criar novo RDO para o dia com campos do schema real
     const { data: novoRDO, error } = await supabase
       .from('diario_obra_rdo')
       .insert({
         of_number: obra.of_number,
         data: hoje,
-        responsavel_obra: user?.email || 'Operador Smart',
-        status: 'Em andamento',
-        observacoes: 'Criado via Modo Smart',
+        usuario_nome: nomeOperador,
+        usuario_rdo: user?.id || null,
+        observacoes_gerais: 'Apontamento de montagem via Modo Smart',
+        finalizado: false,
       })
       .select('id')
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error('Erro ao criar RDO no banco:', error);
+      throw error;
+    }
     return novoRDO.id;
   };
 
