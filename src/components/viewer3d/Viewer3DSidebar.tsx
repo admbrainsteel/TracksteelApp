@@ -2,21 +2,16 @@ import React, { useState } from 'react';
 import {
   Eye,
   Grid as GridIcon,
-  Scissors,
   Maximize2,
   Box,
   Layers,
   Compass,
-  Footprints,
-  Ruler,
   Palette,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Focus,
-  Sliders,
-  Sparkles,
-  RotateCcw
+  Sliders
 } from 'lucide-react';
 
 interface Viewer3DSidebarProps {
@@ -28,16 +23,10 @@ interface Viewer3DSidebarProps {
   onToggleCamera: () => void;
   isWireframe: boolean;
   onToggleWireframe: () => void;
-  navMode: 'orbit' | 'walk';
-  onNavModeChange: (mode: 'orbit' | 'walk') => void;
   colorMode: 'description' | 'production';
   onColorModeChange: (mode: 'description' | 'production') => void;
   onFitView: () => void;
   onToggleFullscreen: () => void;
-  onToggleSectionPlanes?: () => void;
-  onToggleMeasure?: () => void;
-  hasSectionPlanes?: boolean;
-  isMeasuring?: boolean;
 }
 
 export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({
@@ -49,16 +38,10 @@ export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({
   onToggleCamera,
   isWireframe,
   onToggleWireframe,
-  navMode,
-  onNavModeChange,
   colorMode,
   onColorModeChange,
   onFitView,
   onToggleFullscreen,
-  onToggleSectionPlanes,
-  onToggleMeasure,
-  hasSectionPlanes,
-  isMeasuring,
 }) => {
   const [isOpen, setIsOpen] = useState<boolean>(true);
 
@@ -67,7 +50,7 @@ export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({
       {/* Container Principal da Barra Lateral */}
       <div
         className={`transition-all duration-300 ease-in-out flex flex-col bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden ${
-          isOpen ? 'w-64 max-h-[calc(100vh-16rem)]' : 'w-0 border-0 opacity-0 pointer-events-none'
+          isOpen ? 'w-60 max-h-[calc(100vh-16rem)]' : 'w-0 border-0 opacity-0 pointer-events-none'
         }`}
       >
         {/* Cabeçalho do Sub-Menu */}
@@ -142,11 +125,11 @@ export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({
                 onClick={onToggleWireframe}
                 className={`flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold border transition-all ${
                   isWireframe
-                    ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-800 shadow-sm'
+                    ? 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-300 border-cyan-300 dark:border-cyan-800 shadow-sm'
                     : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-slate-300'
                 }`}
               >
-                {isWireframe ? <Layers className="w-3.5 h-3.5" /> : <Box className="w-3.5 h-3.5" />}
+                {isWireframe ? <Layers className="w-3.5 h-3.5 text-cyan-600" /> : <Box className="w-3.5 h-3.5" />}
                 <span>{isWireframe ? 'Aramado' : 'Sólido'}</span>
               </button>
             </div>
@@ -156,7 +139,7 @@ export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
               <Compass className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-              Câmera & Navegação
+              Câmera & Visualização
             </label>
             <div className="grid grid-cols-2 gap-1.5">
               {/* Câmera Toggle */}
@@ -180,34 +163,6 @@ export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({
               >
                 <Focus className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                 <span>Enquadrar</span>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-1.5">
-              {/* Orbitar */}
-              <button
-                onClick={() => onNavModeChange('orbit')}
-                className={`flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                  navMode === 'orbit'
-                    ? 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-300 border-cyan-300 dark:border-cyan-800'
-                    : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-800'
-                }`}
-              >
-                <Compass className="w-3.5 h-3.5" />
-                <span>Orbitar</span>
-              </button>
-
-              {/* Caminhar */}
-              <button
-                onClick={() => onNavModeChange('walk')}
-                className={`flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
-                  navMode === 'walk'
-                    ? 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-300 border-cyan-300 dark:border-cyan-800'
-                    : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-800'
-                }`}
-              >
-                <Footprints className="w-3.5 h-3.5" />
-                <span>Caminhar</span>
               </button>
             </div>
           </div>
@@ -234,41 +189,6 @@ export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({
               <button onClick={() => onOpacityChange(50)} className="hover:text-amber-600">50%</button>
               <button onClick={() => onOpacityChange(75)} className="hover:text-amber-600">75%</button>
               <button onClick={() => onOpacityChange(100)} className="hover:text-amber-600">100%</button>
-            </div>
-          </div>
-
-          {/* Grupo 5: Ferramentas Especiais */}
-          <div className="space-y-1.5">
-            <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-              Ferramentas SteelXR
-            </label>
-            <div className="grid grid-cols-2 gap-1.5">
-              {/* Cortes */}
-              <button
-                onClick={onToggleSectionPlanes}
-                className={`flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold border transition-all ${
-                  hasSectionPlanes
-                    ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800 shadow-sm'
-                    : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-slate-300'
-                }`}
-              >
-                <Scissors className="w-3.5 h-3.5" />
-                <span>Cortes</span>
-              </button>
-
-              {/* Medir */}
-              <button
-                onClick={onToggleMeasure}
-                className={`flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold border transition-all ${
-                  isMeasuring
-                    ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800 shadow-sm'
-                    : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-slate-300'
-                }`}
-              >
-                <Ruler className="w-3.5 h-3.5" />
-                <span>Medir</span>
-              </button>
             </div>
           </div>
 

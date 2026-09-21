@@ -144,18 +144,54 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     scene.add(hemiLight);
 
     // 6. Floor Grid (Cores refinadas e ultrafinas para modo claro e escuro)
+    const updateGridTheme = (gridHelper: THREE.GridHelper) => {
+      const isDark = document.documentElement.classList.contains('dark');
+      const centerColor = isDark ? new THREE.Color(0x334155) : new THREE.Color(0x94a3b8);
+      const gridColor = isDark ? new THREE.Color(0x0f172a) : new THREE.Color(0xe2e8f0);
+
+      const colors = (gridHelper.geometry.attributes.color as THREE.BufferAttribute);
+      if (colors) {
+        const colorArray = colors.array as Float32Array;
+        for (let i = 0; i < colorArray.length; i += 6) {
+          // Atualiza as cores dos vértices da grade dinamicamente
+          const isCenter = i === Math.floor(colorArray.length / 2);
+          const c = isCenter ? centerColor : gridColor;
+          colorArray[i] = c.r;
+          colorArray[i + 1] = c.g;
+          colorArray[i + 2] = c.b;
+          colorArray[i + 3] = c.r;
+          colorArray[i + 4] = c.g;
+          colorArray[i + 5] = c.b;
+        }
+        colors.needsUpdate = true;
+      }
+
+      if (gridHelper.material && (gridHelper.material as THREE.Material)) {
+        (gridHelper.material as THREE.Material).transparent = true;
+        (gridHelper.material as THREE.Material).opacity = isDark ? 0.35 : 0.45;
+      }
+    };
+
     const isDarkMode = document.documentElement.classList.contains('dark');
-    const centerLineColor = isDarkMode ? 0x06b6d4 : 0x94a3b8;
-    const gridLineColor = isDarkMode ? 0x334155 : 0xe2e8f0;
+    const centerLineColor = isDarkMode ? 0x334155 : 0x94a3b8;
+    const gridLineColor = isDarkMode ? 0x0f172a : 0xe2e8f0;
 
     const grid = new THREE.GridHelper(300, 150, centerLineColor, gridLineColor);
     grid.position.y = 0;
     if (grid.material && (grid.material as THREE.Material)) {
       (grid.material as THREE.Material).transparent = true;
-      (grid.material as THREE.Material).opacity = isDarkMode ? 0.6 : 0.5;
+      (grid.material as THREE.Material).opacity = isDarkMode ? 0.35 : 0.45;
     }
     scene.add(grid);
     gridHelperRef.current = grid;
+
+    // Observador para atualizar cores do grid automaticamente quando o tema mudar
+    const themeObserver = new MutationObserver(() => {
+      if (gridHelperRef.current) {
+        updateGridTheme(gridHelperRef.current);
+      }
+    });
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 
     // 7. Render Loop
     let animationFrameId: number;
@@ -191,6 +227,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     return () => {
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', handleResize);
+      themeObserver.disconnect();
       renderer.dispose();
     };
   }, []);
@@ -366,17 +403,49 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
           });
         }
 
-        // Apply Opacity & Wireframe
-        if (Array.isArray(mesh.material)) {
-          mesh.material.forEach((m) => {
-            m.transparent = opacity < 100;
-            m.opacity = opacity / 100;
-            if ('wireframe' in m) (m as any).wireframe = isWireframe;
-          });
-        } else if (mesh.material) {
-          mesh.material.transparent = opacity < 100;
-          mesh.material.opacity = opacity / 100;
-          if ('wireframe' in mesh.material) (mesh.material as any).wireframe = isWireframe;
+        // Apply Opacity & Clean Architectural Wireframe (EdgesGeometry - SteelXR Style)
+        if (isWireframe) {
+          // Cria arestas de contorno se ainda não existirem
+          if (!mesh.userData.edgesLine) {
+            const edgesGeo = new THREE.EdgesGeometry(mesh.geometry, 24);
+            const lineMat = new THREE.LineBasicMaterial({
+              color: 0x00ffff,
+              transparent: true,
+              opacity: 0.95,
+            });
+            const edgesLine = new THREE.LineSegments(edgesGeo, lineMat);
+            mesh.userData.edgesLine = edgesLine;
+            mesh.add(edgesLine);
+          }
+          mesh.userData.edgesLine.visible = true;
+
+          // Oculta a malha sólida
+          if (Array.isArray(mesh.material)) {
+            mesh.material.forEach((m) => {
+              m.visible = false;
+            });
+          } else if (mesh.material) {
+            mesh.material.visible = false;
+          }
+        } else {
+          // Modo Sólido: desativa as linhas de contorno e exibe a malha sólida
+          if (mesh.userData.edgesLine) {
+            mesh.userData.edgesLine.visible = false;
+          }
+
+          if (Array.isArray(mesh.material)) {
+            mesh.material.forEach((m) => {
+              m.visible = true;
+              m.transparent = opacity < 100;
+              m.opacity = opacity / 100;
+              if ('wireframe' in m) (m as any).wireframe = false;
+            });
+          } else if (mesh.material) {
+            mesh.material.visible = true;
+            mesh.material.transparent = opacity < 100;
+            mesh.material.opacity = opacity / 100;
+            if ('wireframe' in mesh.material) (mesh.material as any).wireframe = false;
+          }
         }
       }
     });
@@ -566,16 +635,10 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
         onToggleCamera={handleToggleCamera}
         isWireframe={isWireframe}
         onToggleWireframe={() => setIsWireframe(!isWireframe)}
-        navMode={navMode}
-        onNavModeChange={setNavMode}
         colorMode={colorMode}
         onColorModeChange={setColorMode}
         onFitView={() => fitModelToView()}
         onToggleFullscreen={handleToggleFullscreen}
-        onToggleSectionPlanes={() => setHasSectionPlanes(!hasSectionPlanes)}
-        onToggleMeasure={() => setIsMeasuring(!isMeasuring)}
-        hasSectionPlanes={hasSectionPlanes}
-        isMeasuring={isMeasuring}
       />
 
       {/* Top Right: Interactive ViewCube */}
