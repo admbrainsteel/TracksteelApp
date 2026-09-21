@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three-stdlib';
 import { PieceInfo, LoadedIFCResult, getColorForMaterialName } from '@/lib/ifc/ifcLoaderService';
 import { ViewCube } from './ViewCube';
-import { Viewer3DToolbar } from './Viewer3DToolbar';
+import { Viewer3DSidebar } from './Viewer3DSidebar';
 import { PieceHoverTooltip } from './PieceHoverTooltip';
 
 interface ProductionPieceStatus {
@@ -34,6 +34,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
   onSelectPiece,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const perspCameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -74,10 +75,10 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
 
   // Initialize Scene
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!canvasContainerRef.current) return;
 
-    const width = containerRef.current.clientWidth || 800;
-    const height = containerRef.current.clientHeight || 600;
+    const width = canvasContainerRef.current.clientWidth || 800;
+    const height = canvasContainerRef.current.clientHeight || 600;
 
     // 1. Scene
     const scene = new THREE.Scene();
@@ -115,8 +116,8 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     rendererRef.current = renderer;
 
-    containerRef.current.innerHTML = '';
-    containerRef.current.appendChild(renderer.domElement);
+    canvasContainerRef.current.innerHTML = '';
+    canvasContainerRef.current.appendChild(renderer.domElement);
 
     // 4. OrbitControls
     const controls = new OrbitControls(perspCamera, renderer.domElement);
@@ -142,9 +143,17 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     const hemiLight = new THREE.HemisphereLight(0xffffff, 0x1e293b, 0.5);
     scene.add(hemiLight);
 
-    // 6. Floor Grid
-    const grid = new THREE.GridHelper(200, 100, 0x06b6d4, 0x1e293b);
+    // 6. Floor Grid (Cores refinadas e ultrafinas para modo claro e escuro)
+    const isDarkMode = document.documentElement.classList.contains('dark');
+    const centerLineColor = isDarkMode ? 0x06b6d4 : 0x94a3b8;
+    const gridLineColor = isDarkMode ? 0x334155 : 0xe2e8f0;
+
+    const grid = new THREE.GridHelper(300, 150, centerLineColor, gridLineColor);
     grid.position.y = 0;
+    if (grid.material && (grid.material as THREE.Material)) {
+      (grid.material as THREE.Material).transparent = true;
+      (grid.material as THREE.Material).opacity = isDarkMode ? 0.6 : 0.5;
+    }
     scene.add(grid);
     gridHelperRef.current = grid;
 
@@ -161,9 +170,9 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
 
     // 8. Resize Handler
     const handleResize = () => {
-      if (!containerRef.current || !rendererRef.current) return;
-      const w = containerRef.current.clientWidth;
-      const h = containerRef.current.clientHeight;
+      if (!canvasContainerRef.current || !rendererRef.current) return;
+      const w = canvasContainerRef.current.clientWidth;
+      const h = canvasContainerRef.current.clientHeight;
 
       perspCamera.aspect = w / h;
       perspCamera.updateProjectionMatrix();
@@ -522,7 +531,8 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     const mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     const mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     
-    raycasterRef.current.setFromCamera({ x: mouseX, y: mouseY }, activeCameraRef.current);
+    const v = new THREE.Vector2(mouseX, mouseY);
+    raycasterRef.current.setFromCamera(v, activeCameraRef.current);
     const intersects = raycasterRef.current.intersectObjects(modelGroupRef.current.children, true);
 
     if (intersects.length > 0) {
@@ -538,8 +548,36 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
       onDoubleClick={handleDoubleClick}
-      className="relative w-full h-full  bg-slate-50 dark:bg-slate-950 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xl dark:shadow-2xl select-none"
+      className="relative w-full h-full bg-slate-50 dark:bg-slate-950 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xl dark:shadow-2xl select-none"
     >
+      {/* Three.js Canvas Container Dedicado */}
+      <div ref={canvasContainerRef} className="absolute inset-0 w-full h-full z-0" />
+
+      {/* Top Left: Sub-Menu / Barra Lateral Retrátil de Ferramentas SteelXR */}
+      <Viewer3DSidebar
+        opacity={opacity}
+        onOpacityChange={setOpacity}
+        showGrid={showGrid}
+        onToggleGrid={() => {
+          setShowGrid(!showGrid);
+          if (gridHelperRef.current) gridHelperRef.current.visible = !showGrid;
+        }}
+        isOrthographic={isOrthographic}
+        onToggleCamera={handleToggleCamera}
+        isWireframe={isWireframe}
+        onToggleWireframe={() => setIsWireframe(!isWireframe)}
+        navMode={navMode}
+        onNavModeChange={setNavMode}
+        colorMode={colorMode}
+        onColorModeChange={setColorMode}
+        onFitView={() => fitModelToView()}
+        onToggleFullscreen={handleToggleFullscreen}
+        onToggleSectionPlanes={() => setHasSectionPlanes(!hasSectionPlanes)}
+        onToggleMeasure={() => setIsMeasuring(!isMeasuring)}
+        hasSectionPlanes={hasSectionPlanes}
+        isMeasuring={isMeasuring}
+      />
+
       {/* Top Right: Interactive ViewCube */}
       <div className="absolute top-4 right-4 z-20">
         <ViewCube onSelectView={handleViewCubeSelect} />
@@ -560,33 +598,6 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
             : undefined
         }
       />
-
-      {/* Bottom Floating Toolbar */}
-      <div className="absolute bottom-4 left-4 right-4 z-20 max-w-5xl mx-auto">
-        <Viewer3DToolbar
-          opacity={opacity}
-          onOpacityChange={setOpacity}
-          showGrid={showGrid}
-          onToggleGrid={() => {
-            setShowGrid(!showGrid);
-            if (gridHelperRef.current) gridHelperRef.current.visible = !showGrid;
-          }}
-          isOrthographic={isOrthographic}
-          onToggleCamera={handleToggleCamera}
-          isWireframe={isWireframe}
-          onToggleWireframe={() => setIsWireframe(!isWireframe)}
-          navMode={navMode}
-          onNavModeChange={setNavMode}
-          colorMode={colorMode}
-          onColorModeChange={setColorMode}
-          onFitView={() => fitModelToView()}
-          onToggleFullscreen={handleToggleFullscreen}
-          onToggleSectionPlanes={() => setHasSectionPlanes(!hasSectionPlanes)}
-          onToggleMeasure={() => setIsMeasuring(!isMeasuring)}
-          hasSectionPlanes={hasSectionPlanes}
-          isMeasuring={isMeasuring}
-        />
-      </div>
     </div>
   );
 };

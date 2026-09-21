@@ -486,15 +486,15 @@ export default function Visualizador3D() {
 
           {/* OF Selector Dropdown */}
           <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-950/80 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800">
-            <span className="text-xs font-semibold text-slate-700 font-bold dark:text-slate-300 dark:font-medium">OF:</span>
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">OF:</span>
             <select
               value={selectedOF}
               onChange={(e) => setSelectedOF(e.target.value)}
-              className="bg-transparent text-sm font-bold text-cyan-300 focus:outline-none cursor-pointer"
+              className="bg-transparent text-sm font-extrabold text-cyan-900 dark:text-cyan-300 focus:outline-none cursor-pointer"
             >
               <option value="" disabled className="text-slate-500">Selecione a OF...</option>
               {ofs.map((ofItem) => (
-                <option key={ofItem.id} value={ofItem.of_number} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                <option key={ofItem.id} value={ofItem.of_number} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-medium">
                   {ofItem.of_number} {ofItem.descritivo ? `— ${ofItem.descritivo}` : ''}
                 </option>
               ))}
@@ -503,10 +503,10 @@ export default function Visualizador3D() {
 
           {/* Cloud Stored Model Badge */}
           {hasSavedModel && (
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs">
-              <Cloud className="w-3.5 h-3.5 text-emerald-400" />
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-100/80 dark:bg-emerald-500/10 border border-emerald-300 dark:border-emerald-500/30 rounded-xl text-xs shadow-sm">
+              <Cloud className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
               <span
-                className="text-emerald-300 font-mono font-medium max-w-[170px] truncate"
+                className="text-emerald-900 dark:text-emerald-300 font-mono font-bold max-w-[170px] truncate"
                 title={currentOFInfo?.ifc_filename || 'Modelo IFC Vinculado'}
               >
                 {currentOFInfo?.ifc_filename || 'Modelo Salvo'}
@@ -514,7 +514,7 @@ export default function Visualizador3D() {
               <button
                 onClick={handleRemoveSavedModel}
                 disabled={isLoadingModel}
-                className="text-slate-400 hover:text-red-400 transition-colors ml-1 p-0.5 rounded"
+                className="text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors ml-1 p-0.5 rounded cursor-pointer"
                 title="Desvincular modelo desta OF"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -529,7 +529,7 @@ export default function Visualizador3D() {
                 onClick={() => setSelectedPhase('all')}
                 className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
                   selectedPhase === 'all'
-                    ? 'bg-cyan-500 text-white dark:text-slate-950 font-bold shadow-md shadow-cyan-500/30'
+                    ? 'bg-cyan-600 text-white dark:bg-cyan-500 dark:text-slate-950 font-bold shadow-md shadow-cyan-600/30'
                     : 'text-slate-800 font-medium dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
@@ -541,7 +541,7 @@ export default function Visualizador3D() {
                   onClick={() => setSelectedPhase(f)}
                   className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
                     selectedPhase === f
-                      ? 'bg-cyan-500 text-white dark:text-slate-950 font-bold shadow-md shadow-cyan-500/30'
+                      ? 'bg-cyan-600 text-white dark:bg-cyan-500 dark:text-slate-950 font-bold shadow-md shadow-cyan-600/30'
                       : 'text-slate-800 font-medium dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
                   }`}
                 >
@@ -557,10 +557,10 @@ export default function Visualizador3D() {
           {auditData && (
             <button
               onClick={() => setIsAuditModalOpen(true)}
-              className="flex items-center gap-2 px-3.5 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-semibold transition-all shadow"
+              className="flex items-center gap-2 px-3.5 py-2 bg-emerald-100/70 hover:bg-emerald-100 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20 text-emerald-800 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-500/30 rounded-xl text-xs font-bold transition-all shadow"
               title="Ver detalhes da auditoria do IFC"
             >
-              <ShieldCheck className="w-4 h-4" />
+              <ShieldCheck className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
               <span>Auditoria: {auditData.qualityScore}</span>
             </button>
           )}
@@ -576,7 +576,7 @@ export default function Visualizador3D() {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isLoadingModel}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white dark:text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/20 transition-all disabled:opacity-50 cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-cyan-600/20 transition-all disabled:opacity-50 cursor-pointer"
           >
             {isLoadingModel ? (
               <>
@@ -597,50 +597,50 @@ export default function Visualizador3D() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-3 rounded-xl flex items-center justify-between shadow-sm dark:shadow-none">
           <div>
-            <span className="text-[10px] font-medium uppercase tracking-wider text-slate-700 font-bold dark:text-slate-300 dark:font-medium block">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block">
               Total de Peças {activeMetrics.phaseLabel ? `(${activeMetrics.phaseLabel})` : ''}
             </span>
             <span className="text-lg font-mono font-extrabold text-slate-900 dark:text-white">
               {activeMetrics.totalPecas} peças
             </span>
           </div>
-          <Layers className="w-5 h-5 text-cyan-400" />
+          <Layers className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
         </div>
 
         <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-3 rounded-xl flex items-center justify-between shadow-sm dark:shadow-none">
           <div>
-            <span className="text-[10px] font-medium uppercase tracking-wider text-slate-700 font-bold dark:text-slate-300 dark:font-medium block">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block">
               Apontamentos Realizados {activeMetrics.phaseLabel ? `(${activeMetrics.phaseLabel})` : ''}
             </span>
-            <span className="text-lg font-mono font-extrabold text-emerald-400">
+            <span className="text-lg font-mono font-extrabold text-emerald-700 dark:text-emerald-400">
               {activeMetrics.apontadas} apontadas
             </span>
           </div>
-          <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+          <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
         </div>
 
         <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-3 rounded-xl flex items-center justify-between shadow-sm dark:shadow-none">
           <div>
-            <span className="text-[10px] font-medium uppercase tracking-wider text-slate-700 font-bold dark:text-slate-300 dark:font-medium block">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block">
               Evolução {activeMetrics.phaseLabel ? `(${activeMetrics.phaseLabel})` : 'da OF'}
             </span>
-            <span className="text-lg font-mono font-extrabold text-amber-400">
+            <span className="text-lg font-mono font-extrabold text-amber-600 dark:text-amber-400">
               {activeMetrics.progresso}% concluído
             </span>
           </div>
-          <TrendingUp className="w-5 h-5 text-amber-400" />
+          <TrendingUp className="w-5 h-5 text-amber-600 dark:text-amber-400" />
         </div>
 
         <div className="bg-white dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 p-3 rounded-xl flex items-center justify-between shadow-sm dark:shadow-none">
           <div>
-            <span className="text-[10px] font-medium uppercase tracking-wider text-slate-700 font-bold dark:text-slate-300 dark:font-medium block">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 block">
               Peso {activeMetrics.phaseLabel ? `(${activeMetrics.phaseLabel})` : 'da Estrutura'}
             </span>
-            <span className="text-lg font-mono font-extrabold text-cyan-300">
+            <span className="text-lg font-mono font-extrabold text-cyan-800 dark:text-cyan-300">
               {activeMetrics.peso > 0 ? `${(activeMetrics.peso / 1000).toFixed(1)} ton` : '0.0 ton'}
             </span>
           </div>
-          <Weight className="w-5 h-5 text-cyan-400" />
+          <Weight className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
         </div>
       </div>
 
