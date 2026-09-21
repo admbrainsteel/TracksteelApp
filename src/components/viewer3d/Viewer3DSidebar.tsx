@@ -11,7 +11,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Focus,
-  Sliders
+  Sliders,
+  Flame,
+  Wrench,
+  Paintbrush,
+  Truck,
+  Scissors
 } from 'lucide-react';
 
 interface Viewer3DSidebarProps {
@@ -25,9 +30,20 @@ interface Viewer3DSidebarProps {
   onToggleWireframe: () => void;
   colorMode: 'description' | 'production';
   onColorModeChange: (mode: 'description' | 'production') => void;
+  selectedProcess?: string;
+  onSelectProcess?: (proc: string) => void;
   onFitView: () => void;
   onToggleFullscreen: () => void;
 }
+
+const FABRICATION_PROCESSES = [
+  { id: 'all', label: 'Todos', icon: Layers },
+  { id: 'Corte', label: 'Corte', icon: Scissors },
+  { id: 'Montagem', label: 'Montagem', icon: Wrench },
+  { id: 'Solda', label: 'Solda', icon: Flame },
+  { id: 'Pintura', label: 'Pintura', icon: Paintbrush },
+  { id: 'Expedicao', label: 'Expedição', icon: Truck },
+];
 
 export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({
   opacity,
@@ -40,6 +56,8 @@ export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({
   onToggleWireframe,
   colorMode,
   onColorModeChange,
+  selectedProcess = 'all',
+  onSelectProcess,
   onFitView,
   onToggleFullscreen,
 }) => {
@@ -50,7 +68,7 @@ export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({
       {/* Container Principal da Barra Lateral */}
       <div
         className={`transition-all duration-300 ease-in-out flex flex-col bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden ${
-          isOpen ? 'w-60 max-h-[calc(100vh-16rem)]' : 'w-0 border-0 opacity-0 pointer-events-none'
+          isOpen ? 'w-64 max-h-[calc(100vh-14rem)]' : 'w-0 border-0 opacity-0 pointer-events-none'
         }`}
       >
         {/* Cabeçalho do Sub-Menu */}
@@ -68,18 +86,52 @@ export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({
 
         {/* Corpo com Rolagem Suave */}
         <div className="flex-1 overflow-y-auto p-3 space-y-4 custom-scrollbar">
-          {/* Grupo 1: Modo de Cores / Produção */}
+          {/* Grupo 1: Destaque por Processo Industrial (Inovação Híbrida: Verde Sólido + Aramado Cinza Fantasma) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                Destaque por Processo
+              </label>
+              <span className="text-[9px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                BIM + Fábrica
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-1 bg-slate-100 dark:bg-slate-950/60 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
+              {FABRICATION_PROCESSES.map((proc) => {
+                const Icon = proc.icon;
+                const isSelected = selectedProcess === proc.id;
+                return (
+                  <button
+                    key={proc.id}
+                    onClick={() => onSelectProcess && onSelectProcess(proc.id)}
+                    className={`flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[10px] font-bold transition-all ${
+                      isSelected
+                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                        : 'text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+                    }`}
+                    title={`Destacar peças em ${proc.label} (Sólido Verde) e não apontadas em aramado cinza`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{proc.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Grupo 2: Modo de Cores Geral */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
               <Palette className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-              Exibição de Cores
+              Modo de Cores
             </label>
             <div className="grid grid-cols-2 gap-1.5 bg-slate-100 dark:bg-slate-950/60 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
               <button
                 onClick={() => onColorModeChange('production')}
                 className={`flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   colorMode === 'production'
-                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                    ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/30'
                     : 'text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
@@ -100,7 +152,7 @@ export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({
             </div>
           </div>
 
-          {/* Grupo 2: Visibilidade & Grade */}
+          {/* Grupo 3: Visibilidade & Grade */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
               <GridIcon className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
@@ -125,17 +177,17 @@ export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({
                 onClick={onToggleWireframe}
                 className={`flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold border transition-all ${
                   isWireframe
-                    ? 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-300 border-cyan-300 dark:border-cyan-800 shadow-sm'
+                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-700 shadow-sm'
                     : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-slate-300'
                 }`}
               >
-                {isWireframe ? <Layers className="w-3.5 h-3.5 text-cyan-600" /> : <Box className="w-3.5 h-3.5" />}
+                {isWireframe ? <Layers className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" /> : <Box className="w-3.5 h-3.5" />}
                 <span>{isWireframe ? 'Aramado' : 'Sólido'}</span>
               </button>
             </div>
           </div>
 
-          {/* Grupo 3: Câmera & Projeção */}
+          {/* Grupo 4: Câmera & Projeção */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
               <Compass className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
@@ -167,7 +219,7 @@ export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({
             </div>
           </div>
 
-          {/* Grupo 4: Opacidade da Estrutura */}
+          {/* Grupo 5: Opacidade da Estrutura */}
           <div className="space-y-1.5 bg-slate-50 dark:bg-slate-950/60 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800">
             <div className="flex items-center justify-between text-xs">
               <span className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">

@@ -51,10 +51,8 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
   const [showGrid, setShowGrid] = useState<boolean>(true);
   const [isOrthographic, setIsOrthographic] = useState<boolean>(false);
   const [isWireframe, setIsWireframe] = useState<boolean>(false);
-  const [navMode, setNavMode] = useState<'orbit' | 'walk'>('orbit');
   const [colorMode, setColorMode] = useState<'description' | 'production'>('production');
-  const [hasSectionPlanes, setHasSectionPlanes] = useState<boolean>(false);
-  const [isMeasuring, setIsMeasuring] = useState<boolean>(false);
+  const [selectedProcess, setSelectedProcess] = useState<string>('all');
 
   // Hover Tooltip States (1.5 seconds)
   const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -146,14 +144,14 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     // 6. Floor Grid (Cores refinadas e ultrafinas para modo claro e escuro)
     const updateGridTheme = (gridHelper: THREE.GridHelper) => {
       const isDark = document.documentElement.classList.contains('dark');
-      const centerColor = isDark ? new THREE.Color(0x334155) : new THREE.Color(0x94a3b8);
-      const gridColor = isDark ? new THREE.Color(0x0f172a) : new THREE.Color(0xe2e8f0);
+      // No modo escuro: tom ligeiramente mais claro (slate-800 #1e293b e centro #475569)
+      const centerColor = isDark ? new THREE.Color(0x475569) : new THREE.Color(0x94a3b8);
+      const gridColor = isDark ? new THREE.Color(0x1e293b) : new THREE.Color(0xe2e8f0);
 
       const colors = (gridHelper.geometry.attributes.color as THREE.BufferAttribute);
       if (colors) {
         const colorArray = colors.array as Float32Array;
         for (let i = 0; i < colorArray.length; i += 6) {
-          // Atualiza as cores dos vértices da grade dinamicamente
           const isCenter = i === Math.floor(colorArray.length / 2);
           const c = isCenter ? centerColor : gridColor;
           colorArray[i] = c.r;
@@ -168,19 +166,19 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
 
       if (gridHelper.material && (gridHelper.material as THREE.Material)) {
         (gridHelper.material as THREE.Material).transparent = true;
-        (gridHelper.material as THREE.Material).opacity = isDark ? 0.35 : 0.45;
+        (gridHelper.material as THREE.Material).opacity = isDark ? 0.45 : 0.45;
       }
     };
 
     const isDarkMode = document.documentElement.classList.contains('dark');
-    const centerLineColor = isDarkMode ? 0x334155 : 0x94a3b8;
-    const gridLineColor = isDarkMode ? 0x0f172a : 0xe2e8f0;
+    const centerLineColor = isDarkMode ? 0x475569 : 0x94a3b8;
+    const gridLineColor = isDarkMode ? 0x1e293b : 0xe2e8f0;
 
     const grid = new THREE.GridHelper(300, 150, centerLineColor, gridLineColor);
     grid.position.y = 0;
     if (grid.material && (grid.material as THREE.Material)) {
       (grid.material as THREE.Material).transparent = true;
-      (grid.material as THREE.Material).opacity = isDarkMode ? 0.35 : 0.45;
+      (grid.material as THREE.Material).opacity = isDarkMode ? 0.45 : 0.45;
     }
     scene.add(grid);
     gridHelperRef.current = grid;
@@ -354,34 +352,111 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
         // Se o elemento não estiver visível na fase atual, pula estilização detalhada
         if (!isVisibleByPhase) return;
 
-        // 4. Aplicação de Cores / Materiais
-        if (colorMode === 'production' && productionData && productionData.size > 0) {
-          if (prod) {
-            matchedCount++;
-            if (!sampleMatch && prod.pointedQtd > 0) {
-              sampleMatch = { pmark: assMark || pmark, dbMarca: prod.marca, proc: prod.currentProcessName, cor: prod.processColor };
-            }
-          }
+        // 4. Mapeamento de Processos Industriais para Inovação Híbrida
+        const PROCESS_ORDER_MAP: Record<string, number> = {
+          'corte': 1,
+          'montagem': 2,
+          'solda': 3,
+          'pintura': 4,
+          'pintura/galv': 4,
+          'expedicao': 5,
+          'expedição': 5,
+        };
 
-          if (prod && prod.pointedQtd > 0) {
-            pointedCount++;
-            // Cores baseadas no progresso: verde claro -> verde escuro
-            const qtyPercent = Math.min(prod.pointedQtd / prod.totalQtd, 1.0);
-            const processPercent = Math.min((prod.processOrdem || 1) / 5, 1.0);
-            const percent = qtyPercent * processPercent;
-            
-            const colorLight = new THREE.Color('#4ade80'); // Verde claro
-            const colorDark = new THREE.Color('#14532d'); // Verde escuro
-            const finalColor = new THREE.Color().lerpColors(colorLight, colorDark, percent);
+        const targetProcKey = selectedProcess.toLowerCase();
+        const targetOrder = PROCESS_ORDER_MAP[targetProcKey] || 0;
 
+        let isPointedInTargetProcess = false;
+        if (selectedProcess !== 'all' && prod && prod.pointedQtd > 0) {
+          const pieceProcOrder = prod.processOrdem || 1;
+          const pieceProcName = (prod.currentProcessName || '').toLowerCase();
+          isPointedInTargetProcess =
+            pieceProcOrder >= targetOrder ||
+            pieceProcName.includes(targetProcKey);
+        }
+
+        // 5. Aplicação de Cores / Materiais (Sólido vs Aramado Híbrido)
+        if (selectedProcess !== 'all') {
+          // --- MODO INOVAÇÃO: Destaque por Processo ---
+          if (isPointedInTargetProcess) {
+            // Peça apontada no processo: SÓLIDO VERDE BRILHANTE
             mesh.material = new THREE.MeshStandardMaterial({
-              color: finalColor,
+              color: new THREE.Color('#22c55e'), // Verde Sólido
               metalness: 0.35,
               roughness: 0.45,
+              transparent: opacity < 100,
+              opacity: opacity / 100,
               side: THREE.DoubleSide,
             });
+            if (mesh.userData.edgesLine) {
+              mesh.userData.edgesLine.visible = false;
+            }
           } else {
-            // Não apontada / Pendente ou Não vinculada: 100% CINZA CLARO INDUSTRIAL (#a1a1aa)
+            // Peça NÃO apontada no processo: ARAMADO CINZA CLARO FANTASMA (Ghost Frame)
+            if (!mesh.userData.edgesLine) {
+              const edgesGeo = new THREE.EdgesGeometry(mesh.geometry, 24);
+              const lineMat = new THREE.LineBasicMaterial({
+                color: 0x94a3b8, // Cinza claro industrial
+                transparent: true,
+                opacity: 0.65,
+              });
+              const edgesLine = new THREE.LineSegments(edgesGeo, lineMat);
+              mesh.userData.edgesLine = edgesLine;
+              mesh.add(edgesLine);
+            } else {
+              if (mesh.userData.edgesLine.material) {
+                mesh.userData.edgesLine.material.color.set(0x94a3b8);
+                mesh.userData.edgesLine.material.opacity = 0.65;
+              }
+            }
+            mesh.userData.edgesLine.visible = true;
+
+            // Oculta sólido
+            if (Array.isArray(mesh.material)) {
+              mesh.material.forEach((m) => { m.visible = false; });
+            } else if (mesh.material) {
+              mesh.material.visible = false;
+            }
+          }
+        } else {
+          // --- MODO GERAL (Todas as peças) ---
+          if (colorMode === 'production' && productionData && productionData.size > 0) {
+            if (prod) {
+              matchedCount++;
+              if (!sampleMatch && prod.pointedQtd > 0) {
+                sampleMatch = { pmark: assMark || pmark, dbMarca: prod.marca, proc: prod.currentProcessName, cor: prod.processColor };
+              }
+            }
+
+            if (prod && prod.pointedQtd > 0) {
+              pointedCount++;
+              const qtyPercent = Math.min(prod.pointedQtd / prod.totalQtd, 1.0);
+              const processPercent = Math.min((prod.processOrdem || 1) / 5, 1.0);
+              const percent = qtyPercent * processPercent;
+              
+              const colorLight = new THREE.Color('#4ade80');
+              const colorDark = new THREE.Color('#14532d');
+              const finalColor = new THREE.Color().lerpColors(colorLight, colorDark, percent);
+
+              mesh.material = new THREE.MeshStandardMaterial({
+                color: finalColor,
+                metalness: 0.35,
+                roughness: 0.45,
+                side: THREE.DoubleSide,
+              });
+            } else {
+              // Cinza Claro Industrial (#a1a1aa)
+              mesh.material = new THREE.MeshStandardMaterial({
+                color: new THREE.Color(0xa1a1aa),
+                metalness: 0.25,
+                roughness: 0.65,
+                transparent: opacity < 100,
+                opacity: opacity / 100,
+                side: THREE.DoubleSide,
+              });
+            }
+          } else {
+            // Modo Padrão / Descrição
             mesh.material = new THREE.MeshStandardMaterial({
               color: new THREE.Color(0xa1a1aa),
               metalness: 0.25,
@@ -391,60 +466,50 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
               side: THREE.DoubleSide,
             });
           }
-        } else {
-          // Todas as peças iniciam / permanecem em Cinza Claro Industrial (#a1a1aa)
-          mesh.material = new THREE.MeshStandardMaterial({
-            color: new THREE.Color(0xa1a1aa),
-            metalness: 0.25,
-            roughness: 0.65,
-            transparent: opacity < 100,
-            opacity: opacity / 100,
-            side: THREE.DoubleSide,
-          });
-        }
 
-        // Apply Opacity & Clean Architectural Wireframe (EdgesGeometry - SteelXR Style)
-        if (isWireframe) {
-          // Cria arestas de contorno se ainda não existirem
-          if (!mesh.userData.edgesLine) {
-            const edgesGeo = new THREE.EdgesGeometry(mesh.geometry, 24);
-            const lineMat = new THREE.LineBasicMaterial({
-              color: 0x00ffff,
-              transparent: true,
-              opacity: 0.95,
-            });
-            const edgesLine = new THREE.LineSegments(edgesGeo, lineMat);
-            mesh.userData.edgesLine = edgesLine;
-            mesh.add(edgesLine);
-          }
-          mesh.userData.edgesLine.visible = true;
+          // Controle de Aramado Geral (Botão Sólido / Aramado)
+          if (isWireframe) {
+            if (!mesh.userData.edgesLine) {
+              const edgesGeo = new THREE.EdgesGeometry(mesh.geometry, 24);
+              const lineMat = new THREE.LineBasicMaterial({
+                color: 0x94a3b8, // Cinza claro industrial idêntico às peças não apontadas
+                transparent: true,
+                opacity: 0.85,
+              });
+              const edgesLine = new THREE.LineSegments(edgesGeo, lineMat);
+              mesh.userData.edgesLine = edgesLine;
+              mesh.add(edgesLine);
+            } else {
+              if (mesh.userData.edgesLine.material) {
+                mesh.userData.edgesLine.material.color.set(0x94a3b8);
+                mesh.userData.edgesLine.material.opacity = 0.85;
+              }
+            }
+            mesh.userData.edgesLine.visible = true;
 
-          // Oculta a malha sólida
-          if (Array.isArray(mesh.material)) {
-            mesh.material.forEach((m) => {
-              m.visible = false;
-            });
-          } else if (mesh.material) {
-            mesh.material.visible = false;
-          }
-        } else {
-          // Modo Sólido: desativa as linhas de contorno e exibe a malha sólida
-          if (mesh.userData.edgesLine) {
-            mesh.userData.edgesLine.visible = false;
-          }
+            if (Array.isArray(mesh.material)) {
+              mesh.material.forEach((m) => { m.visible = false; });
+            } else if (mesh.material) {
+              mesh.material.visible = false;
+            }
+          } else {
+            if (mesh.userData.edgesLine) {
+              mesh.userData.edgesLine.visible = false;
+            }
 
-          if (Array.isArray(mesh.material)) {
-            mesh.material.forEach((m) => {
-              m.visible = true;
-              m.transparent = opacity < 100;
-              m.opacity = opacity / 100;
-              if ('wireframe' in m) (m as any).wireframe = false;
-            });
-          } else if (mesh.material) {
-            mesh.material.visible = true;
-            mesh.material.transparent = opacity < 100;
-            mesh.material.opacity = opacity / 100;
-            if ('wireframe' in mesh.material) (mesh.material as any).wireframe = false;
+            if (Array.isArray(mesh.material)) {
+              mesh.material.forEach((m) => {
+                m.visible = true;
+                m.transparent = opacity < 100;
+                m.opacity = opacity / 100;
+                if ('wireframe' in m) (m as any).wireframe = false;
+              });
+            } else if (mesh.material) {
+              mesh.material.visible = true;
+              mesh.material.transparent = opacity < 100;
+              mesh.material.opacity = opacity / 100;
+              if ('wireframe' in mesh.material) (mesh.material as any).wireframe = false;
+            }
           }
         }
       }
@@ -637,13 +702,15 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
         onToggleWireframe={() => setIsWireframe(!isWireframe)}
         colorMode={colorMode}
         onColorModeChange={setColorMode}
+        selectedProcess={selectedProcess}
+        onSelectProcess={setSelectedProcess}
         onFitView={() => fitModelToView()}
         onToggleFullscreen={handleToggleFullscreen}
       />
 
-      {/* Top Right: Interactive ViewCube */}
+      {/* Top Right: Interactive ViewCube WebGL sincronizado */}
       <div className="absolute top-4 right-4 z-20">
-        <ViewCube onSelectView={handleViewCubeSelect} />
+        <ViewCube onSelectView={handleViewCubeSelect} mainCameraRef={activeCameraRef} />
       </div>
 
       {/* Hover Tooltip (1.5s delay trigger) */}
