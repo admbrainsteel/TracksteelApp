@@ -37,12 +37,12 @@ interface Viewer3DSidebarProps {
 }
 
 const FABRICATION_PROCESSES = [
-  { id: 'all', label: 'Todos', icon: Layers },
-  { id: 'Corte', label: 'Corte', icon: Scissors },
-  { id: 'Solda', label: 'Solda', icon: Flame },
-  { id: 'Pintura', label: 'Pintura', icon: Paintbrush },
-  { id: 'Expedicao', label: 'Expedição', icon: Truck },
-  { id: 'Montagem', label: 'Montagem', icon: Wrench },
+  { id: 'all', label: 'Todos', icon: Layers, color: '#0284c7' },
+  { id: 'Corte', label: 'Corte', icon: Scissors, color: '#3b82f6' },
+  { id: 'Solda', label: 'Solda', icon: Flame, color: '#f97316' },
+  { id: 'Pintura', label: 'Pintura', icon: Paintbrush, color: '#10b981' },
+  { id: 'Expedicao', label: 'Expedição', icon: Truck, color: '#06b6d4' },
+  { id: 'Montagem', label: 'Montagem', icon: Wrench, color: '#6366f1' },
 ];
 
 export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({
@@ -86,7 +86,7 @@ export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({
 
         {/* Corpo com Rolagem Suave */}
         <div className="flex-1 overflow-y-auto p-3 space-y-4 custom-scrollbar">
-          {/* Grupo 1: Destaque por Processo Industrial (Inovação Híbrida: Verde Sólido + Aramado Cinza Fantasma) */}
+          {/* Grupo 1: Destaque por Processo Industrial com Cores Correspondentes */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
@@ -97,7 +97,7 @@ export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({
                 BIM + Fábrica
               </span>
             </div>
-            <div className="grid grid-cols-3 gap-1 bg-slate-100 dark:bg-slate-950/60 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
+            <div className="grid grid-cols-3 gap-1.5 bg-slate-100 dark:bg-slate-950/60 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800">
               {FABRICATION_PROCESSES.map((proc) => {
                 const Icon = proc.icon;
                 const isSelected = selectedProcess === proc.id;
@@ -105,15 +105,29 @@ export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({
                   <button
                     key={proc.id}
                     onClick={() => onSelectProcess && onSelectProcess(proc.id)}
-                    className={`flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[10px] font-bold transition-all ${
+                    style={
                       isSelected
-                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
-                        : 'text-slate-700 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800/60'
+                        ? {
+                            backgroundColor: proc.color,
+                            color: '#ffffff',
+                            boxShadow: `0 4px 12px ${proc.color}50`,
+                            borderColor: proc.color,
+                          }
+                        : {
+                            backgroundColor: `${proc.color}18`,
+                            color: proc.color,
+                            borderColor: `${proc.color}35`,
+                          }
+                    }
+                    className={`flex flex-col items-center justify-center gap-1 py-2 px-1 rounded-lg text-[10px] font-bold border transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] ${
+                      isSelected
+                        ? 'shadow-md border-transparent font-extrabold'
+                        : 'hover:brightness-110'
                     }`}
-                    title={`Destacar peças em ${proc.label} (Sólido Verde) e não apontadas em aramado cinza`}
+                    title={`Destacar peças em ${proc.label} (${proc.color}) e não apontadas em aramado cinza`}
                   >
-                    <Icon className="w-3.5 h-3.5" />
-                    <span>{proc.label}</span>
+                    <Icon className="w-3.5 h-3.5 stroke-[2.2]" />
+                    <span className="tracking-tight">{proc.label}</span>
                   </button>
                 );
               })}

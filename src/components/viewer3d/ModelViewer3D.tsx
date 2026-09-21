@@ -364,8 +364,24 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
           'montagem de obra': 5,
         };
 
+        const PROCESS_COLOR_MAP: Record<string, string> = {
+          'corte': '#3b82f6',
+          'solda': '#f97316',
+          'pintura': '#10b981',
+          'pintura/galv': '#10b981',
+          'pintura/galvanizacao': '#10b981',
+          'pintura / galvanizacao': '#10b981',
+          'galvanizacao': '#10b981',
+          'expedicao': '#06b6d4',
+          'expedição': '#06b6d4',
+          'montagem': '#6366f1',
+          'montagem obra': '#6366f1',
+          'montagem de obra': '#6366f1',
+        };
+
         const targetProcKey = String(selectedProcess || 'all').toLowerCase();
         const targetOrder = PROCESS_ORDER_MAP[targetProcKey] || 0;
+        const targetColorHex = PROCESS_COLOR_MAP[targetProcKey] || '#22c55e';
 
         let isPointedInTargetProcess = false;
         if (selectedProcess !== 'all' && prod && prod.pointedQtd > 0) {
@@ -389,9 +405,9 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
         if (selectedProcess !== 'all') {
           // --- MODO INOVAÇÃO: Destaque por Processo ---
           if (isPointedInTargetProcess) {
-            // Peça apontada no processo: SÓLIDO VERDE BRILHANTE
+            // Peça apontada no processo: SÓLIDO COM A COR CORRESPONDENTE DO PROCESSO
             mesh.material = new THREE.MeshStandardMaterial({
-              color: new THREE.Color('#22c55e'), // Verde Sólido
+              color: new THREE.Color(targetColorHex),
               metalness: 0.35,
               roughness: 0.45,
               transparent: opacity < 100,
