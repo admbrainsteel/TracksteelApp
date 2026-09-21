@@ -67,6 +67,13 @@ function wrapWithGuard(
         </ProtectedRouteByResource>
       );
 
+    case 'smart':
+      return (
+        <ProtectedRoute>
+          {element}
+        </ProtectedRoute>
+      );
+
     default:
       return element;
   }

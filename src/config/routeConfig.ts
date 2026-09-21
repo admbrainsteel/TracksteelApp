@@ -4,7 +4,7 @@ import { ComponentType, lazy } from 'react';
 // Definição de tipos para o sistema de rotas
 // ============================================================================
 
-export type RouteGuard = 'public' | 'protected' | 'admin' | 'resource';
+export type RouteGuard = 'public' | 'protected' | 'admin' | 'resource' | 'smart';
 
 export interface RouteDefinition {
   path: string;
@@ -291,5 +291,12 @@ export const routeConfig: RouteDefinition[] = [
     path: '/prioridades-fabricacao',
     component: () => import('@/pages/PrioridadesFabricacao'),
     guard: 'protected',
+  },
+
+  // ── Modo Smart (Chão de Fábrica Touch-First) ──────────────
+  {
+    path: '/smart',
+    component: () => import('@/pages/ModoSmart'),
+    guard: 'smart',
   },
 ];

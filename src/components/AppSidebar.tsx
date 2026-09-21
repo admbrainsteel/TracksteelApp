@@ -1,19 +1,21 @@
 
 import React, { useState, useMemo } from "react";
 import { logger } from "@/utils/logger";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu } from "@/components/ui/sidebar";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useIconStyle } from "@/hooks/useIconStyle";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
+import { Zap } from "lucide-react";
 import { usePermissionControl } from "@/hooks/usePermissionControl";
 import { menuGroups } from "./sidebar/menuConfig";
 import { AppSidebarMenuItem } from "./sidebar/SidebarMenuItem";
 
 export function AppSidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { setOpenMobile } = useSidebar();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const { iconStyle } = useIconStyle();
@@ -140,6 +142,41 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarContent>
+        {/* Banner de atalho para Modo Smart */}
+        <div className="px-3 pt-3 pb-1">
+          <button
+            type="button"
+            onClick={() => {
+              try {
+                localStorage.setItem('tracksteel_app_mode', 'smart');
+              } catch {
+                // ignore
+              }
+              if (isMobile) setOpenMobile(false);
+              navigate('/smart');
+            }}
+            className="w-full flex items-center justify-between p-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-orange-500/10 border border-amber-500/30 hover:border-amber-500/60 transition-all text-left group shadow-sm active:scale-[0.98]"
+            title="Alternar para o Modo Smart (Chão de Fábrica Touch-First)"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="p-1.5 rounded-lg bg-amber-500/20 text-amber-500 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+                <Zap className="h-4 w-4 fill-amber-500 group-hover:fill-white" />
+              </div>
+              <div>
+                <div className="text-xs font-bold text-amber-600 dark:text-amber-400 tracking-wide uppercase">
+                  Modo Smart
+                </div>
+                <div className="text-[11px] text-muted-foreground leading-tight">
+                  Chão de Fábrica Touch
+                </div>
+              </div>
+            </div>
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-300">
+              RÁPIDO
+            </span>
+          </button>
+        </div>
+
         {menuGroups.map(group => {
           // Filter admin groups for non-admin users
           if (!isAdmin && group.name === 'Administração') {
