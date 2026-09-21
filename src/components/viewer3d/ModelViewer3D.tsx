@@ -50,7 +50,6 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
   const [opacity, setOpacity] = useState<number>(100);
   const [showGrid, setShowGrid] = useState<boolean>(true);
   const [isOrthographic, setIsOrthographic] = useState<boolean>(false);
-  const [isWireframe, setIsWireframe] = useState<boolean>(false);
   const [colorMode, setColorMode] = useState<'description' | 'production'>('production');
   const [selectedProcess, setSelectedProcess] = useState<string>('all');
 
@@ -429,50 +428,32 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
           else isPointedInThisProcess = Boolean(procPointedMap[targetProcKey] > 0 || procsDone.includes(targetProcKey));
 
           if (isPointedInThisProcess) {
-            // SÓLIDO COM A COR DO PROCESSO SELECIONADO
+            // SÓLIDO COM A COR DO PROCESSO SELECIONADO (OPACO 100%)
             mesh.material = new THREE.MeshStandardMaterial({
               color: new THREE.Color(targetColorHex),
               metalness: 0.35,
               roughness: 0.45,
               transparent: opacity < 100,
               opacity: opacity / 100,
+              depthWrite: true,
               side: THREE.DoubleSide,
             });
             if (mesh.userData.edgesLine) {
               mesh.userData.edgesLine.visible = false;
             }
           } else {
-            // ARAMADO FANTASMA CINZA CLARO ULTRA-SUAVE (5% de opacidade)
-            if (!mesh.userData.edgesLine) {
-              const edgesGeo = new THREE.EdgesGeometry(mesh.geometry, 24);
-              const lineMat = new THREE.LineBasicMaterial({
-                color: 0x94a3b8, // Cinza claro industrial
-                transparent: true,
-                opacity: 0.05, // 5% de opacidade
-              });
-              const edgesLine = new THREE.LineSegments(edgesGeo, lineMat);
-              mesh.userData.edgesLine = edgesLine;
-              mesh.add(edgesLine);
-            } else {
-              if (mesh.userData.edgesLine.material) {
-                mesh.userData.edgesLine.material.color.set(0x94a3b8);
-                mesh.userData.edgesLine.material.transparent = true;
-                mesh.userData.edgesLine.material.opacity = 0.05;
-              }
-            }
-            mesh.userData.edgesLine.visible = true;
-
-            // Mantém material ativo para Raycaster mas 100% translúcido visualmente
-            if (Array.isArray(mesh.material)) {
-              mesh.material.forEach((m) => {
-                m.visible = true;
-                m.transparent = true;
-                m.opacity = 0.001;
-              });
-            } else if (mesh.material) {
-              mesh.material.visible = true;
-              mesh.material.transparent = true;
-              mesh.material.opacity = 0.001;
+            // SÓLIDO TRANSLÚCIDO ATENUADO (Ghost Solid volumétrico a 8% - sem linhas de aramado)
+            mesh.material = new THREE.MeshStandardMaterial({
+              color: new THREE.Color('#94a3b8'), // Cinza industrial translúcido
+              metalness: 0.1,
+              roughness: 0.8,
+              transparent: true,
+              opacity: 0.08, // 8% de opacidade volumétrica suave
+              depthWrite: false,
+              side: THREE.DoubleSide,
+            });
+            if (mesh.userData.edgesLine) {
+              mesh.userData.edgesLine.visible = false;
             }
           }
         } else {
@@ -502,6 +483,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
                 roughness: 0.45,
                 transparent: opacity < 100,
                 opacity: opacity / 100,
+                depthWrite: true,
                 side: THREE.DoubleSide,
               });
 
@@ -509,37 +491,19 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
                 mesh.userData.edgesLine.visible = false;
               }
             } else {
-              // A PEÇA NÃO TEM NENHUM APONTAMENTO: ARAMADO FANTASMA CINZA CLARO A 5% (ATENUADA)
-              if (!mesh.userData.edgesLine) {
-                const edgesGeo = new THREE.EdgesGeometry(mesh.geometry, 24);
-                const lineMat = new THREE.LineBasicMaterial({
-                  color: 0x94a3b8,
-                  transparent: true,
-                  opacity: 0.05,
-                });
-                const edgesLine = new THREE.LineSegments(edgesGeo, lineMat);
-                mesh.userData.edgesLine = edgesLine;
-                mesh.add(edgesLine);
-              } else {
-                if (mesh.userData.edgesLine.material) {
-                  mesh.userData.edgesLine.material.color.set(0x94a3b8);
-                  mesh.userData.edgesLine.material.transparent = true;
-                  mesh.userData.edgesLine.material.opacity = 0.05;
-                }
-              }
-              mesh.userData.edgesLine.visible = true;
+              // A PEÇA NÃO TEM NENHUM APONTAMENTO: SÓLIDO TRANSLÚCIDO ATENUADO (Ghost Solid a 8%)
+              mesh.material = new THREE.MeshStandardMaterial({
+                color: new THREE.Color('#94a3b8'),
+                metalness: 0.1,
+                roughness: 0.8,
+                transparent: true,
+                opacity: 0.08,
+                depthWrite: false,
+                side: THREE.DoubleSide,
+              });
 
-              // Material ativo para Raycaster mas translúcido
-              if (Array.isArray(mesh.material)) {
-                mesh.material.forEach((m) => {
-                  m.visible = true;
-                  m.transparent = true;
-                  m.opacity = 0.001;
-                });
-              } else if (mesh.material) {
-                mesh.material.visible = true;
-                mesh.material.transparent = true;
-                mesh.material.opacity = 0.001;
+              if (mesh.userData.edgesLine) {
+                mesh.userData.edgesLine.visible = false;
               }
             }
           } else {
@@ -550,38 +514,12 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
               roughness: 0.65,
               transparent: opacity < 100,
               opacity: opacity / 100,
+              depthWrite: true,
               side: THREE.DoubleSide,
             });
             if (mesh.userData.edgesLine) {
               mesh.userData.edgesLine.visible = false;
             }
-          }
-        }
-
-        // Controle de Aramado Geral (Botão Sólido / Aramado)
-        if (isWireframe) {
-          if (!mesh.userData.edgesLine) {
-            const edgesGeo = new THREE.EdgesGeometry(mesh.geometry, 24);
-            const lineMat = new THREE.LineBasicMaterial({
-              color: 0x94a3b8, // Cinza claro industrial idêntico às peças não apontadas
-              transparent: true,
-              opacity: 0.85,
-            });
-            const edgesLine = new THREE.LineSegments(edgesGeo, lineMat);
-            mesh.userData.edgesLine = edgesLine;
-            mesh.add(edgesLine);
-          } else {
-            if (mesh.userData.edgesLine.material) {
-              mesh.userData.edgesLine.material.color.set(0x94a3b8);
-              mesh.userData.edgesLine.material.opacity = 0.85;
-            }
-          }
-          mesh.userData.edgesLine.visible = true;
-
-          if (Array.isArray(mesh.material)) {
-            mesh.material.forEach((m) => { m.visible = false; });
-          } else if (mesh.material) {
-            mesh.material.visible = false;
           }
         }
       }
@@ -605,7 +543,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
         );
       }
     }
-  }, [modelData, colorMode, productionData, selectedPhase, selectedOF, opacity, isWireframe, selectedProcess]);
+  }, [modelData, colorMode, productionData, selectedPhase, selectedOF, opacity, selectedProcess]);
 
   // Camera Toggle (Ortogonal / Perspectiva)
   const handleToggleCamera = useCallback(() => {
@@ -815,8 +753,6 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
         }}
         isOrthographic={isOrthographic}
         onToggleCamera={handleToggleCamera}
-        isWireframe={isWireframe}
-        onToggleWireframe={() => setIsWireframe(!isWireframe)}
         colorMode={colorMode}
         onColorModeChange={setColorMode}
         selectedProcess={selectedProcess}

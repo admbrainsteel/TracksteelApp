@@ -26,8 +26,6 @@ interface Viewer3DSidebarProps {
   onToggleGrid: () => void;
   isOrthographic: boolean;
   onToggleCamera: () => void;
-  isWireframe: boolean;
-  onToggleWireframe: () => void;
   colorMode: 'description' | 'production';
   onColorModeChange: (mode: 'description' | 'production') => void;
   selectedProcess?: string;
@@ -52,8 +50,6 @@ export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({
   onToggleGrid,
   isOrthographic,
   onToggleCamera,
-  isWireframe,
-  onToggleWireframe,
   colorMode,
   onColorModeChange,
   selectedProcess = 'all',
@@ -166,37 +162,24 @@ export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({
             </div>
           </div>
 
-          {/* Grupo 3: Visibilidade & Grade */}
+          {/* Grupo 3: Ambiente & Grade */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
               <GridIcon className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-              Ambiente & Estrutura
+              Ambiente & Piso
             </label>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div>
               {/* Toggle Grid */}
               <button
                 onClick={onToggleGrid}
-                className={`flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                className={`w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold border transition-all ${
                   showGrid
                     ? 'bg-cyan-50 dark:bg-cyan-950/40 text-cyan-800 dark:text-cyan-300 border-cyan-300 dark:border-cyan-800 shadow-sm'
                     : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-slate-300'
                 }`}
               >
                 <GridIcon className="w-3.5 h-3.5" />
-                <span>Grid: {showGrid ? 'LIGADO' : 'DESL'}</span>
-              </button>
-
-              {/* Sólido / Aramado */}
-              <button
-                onClick={onToggleWireframe}
-                className={`flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold border transition-all ${
-                  isWireframe
-                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-slate-300 dark:border-slate-700 shadow-sm'
-                    : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-slate-300'
-                }`}
-              >
-                {isWireframe ? <Layers className="w-3.5 h-3.5 text-slate-600 dark:text-slate-300" /> : <Box className="w-3.5 h-3.5" />}
-                <span>{isWireframe ? 'Aramado' : 'Sólido'}</span>
+                <span>Grade de Piso: {showGrid ? 'LIGADO' : 'DESL'}</span>
               </button>
             </div>
           </div>
