@@ -37,12 +37,12 @@ interface Viewer3DSidebarProps {
 }
 
 const FABRICATION_PROCESSES = [
-  { id: 'all', label: 'Todos', icon: Layers, color: '#0284c7' },
+  { id: 'all', label: 'Todos', icon: Layers, color: '#475569' },
   { id: 'Corte', label: 'Corte', icon: Scissors, color: '#3b82f6' },
   { id: 'Solda', label: 'Solda', icon: Flame, color: '#f97316' },
   { id: 'Pintura', label: 'Pintura', icon: Paintbrush, color: '#10b981' },
   { id: 'Expedicao', label: 'Expedição', icon: Truck, color: '#06b6d4' },
-  { id: 'Montagem', label: 'Montagem', icon: Wrench, color: '#6366f1' },
+  { id: 'Montagem', label: 'Montagem', icon: Wrench, color: '#8b5cf6' },
 ];
 
 export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({

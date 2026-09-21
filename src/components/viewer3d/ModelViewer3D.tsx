@@ -438,15 +438,21 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
             }
             mesh.userData.edgesLine.visible = true;
 
-            // Oculta sólido
+            // Mantém material ativo para Raycaster mas 100% translúcido visualmente
             if (Array.isArray(mesh.material)) {
-              mesh.material.forEach((m) => { m.visible = false; });
+              mesh.material.forEach((m) => {
+                m.visible = true;
+                m.transparent = true;
+                m.opacity = 0.001;
+              });
             } else if (mesh.material) {
-              mesh.material.visible = false;
+              mesh.material.visible = true;
+              mesh.material.transparent = true;
+              mesh.material.opacity = 0.001;
             }
           }
         } else {
-          // --- MODO GERAL (Todas as peças) ---
+          // --- MODO GERAL (Botão "Todos": Cada peça brilha na cor do seu último processo apontado) ---
           if (colorMode === 'production' && productionData && productionData.size > 0) {
             if (prod) {
               matchedCount++;
@@ -457,22 +463,38 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
 
             if (prod && prod.pointedQtd > 0) {
               pointedCount++;
-              const qtyPercent = Math.min(prod.pointedQtd / prod.totalQtd, 1.0);
-              const processPercent = Math.min((prod.processOrdem || 1) / 5, 1.0);
-              const percent = qtyPercent * processPercent;
               
-              const colorLight = new THREE.Color('#4ade80');
-              const colorDark = new THREE.Color('#14532d');
-              const finalColor = new THREE.Color().lerpColors(colorLight, colorDark, percent);
+              // Determina a cor do processo mais avançado da peça
+              const procName = String(prod.currentProcessName || '').toLowerCase();
+              const procsDone: string[] = Array.isArray(prod.processesCompleted) ? prod.processesCompleted : [];
+              const procOrder = Number(prod.processOrdem || 0);
+
+              let pieceColorHex = '#3b82f6'; // Padrão Corte
+
+              if (procName.includes('montag') || procsDone.some(p => p.includes('montag')) || procOrder >= 5) {
+                pieceColorHex = '#8b5cf6'; // Roxo Montagem
+              } else if (procName.includes('exped') || procsDone.some(p => p.includes('exped')) || procOrder === 4) {
+                pieceColorHex = '#06b6d4'; // Ciano Expedição
+              } else if (procName.includes('pint') || procName.includes('galv') || procsDone.some(p => p.includes('pint') || p.includes('galv')) || procOrder === 3) {
+                pieceColorHex = '#10b981'; // Verde Pintura
+              } else if (procName.includes('sold') || procsDone.some(p => p.includes('sold')) || procOrder === 2) {
+                pieceColorHex = '#f97316'; // Laranja Solda
+              } else if (procName.includes('corte') || procsDone.some(p => p.includes('corte')) || procOrder === 1) {
+                pieceColorHex = '#3b82f6'; // Azul Corte
+              } else if (prod.processColor) {
+                pieceColorHex = prod.processColor;
+              }
 
               mesh.material = new THREE.MeshStandardMaterial({
-                color: finalColor,
+                color: new THREE.Color(pieceColorHex),
                 metalness: 0.35,
                 roughness: 0.45,
+                transparent: opacity < 100,
+                opacity: opacity / 100,
                 side: THREE.DoubleSide,
               });
             } else {
-              // Cinza Claro Industrial (#a1a1aa)
+              // Peça Pendente: Cinza Claro Industrial (#a1a1aa)
               mesh.material = new THREE.MeshStandardMaterial({
                 color: new THREE.Color(0xa1a1aa),
                 metalness: 0.25,
@@ -632,7 +654,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     }
   }, []);
 
-  // 1.5-Second Hover Detection
+  // 1.5-Second Hover Detection com Magnetismo e Tolerância para Peças Esbeltas / Finas (ex: barras de 13mm)
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!containerRef.current || !activeCameraRef.current || !modelGroupRef.current) return;
 
@@ -654,25 +676,67 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     const clientY = e.clientY;
 
     hoverTimerRef.current = setTimeout(() => {
-      raycasterRef.current.setFromCamera(mousePosRef.current, activeCameraRef.current!);
-      const intersects = raycasterRef.current.intersectObjects(modelGroupRef.current!.children, true);
+      if (!activeCameraRef.current || !modelGroupRef.current) return;
+
+      const camera = activeCameraRef.current;
+      const raycaster = raycasterRef.current;
+      raycaster.params.Line = { threshold: 4.0 };
+      raycaster.params.Points = { threshold: 4.0 };
+
+      // 1. Tenta o ponto central do mouse
+      raycaster.setFromCamera(mousePosRef.current, camera);
+      let intersects = raycaster.intersectObjects(modelGroupRef.current.children, true);
+
+      // 2. Se não houver acerto direto, faz amostragem circular de tolerância (magnetismo para peças finas como barras de 13mm e tirantes)
+      if (intersects.length === 0) {
+        const radiusOffsetsPx = [6, 12, 18];
+        const angles = [0, Math.PI / 4, Math.PI / 2, (3 * Math.PI) / 4, Math.PI, (5 * Math.PI) / 4, (3 * Math.PI) / 2, (7 * Math.PI) / 4];
+
+        for (const rPx of radiusOffsetsPx) {
+          if (intersects.length > 0) break;
+          for (const angle of angles) {
+            const dx = ((rPx * Math.cos(angle)) / rect.width) * 2;
+            const dy = -((rPx * Math.sin(angle)) / rect.height) * 2;
+            const samplePos = new THREE.Vector2(mouseX + dx, mouseY + dy);
+
+            raycaster.setFromCamera(samplePos, camera);
+            const sampleIntersects = raycaster.intersectObjects(modelGroupRef.current.children, true);
+            if (sampleIntersects.length > 0) {
+              intersects = sampleIntersects;
+              break;
+            }
+          }
+        }
+      }
 
       if (intersects.length > 0) {
-        const hitMesh = intersects[0].object as THREE.Mesh;
-        const expressID = hitMesh.userData.ifcId;
-        const pmark = hitMesh.userData.pieceMark;
+        const hitObj = intersects[0].object;
+        let hitMesh: THREE.Mesh | null = null;
 
-        if (modelData && expressID !== undefined) {
-          const piece = modelData.pieceByExpressID.get(expressID) || {
-            expressID,
-            guid: '',
-            name: hitMesh.userData.section || 'Peça',
-            type: 'PIECE',
-            pieceMark: pmark,
-            section: hitMesh.userData.section,
-          };
-          setHoveredPiece(piece);
-          setHoverPosition({ x: clientX, y: clientY });
+        if ((hitObj as THREE.Mesh).isMesh) {
+          hitMesh = hitObj as THREE.Mesh;
+        } else if (hitObj.parent && (hitObj.parent as THREE.Mesh).isMesh) {
+          hitMesh = hitObj.parent as THREE.Mesh;
+        } else {
+          hitMesh = hitObj as any;
+        }
+
+        if (hitMesh) {
+          const expressID = hitMesh.userData.ifcId;
+          const pmark = hitMesh.userData.pieceMark;
+
+          if (modelData && expressID !== undefined) {
+            const piece = modelData.pieceByExpressID.get(expressID) || {
+              expressID,
+              guid: '',
+              name: hitMesh.userData.section || 'Peça',
+              type: 'PIECE',
+              pieceMark: pmark,
+              section: hitMesh.userData.section,
+            };
+            setHoveredPiece(piece);
+            setHoverPosition({ x: clientX, y: clientY });
+          }
         }
       }
     }, 1500); // 1.5 seconds exact requirement
