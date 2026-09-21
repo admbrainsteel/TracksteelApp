@@ -123,7 +123,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.maxDistance = 1500;
-    controls.minDistance = 1;
+    controls.minDistance = 0.1;
     controlsRef.current = controls;
 
     // 5. Lights
@@ -486,10 +486,10 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
 
       if (intersects.length > 0) {
         const hitMesh = intersects[0].object as THREE.Mesh;
-        const expressID = hitMesh.userData.expressID;
+        const expressID = hitMesh.userData.ifcId;
         const pmark = hitMesh.userData.pieceMark;
 
-        if (modelData && expressID) {
+        if (modelData && expressID !== undefined) {
           const piece = modelData.pieceByExpressID.get(expressID) || {
             expressID,
             guid: '',
@@ -514,11 +514,30 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     setHoverPosition(null);
   };
 
+  // Double Click to focus camera target
+  const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!containerRef.current || !activeCameraRef.current || !modelGroupRef.current || !controlsRef.current) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    const mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    
+    raycasterRef.current.setFromCamera({ x: mouseX, y: mouseY }, activeCameraRef.current);
+    const intersects = raycasterRef.current.intersectObjects(modelGroupRef.current.children, true);
+
+    if (intersects.length > 0) {
+      const hitPoint = intersects[0].point;
+      controlsRef.current.target.copy(hitPoint);
+      controlsRef.current.update();
+    }
+  };
+
   return (
     <div
       ref={containerRef}
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
+      onDoubleClick={handleDoubleClick}
       className="relative w-full h-full min-h-[600px] bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl select-none"
     >
       {/* Top Right: Interactive ViewCube */}
