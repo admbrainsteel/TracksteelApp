@@ -81,7 +81,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
 
     // 1. Scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0f1d);
+    scene.background = null; // Permite que o fundo da div (claro ou escuro) apareça
     sceneRef.current = scene;
 
     // 2. Cameras
@@ -538,7 +538,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
       onDoubleClick={handleDoubleClick}
-      className="relative w-full h-full min-h-[600px] bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl select-none"
+      className="relative w-full h-full min-h-[600px] bg-slate-50 dark:bg-slate-950 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xl dark:shadow-2xl select-none"
     >
       {/* Top Right: Interactive ViewCube */}
       <div className="absolute top-4 right-4 z-20">
