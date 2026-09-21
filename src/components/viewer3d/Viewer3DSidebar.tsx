@@ -39,10 +39,10 @@ interface Viewer3DSidebarProps {
 const FABRICATION_PROCESSES = [
   { id: 'all', label: 'Todos', icon: Layers },
   { id: 'Corte', label: 'Corte', icon: Scissors },
-  { id: 'Montagem', label: 'Montagem', icon: Wrench },
   { id: 'Solda', label: 'Solda', icon: Flame },
   { id: 'Pintura', label: 'Pintura', icon: Paintbrush },
   { id: 'Expedicao', label: 'Expedição', icon: Truck },
+  { id: 'Montagem', label: 'Montagem', icon: Wrench },
 ];
 
 export const Viewer3DSidebar: React.FC<Viewer3DSidebarProps> = ({

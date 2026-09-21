@@ -348,15 +348,20 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
         // Se o elemento não estiver visível na fase atual, pula estilização detalhada
         if (!isVisibleByPhase) return;
 
-        // 4. Mapeamento de Processos Industriais para Inovação Híbrida
+        // 4. Mapeamento de Processos Industriais para Inovação Híbrida (Corte -> Solda -> Pintura -> Expedição -> Montagem)
         const PROCESS_ORDER_MAP: Record<string, number> = {
           'corte': 1,
-          'montagem': 2,
-          'solda': 3,
-          'pintura': 4,
-          'pintura/galv': 4,
-          'expedicao': 5,
-          'expedição': 5,
+          'solda': 2,
+          'pintura': 3,
+          'pintura/galv': 3,
+          'pintura/galvanizacao': 3,
+          'pintura / galvanizacao': 3,
+          'galvanizacao': 3,
+          'expedicao': 4,
+          'expedição': 4,
+          'montagem': 5,
+          'montagem obra': 5,
+          'montagem de obra': 5,
         };
 
         const targetProcKey = String(selectedProcess || 'all').toLowerCase();
@@ -368,9 +373,15 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
           const pieceProcName = String(prod.currentProcessName || '').toLowerCase();
           const procsDone: string[] = Array.isArray(prod.processesCompleted) ? prod.processesCompleted : [];
 
+          const normalizeStr = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+          const normTarget = normalizeStr(targetProcKey);
+
+          const hasDirectProcess =
+            procsDone.some((p: string) => normalizeStr(p).includes(normTarget)) ||
+            normalizeStr(pieceProcName).includes(normTarget);
+
           isPointedInTargetProcess =
-            procsDone.some((p: string) => p.includes(targetProcKey)) ||
-            pieceProcName.includes(targetProcKey) ||
+            hasDirectProcess ||
             (targetOrder > 0 && pieceProcOrder >= targetOrder);
         }
 
