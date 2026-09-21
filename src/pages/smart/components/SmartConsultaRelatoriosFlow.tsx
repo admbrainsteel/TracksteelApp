@@ -46,6 +46,7 @@ interface PecaStatus {
   pintura: number;
   expedido: number;
   montado_obra: number;
+  tem_componentes?: boolean | null;
 }
 
 export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowProps> = ({
@@ -81,7 +82,7 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
         // 1. Peças da OF
         supabase
           .from('pecas')
-          .select('id, marca, descricao, etapa_fase, quantidade, peso_unitario, perfil_principal, material')
+          .select('id, marca, descricao, etapa_fase, quantidade, peso_unitario, perfil_principal, material, tem_componentes')
           .eq('of_number', obra.of_number),
 
         // 2. Processos de fabricação (para mapear nome sem depender de foreign key)
@@ -196,6 +197,7 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
           pintura: procs.pintura,
           expedido: mapaExp.get(p.marca) || 0,
           montado_obra: mapaMont.get(p.marca) || 0,
+          tem_componentes: p.tem_componentes,
         };
       });
 
@@ -871,6 +873,12 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
                           {peca.marca}
                         </span>
 
+                        {peca.tem_componentes === false && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-950/80 text-purple-300 font-bold border border-purple-800/50">
+                            S/M
+                          </span>
+                        )}
+
                         {peca.perfil_principal && (
                           <span className="text-xs px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 font-black border border-amber-500/30">
                             {peca.perfil_principal}
@@ -905,14 +913,30 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
                   {/* Linha do Tempo Visual com TODAS as Etapas Fabris */}
                   <div className="grid grid-cols-7 gap-1 mt-3 pt-2.5 border-t border-slate-700/80 text-center">
                     {[
-                      { nome: 'Det.', valor: peca.detalhamento },
-                      { nome: 'Corte', valor: peca.corte },
-                      { nome: 'Mont.', valor: peca.montagem },
-                      { nome: 'Solda', valor: peca.solda },
-                      { nome: 'Pint.', valor: peca.pintura },
-                      { nome: 'Emb.', valor: peca.expedido },
-                      { nome: 'Obra', valor: peca.montado_obra },
+                      { nome: 'Det.', valor: peca.detalhamento, isPula: false },
+                      { nome: 'Corte', valor: peca.corte, isPula: false },
+                      { nome: 'Mont.', valor: peca.montagem, isPula: peca.tem_componentes === false },
+                      { nome: 'Solda', valor: peca.solda, isPula: peca.tem_componentes === false },
+                      { nome: 'Pint.', valor: peca.pintura, isPula: false },
+                      { nome: 'Emb.', valor: peca.expedido, isPula: false },
+                      { nome: 'Obra', valor: peca.montado_obra, isPula: false },
                     ].map((etapa, idx) => {
+                      if (etapa.isPula) {
+                        return (
+                          <div key={idx} className="flex flex-col items-center opacity-60">
+                            <div className="text-[9px] font-bold text-slate-400 mb-0.5 uppercase">
+                              {etapa.nome}
+                            </div>
+                            <div className="h-5 px-1 rounded-md bg-slate-900 border border-purple-800/40 mb-0.5 flex items-center justify-center">
+                              <span className="text-[9px] font-bold text-purple-400">S/M</span>
+                            </div>
+                            <span className="text-[10px] font-bold text-slate-500">
+                              N/A
+                            </span>
+                          </div>
+                        );
+                      }
+
                       const badge = getBadgeEtapa(etapa.valor, peca.quantidade);
                       return (
                         <div key={idx} className="flex flex-col items-center">

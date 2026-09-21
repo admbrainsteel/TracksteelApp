@@ -28,6 +28,7 @@ interface ItemMontagem {
   quantidade_expedida: number;
   quantidade_ja_apontada: number;
   saldo_disponivel: number;
+  tem_componentes?: boolean | null;
 }
 
 export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
@@ -50,24 +51,41 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
     try {
       setLoading(true);
 
-      // 1. Buscar peças expedidas em romaneios desta OF
-      const { data: pecasExpedidas, error: errorExp } = await supabase
-        .from('itens_romaneio_pecas')
-        .select(`
-          marca,
-          descricao,
-          peso_unitario,
-          quantidade_expedida,
-          romaneios_expedicao!inner(
-            of_number
-          )
-        `)
-        .eq('romaneios_expedicao.of_number', obra.of_number);
+      // Buscar peças expedidas, apontamentos RDO e info de componentes em paralelo
+      const [resExp, resRDO, resPecas] = await Promise.all([
+        supabase
+          .from('itens_romaneio_pecas')
+          .select(`
+            marca,
+            descricao,
+            peso_unitario,
+            quantidade_expedida,
+            romaneios_expedicao!inner(
+              of_number
+            )
+          `)
+          .eq('romaneios_expedicao.of_number', obra.of_number),
+        supabase
+          .from('apontamentos_peca_obra')
+          .select(`
+            marca_peca,
+            quantidade,
+            diario_obra_rdo!inner(
+              of_number
+            )
+          `)
+          .eq('diario_obra_rdo.of_number', obra.of_number),
+        supabase
+          .from('pecas')
+          .select('marca, tem_componentes')
+          .eq('of_number', obra.of_number),
+      ]);
 
-      if (errorExp) throw errorExp;
+      if (resExp.error) throw resExp.error;
+      if (resRDO.error) throw resRDO.error;
 
       const mapaExpedidas = new Map<string, { marca: string; descricao: string; peso_unitario: number; expedido: number }>();
-      (pecasExpedidas || []).forEach((item: any) => {
+      (resExp.data || []).forEach((item: any) => {
         const atual = mapaExpedidas.get(item.marca) || {
           marca: item.marca,
           descricao: item.descricao || '',
@@ -78,24 +96,17 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
         mapaExpedidas.set(item.marca, atual);
       });
 
-      // 2. Buscar apontamentos já feitos no RDO para esta OF
-      const { data: apontamentosRDO, error: errorRDO } = await supabase
-        .from('apontamentos_peca_obra')
-        .select(`
-          marca_peca,
-          quantidade,
-          diario_obra_rdo!inner(
-            of_number
-          )
-        `)
-        .eq('diario_obra_rdo.of_number', obra.of_number);
-
-      if (errorRDO) throw errorRDO;
-
       const mapaMontadas = new Map<string, number>();
-      (apontamentosRDO || []).forEach((ap: any) => {
+      (resRDO.data || []).forEach((ap: any) => {
         const atual = mapaMontadas.get(ap.marca_peca) || 0;
         mapaMontadas.set(ap.marca_peca, atual + Number(ap.quantidade || 0));
+      });
+
+      const mapaSM = new Map<string, boolean>();
+      (resPecas.data || []).forEach((p: any) => {
+        if (p.tem_componentes === false) {
+          mapaSM.set(p.marca, true);
+        }
       });
 
       // 3. Montar lista de saldos
@@ -109,6 +120,7 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
           quantidade_expedida: exp.expedido,
           quantidade_ja_apontada: jaMontado,
           saldo_disponivel: saldo,
+          tem_componentes: mapaSM.has(exp.marca) ? false : true,
         };
       });
 
@@ -218,9 +230,16 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
         {/* Resumo da Peça */}
         <div className="p-4 rounded-2xl bg-slate-800/90 border border-slate-700 mb-4 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-2xl font-black text-amber-400">
-              {itemSelecionado.marca}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-black text-amber-400">
+                {itemSelecionado.marca}
+              </span>
+              {itemSelecionado.tem_componentes === false && (
+                <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-950/80 text-purple-300 font-bold border border-purple-800/50">
+                  S/M
+                </span>
+              )}
+            </div>
             <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
               Montagem em Obra
             </span>
@@ -388,9 +407,16 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <span className="text-xl font-black text-amber-400 tracking-wider">
-                      {item.marca}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl font-black text-amber-400 tracking-wider">
+                        {item.marca}
+                      </span>
+                      {item.tem_componentes === false && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-950/80 text-purple-300 font-bold border border-purple-800/50">
+                          S/M
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-slate-300 mt-0.5 line-clamp-1">
                       {item.descricao || 'Peça Estrutural'}
                     </div>

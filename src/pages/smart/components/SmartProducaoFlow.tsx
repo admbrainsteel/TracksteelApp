@@ -38,7 +38,79 @@ interface PecaData {
   quantidade: number;
   peso_unitario: number;
   perfil_principal?: string;
+  tem_componentes?: boolean | null;
 }
+
+interface CalculoSaldoPeca {
+  saldo: number;
+  jaProduzido: number;
+  qtdDisponivelParaEntrar: number;
+  ehSemMontagem: boolean;
+  motivoBloqueio: string | null;
+}
+
+// Função auxiliar pura para cálculo sequencial de saldo por processo e regra S/M
+export const calcularSaldoProcessoPeca = (
+  peca: PecaData,
+  processoAtual: ProcessoFabricacao,
+  todosProcessos: ProcessoFabricacao[],
+  mapaProd: Map<string, number>
+): CalculoSaldoPeca => {
+  const ehSemMontagem = peca.tem_componentes === false;
+  const keyAtual = `${peca.id}_${processoAtual.id}`;
+  const jaProduzidoAtual = mapaProd.get(keyAtual) || 0;
+
+  const procsOrdenados = [...todosProcessos].sort((a, b) => a.ordem - b.ordem);
+  const indexAtual = procsOrdenados.findIndex((p) => p.id === processoAtual.id);
+  const nomeProcAtual = (processoAtual.nome || '').toLowerCase();
+
+  const ehSolda = nomeProcAtual.includes('solda');
+  const ehMontagem = nomeProcAtual.includes('montag');
+
+  let qtdDisponivelParaEntrar = Number(peca.quantidade) || 0;
+  let motivoBloqueio: string | null = null;
+
+  // REGRA 1: Peças sem montagem (S/M) não passam por Montagem nem por Solda
+  if (ehSemMontagem && (ehSolda || ehMontagem)) {
+    qtdDisponivelParaEntrar = 0;
+    motivoBloqueio = 'Peça S/M (Pula Montagem e Solda)';
+  } else if (indexAtual > 0) {
+    // REGRA 2: Encontrar processo anterior válido
+    let procAnteriorValido: ProcessoFabricacao | null = null;
+    for (let i = indexAtual - 1; i >= 0; i--) {
+      const proc = procsOrdenados[i];
+      const nomeP = proc.nome.toLowerCase();
+      // Se a peça for S/M, pula solda e montagem na busca do anterior (ex: Corte -> Pintura)
+      if (ehSemMontagem && (nomeP.includes('solda') || nomeP.includes('montag'))) {
+        continue;
+      }
+      procAnteriorValido = proc;
+      break;
+    }
+
+    if (procAnteriorValido) {
+      const keyAnt = `${peca.id}_${procAnteriorValido.id}`;
+      const qtdApontadaAnterior = mapaProd.get(keyAnt) || 0;
+      qtdDisponivelParaEntrar = qtdApontadaAnterior;
+
+      if (qtdApontadaAnterior === 0) {
+        motivoBloqueio = `Aguardando ${procAnteriorValido.nome}`;
+      } else if (qtdApontadaAnterior < peca.quantidade && qtdApontadaAnterior <= jaProduzidoAtual) {
+        motivoBloqueio = `Aguardando saldo em ${procAnteriorValido.nome} (${qtdApontadaAnterior}/${peca.quantidade})`;
+      }
+    }
+  }
+
+  const saldo = Math.max(0, qtdDisponivelParaEntrar - jaProduzidoAtual);
+
+  return {
+    saldo,
+    jaProduzido: jaProduzidoAtual,
+    qtdDisponivelParaEntrar,
+    ehSemMontagem,
+    motivoBloqueio,
+  };
+};
 
 interface ApontamentoItem {
   peca_id: string;
@@ -77,7 +149,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
       const [resPecas, resApontamentos] = await Promise.all([
         supabase
           .from('pecas')
-          .select('id, marca, descricao, etapa_fase, quantidade, peso_unitario, perfil_principal')
+          .select('id, marca, descricao, etapa_fase, quantidade, peso_unitario, perfil_principal, tem_componentes')
           .eq('of_number', obra.of_number),
         supabase
           .from('apontamentos_producao')
@@ -126,7 +198,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
     return mapa;
   }, [apontamentosExistentes]);
 
-  // Peças filtradas pela fase selecionada com cálculo do saldo
+  // Peças filtradas pela fase selecionada com cálculo estrito de precedência de processos e regra S/M
   const pecasComSaldo = useMemo(() => {
     if (!processoSelecionado) return [];
 
@@ -136,22 +208,19 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
         return p.etapa_fase?.trim() === faseSelecionada;
       })
       .map((p) => {
-        const key = `${p.id}_${processoSelecionado.id}`;
-        const jaProduzido = mapaProducao.get(key) || 0;
-        const saldo = Math.max(0, p.quantidade - jaProduzido);
+        const info = calcularSaldoProcessoPeca(p, processoSelecionado, processos, mapaProducao);
         return {
           ...p,
-          jaProduzido,
-          saldo,
+          ...info,
         };
       })
       .sort((a, b) => {
-        // Colocar primeiro as que têm saldo pendente
+        // Colocar primeiro as que têm saldo pendente disponível > 0
         if (a.saldo > 0 && b.saldo === 0) return -1;
         if (a.saldo === 0 && b.saldo > 0) return 1;
         return a.marca.localeCompare(b.marca, undefined, { numeric: true, sensitivity: 'base' });
       });
-  }, [pecas, faseSelecionada, processoSelecionado, mapaProducao]);
+  }, [pecas, faseSelecionada, processoSelecionado, mapaProducao, processos]);
 
   // Helper de ícone por processo
   const getIconeProcesso = (nome: string) => {
@@ -488,6 +557,14 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
                         <span className="text-xl font-black text-amber-400 tracking-wider">
                           {item.marca}
                         </span>
+                        {item.tem_componentes === false && (
+                          <span
+                            className="text-[10px] px-2 py-0.5 rounded-md bg-purple-950/80 text-purple-300 font-bold border border-purple-800/50"
+                            title="Peça Sem Montagem (Pula Solda e Montagem)"
+                          >
+                            S/M
+                          </span>
+                        )}
                         {item.perfil_principal && (
                           <span className="text-xs px-2 py-0.5 rounded-md bg-slate-700/80 text-slate-300 font-semibold">
                             {item.perfil_principal}
@@ -497,6 +574,12 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
                       <div className="text-xs text-slate-300 mt-0.5 line-clamp-1">
                         {item.descricao || 'Peça Estrutural'}
                       </div>
+                      {item.motivoBloqueio && item.saldo === 0 && !concluida && (
+                        <div className="text-[11px] text-amber-400/90 font-medium mt-1 flex items-center gap-1">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                          <span>{item.motivoBloqueio}</span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="text-right shrink-0">
@@ -505,9 +588,13 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
                         <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-400 px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-700">
                           <Check className="h-3 w-3" /> 100% Pronto
                         </span>
-                      ) : (
+                      ) : item.saldo > 0 ? (
                         <span className="inline-flex items-center gap-1 text-xs font-black text-amber-300 px-2 py-0.5 rounded-full bg-amber-950/80 border border-amber-700">
-                          Falta: {item.saldo}
+                          Disponível: {item.saldo}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-400 px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700">
+                          Pendente ant.
                         </span>
                       )}
                     </div>
@@ -529,18 +616,24 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
                   <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <Button
                       type="button"
-                      disabled={concluida}
+                      disabled={concluida || item.saldo <= 0}
                       onClick={() => handleIniciarApontamentoPeca(item, item.saldo)}
                       className={`sm:col-span-2 h-13 text-sm font-black rounded-xl uppercase tracking-wider transition-all active:scale-[0.98] ${
                         concluida
                           ? 'bg-slate-800 text-slate-500 border border-slate-700'
+                          : item.saldo <= 0
+                          ? 'bg-slate-800 text-slate-400 border border-slate-700 cursor-not-allowed'
                           : 'bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 shadow-md shadow-amber-950/30'
                       }`}
                     >
-                      {concluida ? 'Processo Concluído' : `DIGITAR / ESCOLHER QUANTIDADE`}
+                      {concluida
+                        ? 'Processo Concluído'
+                        : item.saldo <= 0
+                        ? item.motivoBloqueio || 'Indisponível neste processo'
+                        : `DIGITAR / ESCOLHER QUANTIDADE`}
                     </Button>
 
-                    {!concluida && (
+                    {!concluida && item.saldo > 0 && (
                       <Button
                         type="button"
                         onClick={() => {
@@ -550,7 +643,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
                           setEtapaAtual('quantidade');
                         }}
                         className="h-13 bg-slate-700 hover:bg-slate-650 active:bg-slate-600 text-amber-400 border border-slate-600 text-xs font-black rounded-xl uppercase active:scale-95"
-                        title="Apontar todo o saldo restante de uma vez"
+                        title="Apontar todo o saldo disponível de uma vez"
                       >
                         TODAS ({item.saldo})
                       </Button>
@@ -581,9 +674,13 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
   // RENDER: ETAPA 1.4 — APONTAMENTO DA QUANTIDADE (TECLADO TOUCH + INPUT DIRETO)
   // ─────────────────────────────────────────────────────────────
   if (etapaAtual === 'quantidade' && pecaSelecionada && processoSelecionado) {
-    const key = `${pecaSelecionada.id}_${processoSelecionado.id}`;
-    const jaProduzido = mapaProducao.get(key) || 0;
-    const saldoPendente = Math.max(0, pecaSelecionada.quantidade - jaProduzido);
+    const infoSaldoAtual = calcularSaldoProcessoPeca(
+      pecaSelecionada,
+      processoSelecionado,
+      processos,
+      mapaProducao
+    );
+    const saldoPendente = infoSaldoAtual.saldo;
 
     // Ajuste por incremento
     const somarQtd = (valor: number) => {
@@ -651,9 +748,19 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
         {/* Resumo da Peça no Topo */}
         <div className="p-3.5 rounded-2xl bg-slate-800/90 border border-slate-700 mb-3 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-xl font-black text-amber-400">
-              {pecaSelecionada.marca}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-black text-amber-400">
+                {pecaSelecionada.marca}
+              </span>
+              {pecaSelecionada.tem_componentes === false && (
+                <span
+                  className="text-[10px] px-2 py-0.5 rounded-md bg-purple-950/80 text-purple-300 font-bold border border-purple-800/50"
+                  title="Peça Sem Montagem (Pula Solda e Montagem)"
+                >
+                  S/M
+                </span>
+              )}
+            </div>
             <span className="text-xs font-black px-2.5 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase">
               {processoSelecionado.nome}
             </span>

@@ -55,6 +55,7 @@ interface ItemRomaneioCarregado {
   quantidade_expedida: number;
   peso_unitario: number;
   peso_total: number;
+  tem_componentes?: boolean | null;
   created_at?: string;
 }
 
@@ -67,6 +68,7 @@ interface PecaPronta {
   peso_unitario: number;
   quantidadeJaExpedida: number;
   saldoDisponivel: number;
+  tem_componentes?: boolean | null;
 }
 
 type SubTelaEmbarque = 
@@ -159,7 +161,7 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
       const [resPecas, resItensExpedidos] = await Promise.all([
         supabase
           .from('pecas')
-          .select('id, marca, descricao, etapa_fase, quantidade, peso_unitario')
+          .select('id, marca, descricao, etapa_fase, quantidade, peso_unitario, tem_componentes')
           .eq('of_number', obra.of_number),
         supabase
           .from('itens_romaneio_pecas')
@@ -982,9 +984,16 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
         {pecaEmbarque ? (
           <div className="p-4 rounded-2xl bg-slate-800 border-2 border-blue-500/80 mb-3 shadow-lg">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xl font-black text-amber-400">
-                {pecaEmbarque.marca}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xl font-black text-amber-400">
+                  {pecaEmbarque.marca}
+                </span>
+                {pecaEmbarque.tem_componentes === false && (
+                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-950/80 text-purple-300 font-bold border border-purple-800/50">
+                    S/M
+                  </span>
+                )}
+              </div>
               <span className="text-xs font-bold text-slate-400">
                 Saldo Disponível: {pecaEmbarque.saldoDisponivel} un
               </span>
@@ -1081,6 +1090,11 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-lg font-black text-amber-400">{p.marca}</span>
+                      {p.tem_componentes === false && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-950/80 text-purple-300 font-bold border border-purple-800/50">
+                          S/M
+                        </span>
+                      )}
                       <span className="text-[11px] px-2 py-0.5 rounded bg-slate-700 text-slate-300 font-semibold">
                         {p.etapa_fase || 'Estrutural'}
                       </span>
@@ -1266,6 +1280,11 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
                       <span className="text-base font-black text-amber-400">
                         {item.marca}
                       </span>
+                      {(item.tem_componentes === false || pecasProntas.some(p => p.id === item.peca_id && p.tem_componentes === false)) && (
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-purple-950/80 text-purple-300 font-bold border border-purple-800/40">
+                          S/M
+                        </span>
+                      )}
                       <span className="text-[10px] px-2 py-0.5 rounded bg-blue-950/80 text-blue-300 font-bold border border-blue-800/40">
                         {item.fase || '1'}
                       </span>
