@@ -391,13 +391,13 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
               mesh.userData.edgesLine.visible = false;
             }
           } else {
-            // Peça NÃO apontada no processo: ARAMADO CINZA CLARO FANTASMA (Ghost Frame)
+            // Peça NÃO apontada no processo: ARAMADO CINZA CLARO FANTASMA ULTRA-SUAVE (Atenuação a 5% - Quase invisível)
             if (!mesh.userData.edgesLine) {
               const edgesGeo = new THREE.EdgesGeometry(mesh.geometry, 24);
               const lineMat = new THREE.LineBasicMaterial({
                 color: 0x94a3b8, // Cinza claro industrial
                 transparent: true,
-                opacity: 0.65,
+                opacity: 0.05, // 5% de opacidade para foco total nas peças verdes
               });
               const edgesLine = new THREE.LineSegments(edgesGeo, lineMat);
               mesh.userData.edgesLine = edgesLine;
@@ -405,7 +405,8 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
             } else {
               if (mesh.userData.edgesLine.material) {
                 mesh.userData.edgesLine.material.color.set(0x94a3b8);
-                mesh.userData.edgesLine.material.opacity = 0.65;
+                mesh.userData.edgesLine.material.transparent = true;
+                mesh.userData.edgesLine.material.opacity = 0.05;
               }
             }
             mesh.userData.edgesLine.visible = true;
