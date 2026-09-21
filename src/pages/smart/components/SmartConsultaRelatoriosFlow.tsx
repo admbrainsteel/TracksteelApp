@@ -387,17 +387,30 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
       const dataFormatada = new Date().toLocaleDateString('pt-BR');
       const horaFormatada = new Date().toLocaleTimeString('pt-BR');
 
-      doc.setFillColor(15, 23, 42);
-      doc.rect(0, 0, 210, 30, 'F');
-      doc.setTextColor(251, 191, 36);
-      doc.setFontSize(16);
+      // 1. TOPO LIMPO (FUNDO BRANCO, AZUL MARINHO & VERDE - ZERO DESPERDÍCIO DE TONER)
       doc.setFont('helvetica', 'bold');
-      doc.text(titulo, 14, 15);
+      doc.setFontSize(16);
+      doc.setTextColor(15, 43, 92); // Azul Marinho
+      doc.text(titulo, 14, 16);
 
-      doc.setFontSize(10);
-      doc.setTextColor(255, 255, 255);
-      doc.text(`OF: ${obra.of_number} | Cliente: ${obra.cliente || 'Industrial'}`, 14, 23);
-      doc.text(`Data: ${dataFormatada} às ${horaFormatada}`, 145, 23);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(5, 150, 105); // Verde
+      doc.text(`TURNO DO OPERADOR`, 150, 16);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9.5);
+      doc.setTextColor(31, 41, 55); // Preto / Grafite
+      doc.text(`OF: ${obra.of_number}   |   Cliente: ${obra.cliente || 'Industrial'}`, 14, 23);
+      doc.text(`Operador: ${user?.email || 'Chão de Fábrica'}   |   Data: ${dataFormatada} às ${horaFormatada}`, 14, 29);
+
+      // Linha divisória de topo fina: Azul Marinho com terminal em Verde
+      doc.setDrawColor(30, 58, 138); // Azul Marinho
+      doc.setLineWidth(1.2);
+      doc.line(14, 33, 165, 33);
+      doc.setDrawColor(5, 150, 105); // Verde
+      doc.setLineWidth(1.2);
+      doc.line(165, 33, 196, 33);
 
       let totalPecas = 0;
       let totalKg = 0;
@@ -427,19 +440,55 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
         startY: 38,
         head: [['Marca', 'Fase', 'Processo', 'Qtd', 'Peso Unit.', 'Peso Total']],
         body: tableRows,
-        theme: 'striped',
-        headStyles: { fillColor: [30, 41, 59], textColor: [251, 191, 36], fontStyle: 'bold' },
-        styles: { fontSize: 9 },
+        theme: 'plain',
+        headStyles: {
+          fillColor: [248, 250, 252], // Fundo branco/gelo suave
+          textColor: [15, 43, 92],    // Azul Marinho
+          fontStyle: 'bold',
+          lineWidth: 0.4,
+          lineColor: [30, 58, 138],   // Linha azul marinho
+        },
+        styles: {
+          fontSize: 8.5,
+          textColor: [31, 41, 55],    // Preto nítido
+          cellPadding: 2.5,
+          lineWidth: 0.1,
+          lineColor: [226, 232, 240], // Linha cinza clara
+        },
+        columnStyles: {
+          0: { cellWidth: 26, fontStyle: 'bold', textColor: [15, 43, 92] }, // Marca em Azul Marinho
+          1: { cellWidth: 22, halign: 'center' },
+          2: { cellWidth: 45 },
+          3: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },
+          4: { cellWidth: 32, halign: 'right' },
+          5: { cellWidth: 35, halign: 'right', fontStyle: 'bold', textColor: [22, 101, 52] }, // Peso em Verde
+        },
       });
 
       const finalY = (doc as any).lastAutoTable?.finalY || 80;
-      doc.setFillColor(241, 245, 249);
-      doc.rect(14, finalY + 5, 182, 20, 'F');
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(11);
+
+      // Quadro de Resumo com Fundo Branco, Barra e Borda Verde
+      const boxResumoY = finalY + 5;
+      doc.setFillColor(5, 150, 105); // Barra lateral verde
+      doc.roundedRect(14, boxResumoY, 3, 16, 1, 1, 'F');
+
+      doc.setDrawColor(5, 150, 105);
+      doc.setLineWidth(0.4);
+      doc.roundedRect(17, boxResumoY, 179, 16, 1.5, 1.5, 'S');
+
       doc.setFont('helvetica', 'bold');
-      doc.text(`RESUMO DO TURNO:`, 20, finalY + 14);
-      doc.text(`Total de Peças: ${totalPecas} un | Peso Total: ${totalKg.toFixed(1)} kg`, 20, finalY + 20);
+      doc.setFontSize(8.5);
+      doc.setTextColor(22, 101, 52); // Verde
+      doc.text(`RESUMO DO TURNO:`, 22, boxResumoY + 6);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9.5);
+      doc.setTextColor(15, 23, 42); // Preto
+      doc.text(
+        `Total de Peças Apontadas: ${totalPecas} un    |    Peso Total: ${totalKg.toFixed(1)} kg`,
+        22,
+        boxResumoY + 12
+      );
 
       const nomeArquivo = `Turno_${obra.of_number}_${hoje}.pdf`;
 
@@ -486,16 +535,29 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
       const doc = new jsPDF();
       const dataFormatada = new Date().toLocaleDateString('pt-BR');
 
-      doc.setFillColor(15, 23, 42);
-      doc.rect(0, 0, 210, 30, 'F');
-      doc.setTextColor(251, 191, 36);
-      doc.setFontSize(16);
+      // Topo limpo sem blocos pretos
       doc.setFont('helvetica', 'bold');
-      doc.text(`RELATÓRIO GERAL DE FABRICAÇÃO`, 14, 15);
+      doc.setFontSize(16);
+      doc.setTextColor(15, 43, 92); // Azul Marinho
+      doc.text(`RELATÓRIO GERAL DE FABRICAÇÃO`, 14, 16);
 
-      doc.setFontSize(10);
-      doc.setTextColor(255, 255, 255);
-      doc.text(`OF: ${obra.of_number} | Cliente: ${obra.cliente || 'Industrial'} | Emissão: ${dataFormatada}`, 14, 23);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(5, 150, 105); // Verde
+      doc.text(`OF: ${obra.of_number}`, 165, 16);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9.5);
+      doc.setTextColor(31, 41, 55); // Preto
+      doc.text(`Cliente: ${obra.cliente || 'Industrial'}   |   Emissão: ${dataFormatada}`, 14, 23);
+
+      // Linha divisória fina: Azul Marinho + Verde
+      doc.setDrawColor(30, 58, 138);
+      doc.setLineWidth(1.2);
+      doc.line(14, 28, 165, 28);
+      doc.setDrawColor(5, 150, 105);
+      doc.setLineWidth(1.2);
+      doc.line(165, 28, 196, 28);
 
       const tableRows = pecasStatus.map((p) => [
         p.marca,
@@ -512,12 +574,37 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
       ]);
 
       autoTable(doc, {
-        startY: 38,
-        head: [['Marca', 'Perfil', 'Fase', 'Total', 'Det.', 'Corte', 'Mont.', 'Solda', 'Pint.', 'Exp.', 'Obra']],
+        startY: 33,
+        head: [['Marca', 'Perfil / Peça', 'Fase', 'Total', 'Det.', 'Corte', 'Mont.', 'Solda', 'Pint.', 'Exp.', 'Obra']],
         body: tableRows,
-        theme: 'grid',
-        headStyles: { fillColor: [30, 41, 59], textColor: [251, 191, 36], fontStyle: 'bold' },
-        styles: { fontSize: 8 },
+        theme: 'plain',
+        headStyles: {
+          fillColor: [248, 250, 252],
+          textColor: [15, 43, 92],
+          fontStyle: 'bold',
+          lineWidth: 0.4,
+          lineColor: [30, 58, 138],
+        },
+        styles: {
+          fontSize: 7.5,
+          textColor: [31, 41, 55],
+          cellPadding: 2,
+          lineWidth: 0.1,
+          lineColor: [226, 232, 240],
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', textColor: [15, 43, 92] },
+          1: { cellWidth: 38 },
+          2: { halign: 'center' },
+          3: { halign: 'center', fontStyle: 'bold' },
+          4: { halign: 'center' },
+          5: { halign: 'center' },
+          6: { halign: 'center' },
+          7: { halign: 'center' },
+          8: { halign: 'center' },
+          9: { halign: 'center' },
+          10: { halign: 'center', textColor: [22, 101, 52] },
+        },
       });
 
       doc.save(`Progresso_Geral_OF_${obra.of_number}.pdf`);

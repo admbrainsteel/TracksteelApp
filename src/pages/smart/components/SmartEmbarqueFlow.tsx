@@ -414,37 +414,59 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
       const dataFormatada = new Date().toLocaleDateString('pt-BR');
       const horaFormatada = new Date().toLocaleTimeString('pt-BR');
 
-      // Topo estilizado escuro e dourado industrial
-      doc.setFillColor(15, 23, 42); // slate-900
-      doc.rect(0, 0, 210, 32, 'F');
-      doc.setTextColor(251, 191, 36); // amber-400
-      doc.setFontSize(16);
+      // 1. TOPO LIMPO CORPORATIVO (FUNDO BRANCO, AZUL MARINHO & VERDE - ZERO DESPERDÍCIO DE TONER)
       doc.setFont('helvetica', 'bold');
-      doc.text(`ROMANEIO DE EXPEDIÇÃO & CARGA`, 14, 15);
+      doc.setFontSize(16);
+      doc.setTextColor(15, 43, 92); // Azul Marinho Profundo
+      doc.text(`ROMANEIO DE EXPEDIÇÃO & CARGA`, 14, 16);
 
+      // Status em Verde no canto superior direito
       doc.setFontSize(9);
-      doc.setTextColor(255, 255, 255);
-      doc.text(`OF: ${obra.of_number} | Cliente: ${obra.cliente || 'Industrial'}`, 14, 22);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(5, 150, 105); // Verde Esmeralda
+      doc.text(`STATUS: ${(romaneioAtivo.status || 'EXPEDIDO').toUpperCase()}`, 150, 16);
+
+      // Metadados da Obra em Preto / Grafite
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9.5);
+      doc.setTextColor(31, 41, 55);
+      doc.text(`OF: ${obra.of_number}   |   Cliente: ${obra.cliente || 'Industrial'}`, 14, 23);
       doc.text(
-        `Romaneio: ${romaneioAtivo.numero_romaneio} | Emissão: ${dataFormatada} às ${horaFormatada}`,
+        `Romaneio: ${romaneioAtivo.numero_romaneio}   |   Emissão: ${dataFormatada} às ${horaFormatada}`,
         14,
-        28
+        29
       );
 
-      // Caixa de Informações de Transporte
-      doc.setFillColor(241, 245, 249); // slate-100
-      doc.roundedRect(14, 36, 182, 22, 2, 2, 'F');
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(9);
+      // Linha divisória de topo fina e elegante: Azul Marinho com terminal em Verde
+      doc.setDrawColor(30, 58, 138); // Azul Marinho
+      doc.setLineWidth(1.2);
+      doc.line(14, 33, 165, 33);
+      doc.setDrawColor(5, 150, 105); // Verde Esmeralda
+      doc.setLineWidth(1.2);
+      doc.line(165, 33, 196, 33);
+
+      // 2. CAIXA DE DADOS DO TRANSPORTE (Fundo Branco, Borda Fina, Barra Lateral Azul Marinho)
+      const boxTransporteY = 37;
+      doc.setFillColor(30, 58, 138); // Barra lateral azul marinho
+      doc.roundedRect(14, boxTransporteY, 3, 19, 1, 1, 'F');
+
+      doc.setDrawColor(203, 213, 225); // Borda cinza suave
+      doc.setLineWidth(0.4);
+      doc.roundedRect(17, boxTransporteY, 179, 19, 1.5, 1.5, 'S');
+
       doc.setFont('helvetica', 'bold');
-      doc.text(`DADOS DO TRANSPORTE:`, 18, 43);
+      doc.setFontSize(8.5);
+      doc.setTextColor(15, 43, 92); // Azul Marinho
+      doc.text(`DADOS DO TRANSPORTE:`, 22, boxTransporteY + 6);
 
       doc.setFont('helvetica', 'normal');
-      doc.text(`Motorista: ${romaneioAtivo.nome_motorista || 'A definir'}`, 18, 51);
-      doc.text(`Veículo: ${formatTransporte(romaneioAtivo.tipo_transporte)}`, 85, 51);
-      doc.text(`Frete: ${formatFrete(romaneioAtivo.frete_tipo)}`, 150, 51);
+      doc.setFontSize(8.5);
+      doc.setTextColor(31, 41, 55); // Preto / Grafite
+      doc.text(`Motorista: ${romaneioAtivo.nome_motorista || 'A definir'}`, 22, boxTransporteY + 13);
+      doc.text(`Veículo: ${formatTransporte(romaneioAtivo.tipo_transporte)}`, 90, boxTransporteY + 13);
+      doc.text(`Frete: ${formatFrete(romaneioAtivo.frete_tipo)}`, 155, boxTransporteY + 13);
 
-      // Tabela de Peças Carregadas
+      // 3. TABELA DE PEÇAS CARREGADAS (Fundo Branco, Linhas Finas, Marca em Azul Marinho, Totais em Verde)
       const tableRows = itensRomaneio.map((item, idx) => [
         (idx + 1).toString(),
         item.marca,
@@ -465,48 +487,71 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
       );
 
       autoTable(doc, {
-        startY: 62,
+        startY: 61,
         head: [['#', 'Marca', 'Fase', 'Descrição da Peça', 'Qtd', 'Peso Unit.', 'Peso Total']],
         body: tableRows,
-        theme: 'striped',
-        headStyles: { fillColor: [30, 41, 59], textColor: [251, 191, 36], fontStyle: 'bold' },
-        styles: { fontSize: 8.5 },
+        theme: 'plain',
+        headStyles: {
+          fillColor: [248, 250, 252], // Fundo branco/gelo suave
+          textColor: [15, 43, 92],    // Azul Marinho
+          fontStyle: 'bold',
+          lineWidth: 0.4,
+          lineColor: [30, 58, 138], // Linha azul marinho
+        },
+        styles: {
+          fontSize: 8.5,
+          textColor: [31, 41, 55],    // Preto nítido
+          cellPadding: 2.5,
+          lineWidth: 0.1,
+          lineColor: [226, 232, 240], // Linha cinza clara
+        },
         columnStyles: {
-          0: { cellWidth: 10 },
-          1: { cellWidth: 26, fontStyle: 'bold' },
-          2: { cellWidth: 18 },
+          0: { cellWidth: 10, textColor: [100, 116, 139] },
+          1: { cellWidth: 26, fontStyle: 'bold', textColor: [15, 43, 92] }, // Marca em Azul Marinho
+          2: { cellWidth: 18, halign: 'center' },
           3: { cellWidth: 65 },
-          4: { cellWidth: 15, halign: 'center' },
+          4: { cellWidth: 15, halign: 'center', fontStyle: 'bold' },
           5: { cellWidth: 24, halign: 'right' },
-          6: { cellWidth: 24, halign: 'right', fontStyle: 'bold' },
+          6: { cellWidth: 24, halign: 'right', fontStyle: 'bold', textColor: [22, 101, 52] }, // Peso em Verde
         },
       });
 
       const finalY = (doc as any).lastAutoTable?.finalY || 120;
 
-      // Resumo e Totais
-      doc.setFillColor(241, 245, 249);
-      doc.rect(14, finalY + 4, 182, 16, 'F');
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(10);
+      // 4. RESUMO E TOTAIS (Fundo Branco, Borda e Barra Lateral em Verde Esmeralda)
+      const boxTotaisY = finalY + 5;
+      doc.setFillColor(5, 150, 105); // Verde
+      doc.roundedRect(14, boxTotaisY, 3, 16, 1, 1, 'F');
+
+      doc.setDrawColor(5, 150, 105); // Borda Verde
+      doc.setLineWidth(0.4);
+      doc.roundedRect(17, boxTotaisY, 179, 16, 1.5, 1.5, 'S');
+
       doc.setFont('helvetica', 'bold');
-      doc.text(`TOTAIS DO ROMANEIO:`, 20, finalY + 11);
+      doc.setFontSize(8.5);
+      doc.setTextColor(22, 101, 52); // Verde Escuro
+      doc.text(`TOTAIS DO ROMANEIO:`, 22, boxTotaisY + 6);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9.5);
+      doc.setTextColor(15, 23, 42); // Preto
       doc.text(
-        `Marcas: ${itensRomaneio.length}  |  Total de Peças: ${totalPecas} un  |  Peso Total: ${totalKg.toFixed(1)} kg`,
-        20,
-        finalY + 16
+        `Marcas: ${itensRomaneio.length}    |    Total de Peças: ${totalPecas} un    |    Peso Total: ${totalKg.toFixed(1)} kg`,
+        22,
+        boxTotaisY + 12
       );
 
-      // Campos de Assinatura
-      const posYAssinaturas = finalY + 34;
-      if (posYAssinaturas < 260) {
+      // 5. CAMPOS DE ASSINATURA (Linhas Finas)
+      const posYAssinaturas = boxTotaisY + 28;
+      if (posYAssinaturas < 265) {
         doc.setDrawColor(148, 163, 184);
-        doc.setLineWidth(0.5);
+        doc.setLineWidth(0.4);
 
         // Assinatura Fábrica
         doc.line(18, posYAssinaturas, 95, posYAssinaturas);
         doc.setFontSize(8);
         doc.setFont('helvetica', 'normal');
+        doc.setTextColor(71, 85, 105);
         doc.text('Expedido por (Fábrica / Almoxarifado)', 22, posYAssinaturas + 5);
 
         // Assinatura Motorista
