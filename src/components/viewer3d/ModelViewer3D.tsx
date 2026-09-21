@@ -311,9 +311,9 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
         }
 
         // 2. Determinação do vínculo de produção (com matching rigoroso de fase)
-        let prod: ProductionPieceStatus | undefined = undefined;
+        let prod: any = undefined;
 
-        if (colorMode === 'production' && productionData && productionData.size > 0) {
+        if (productionData && productionData.size > 0) {
           const searchKeys = [
             elementPhase && selectedOF ? `${selectedOF}-${elementPhase}-${cleanAssMark}` : '',
             elementPhase ? `${elementPhase}-${cleanAssMark}` : '',
@@ -327,7 +327,6 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
 
           for (const key of searchKeys) {
             const match = productionData.get(key);
-            // Se encontramos, mas ele tem fase e nós temos fase, elas precisam bater.
             if (match) {
                if (!elementPhase || !match.fase || String(match.fase) === String(elementPhase)) {
                    prod = match;
@@ -335,9 +334,6 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
                }
             }
           }
-
-          // Fallback para perfis / bitolas removido para evitar falsos positivos
-          // Peças genéricas (como diagonais sem marca) não devem herdar apontamento de outras peças com o mesmo perfil.
         }
 
         // 3. Controle Estrito de Visibilidade por Fase
@@ -363,16 +359,19 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
           'expedição': 5,
         };
 
-        const targetProcKey = selectedProcess.toLowerCase();
+        const targetProcKey = String(selectedProcess || 'all').toLowerCase();
         const targetOrder = PROCESS_ORDER_MAP[targetProcKey] || 0;
 
         let isPointedInTargetProcess = false;
         if (selectedProcess !== 'all' && prod && prod.pointedQtd > 0) {
-          const pieceProcOrder = prod.processOrdem || 1;
-          const pieceProcName = (prod.currentProcessName || '').toLowerCase();
+          const pieceProcOrder = Number(prod.processOrdem || 0);
+          const pieceProcName = String(prod.currentProcessName || '').toLowerCase();
+          const procsDone: string[] = Array.isArray(prod.processesCompleted) ? prod.processesCompleted : [];
+
           isPointedInTargetProcess =
-            pieceProcOrder >= targetOrder ||
-            pieceProcName.includes(targetProcKey);
+            procsDone.some((p: string) => p.includes(targetProcKey)) ||
+            pieceProcName.includes(targetProcKey) ||
+            (targetOrder > 0 && pieceProcOrder >= targetOrder);
         }
 
         // 5. Aplicação de Cores / Materiais (Sólido vs Aramado Híbrido)
@@ -518,6 +517,9 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     if (selectedPhase && selectedPhase !== 'all') {
       console.log(`[Viewer3D] Filtrando modelo 3D pela Fase: "${selectedPhase}"`);
     }
+    if (selectedProcess && selectedProcess !== 'all') {
+      console.log(`[Viewer3D] Modo Híbrido Ativo: Destacando Processo "${selectedProcess}" em Verde Sólido + Aramado Fantasma Cinza`);
+    }
 
     if (totalMeshCount > 0 && productionData && productionData.size > 0) {
       console.log(
@@ -530,7 +532,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
         );
       }
     }
-  }, [modelData, colorMode, productionData, selectedPhase, selectedOF, opacity, isWireframe]);
+  }, [modelData, colorMode, productionData, selectedPhase, selectedOF, opacity, isWireframe, selectedProcess]);
 
   // Camera Toggle (Ortogonal / Perspectiva)
   const handleToggleCamera = useCallback(() => {

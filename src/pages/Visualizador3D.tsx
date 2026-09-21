@@ -148,6 +148,7 @@ export default function Visualizador3D() {
               currentProcessName: 'Pendente',
               processColor: '#64748b',
               processOrdem: 0,
+              processesCompleted: [] as string[],
             };
 
             uniqueItems.push(item);
@@ -189,9 +190,13 @@ export default function Visualizador3D() {
                 const qty = Number(ap.quantidade_produzida || 0);
                 if (qty > 0) {
                   existing.pointedQtd = Math.max(existing.pointedQtd, qty);
-                  existing.currentProcessName = ap.processo?.nome || existing.currentProcessName;
-                  existing.processColor = ap.processo?.cor || PROCESS_COLORS[ap.processo?.nome || ''] || '#10b981';
-                  existing.processOrdem = ap.processo?.ordem || existing.processOrdem;
+                  const procNome = String(ap.processo?.nome || '').trim();
+                  if (procNome && !existing.processesCompleted.includes(procNome.toLowerCase())) {
+                    existing.processesCompleted.push(procNome.toLowerCase());
+                  }
+                  existing.currentProcessName = procNome || existing.currentProcessName;
+                  existing.processColor = ap.processo?.cor || PROCESS_COLORS[procNome] || '#10b981';
+                  existing.processOrdem = Math.max(existing.processOrdem, Number(ap.processo?.ordem || 0));
                 }
               }
             }
