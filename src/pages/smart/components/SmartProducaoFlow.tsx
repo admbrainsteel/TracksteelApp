@@ -149,7 +149,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
         // Colocar primeiro as que têm saldo pendente
         if (a.saldo > 0 && b.saldo === 0) return -1;
         if (a.saldo === 0 && b.saldo > 0) return 1;
-        return a.marca.localeCompare(b.marca);
+        return a.marca.localeCompare(b.marca, undefined, { numeric: true, sensitivity: 'base' });
       });
   }, [pecas, faseSelecionada, processoSelecionado, mapaProducao]);
 
