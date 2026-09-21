@@ -238,7 +238,7 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
         if ((p.etapa_fase || '').trim() !== filtroFase) return false;
       }
 
-      // 2. Filtro rápido de Perfil / Material (W, L, Chapa, Redondo, Tubo)
+      // 2. Filtro rápido de Perfil / Material (W/HP, L, CH, U, RED, TUB)
       if (filtroPerfilRapido) {
         const perfilNorm = (p.perfil_principal || '').toLowerCase();
         const descNorm = (p.descricao || '').toLowerCase();
@@ -246,16 +246,56 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
         const buscaP = filtroPerfilRapido.toLowerCase();
 
         let bateuPerfil = false;
-        if (buscaP === 'w') {
-          bateuPerfil = perfilNorm.startsWith('w') || perfilNorm.includes('w150') || perfilNorm.includes('w200') || perfilNorm.includes('w250') || perfilNorm.includes('w310') || perfilNorm.includes('perfil w');
+        if (buscaP === 'w_hp') {
+          bateuPerfil =
+            perfilNorm.startsWith('w') ||
+            perfilNorm.startsWith('hp') ||
+            perfilNorm.includes('perfil w') ||
+            perfilNorm.includes('hp') ||
+            descNorm.startsWith('w') ||
+            descNorm.startsWith('hp');
         } else if (buscaP === 'l') {
-          bateuPerfil = perfilNorm.startsWith('l') || perfilNorm.includes('cant') || descNorm.includes('l2x');
-        } else if (buscaP === 'chapa') {
-          bateuPerfil = perfilNorm.includes('chapa') || perfilNorm.includes('ch.') || descNorm.includes('chapa') || descNorm.includes('arruela');
-        } else if (buscaP === 'redondo') {
-          bateuPerfil = perfilNorm.includes('red') || perfilNorm.includes('ferro') || perfilNorm.includes('barra') || perfilNorm.includes('ø') || descNorm.includes('chumb');
-        } else if (buscaP === 'tubo') {
-          bateuPerfil = perfilNorm.includes('tubo') || perfilNorm.includes('tubular') || descNorm.includes('tubo');
+          bateuPerfil =
+            perfilNorm.startsWith('l') ||
+            perfilNorm.includes('cant') ||
+            descNorm.startsWith('l') ||
+            descNorm.includes('cant');
+        } else if (buscaP === 'ch') {
+          bateuPerfil =
+            perfilNorm.includes('chapa') ||
+            perfilNorm.includes('ch.') ||
+            perfilNorm.startsWith('ch') ||
+            perfilNorm.startsWith('pl') ||
+            descNorm.includes('chapa') ||
+            descNorm.includes('ch.') ||
+            descNorm.includes('arruela') ||
+            matNorm.includes('chapa');
+        } else if (buscaP === 'u') {
+          bateuPerfil =
+            perfilNorm.startsWith('u') ||
+            perfilNorm.startsWith('c') ||
+            perfilNorm.includes('perfil u') ||
+            perfilNorm.includes('viga u') ||
+            descNorm.startsWith('u') ||
+            descNorm.includes('perfil u');
+        } else if (buscaP === 'red') {
+          bateuPerfil =
+            perfilNorm.includes('red') ||
+            perfilNorm.includes('ferro') ||
+            perfilNorm.includes('barra') ||
+            perfilNorm.includes('ø') ||
+            descNorm.includes('red') ||
+            descNorm.includes('ferro') ||
+            descNorm.includes('barra') ||
+            descNorm.includes('chumb') ||
+            descNorm.includes('ø');
+        } else if (buscaP === 'tub') {
+          bateuPerfil =
+            perfilNorm.includes('tubo') ||
+            perfilNorm.includes('tubular') ||
+            perfilNorm.startsWith('tub') ||
+            descNorm.includes('tubo') ||
+            descNorm.includes('tubular');
         } else {
           bateuPerfil = perfilNorm.includes(buscaP) || descNorm.includes(buscaP) || matNorm.includes(buscaP);
         }
@@ -556,17 +596,18 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
             )}
           </div>
 
-          {/* FILTRO 1: Pílulas Rápidas de Perfis / Materiais Comuns (W, L, Chapa, Redondo, Tubo) */}
+          {/* FILTRO 1: Pílulas Rápidas de Perfis Abreviações (W/HP, L, CH, U, RED, TUB) */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 mb-1.5 no-scrollbar">
             <span className="text-[10px] font-black uppercase text-amber-400 px-1 shrink-0">
               PERFIL:
             </span>
             {[
-              { id: 'w', label: 'W / I' },
-              { id: 'l', label: 'L (Cantoneira)' },
-              { id: 'chapa', label: 'Chapa' },
-              { id: 'redondo', label: 'Barra / Redondo' },
-              { id: 'tubo', label: 'Tubo' },
+              { id: 'w_hp', label: 'W/HP' },
+              { id: 'l', label: 'L' },
+              { id: 'ch', label: 'CH' },
+              { id: 'u', label: 'U' },
+              { id: 'red', label: 'RED' },
+              { id: 'tub', label: 'TUB' },
             ].map((p) => {
               const ativo = filtroPerfilRapido === p.id;
               return (
@@ -577,7 +618,7 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
                     smartAudio.playClick();
                     setFiltroPerfilRapido(ativo ? '' : p.id);
                   }}
-                  className={`h-8 px-2.5 rounded-lg text-xs font-black whitespace-nowrap transition-all border ${
+                  className={`h-8 px-3 rounded-lg text-xs font-black whitespace-nowrap shrink-0 transition-all border ${
                     ativo
                       ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm'
                       : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-600'
@@ -589,8 +630,8 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
             })}
           </div>
 
-          {/* FILTRO 2: Fases da Obra */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 mb-1.5 no-scrollbar">
+          {/* FILTRO 2: Fases da Obra (Com botão 'Todas' travado/fixo) */}
+          <div className="flex items-center gap-1.5 pb-1.5 mb-1.5">
             <span className="text-[10px] font-black uppercase text-blue-400 px-1 shrink-0">
               FASE:
             </span>
@@ -600,38 +641,63 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
                 smartAudio.playClick();
                 setFiltroFase('todas');
               }}
-              className={`h-8 px-2.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all border ${
+              className={`h-8 px-3 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 transition-all border ${
                 filtroFase === 'todas'
-                  ? 'bg-blue-600 text-white border-blue-400 font-black'
+                  ? 'bg-blue-600 text-white border-blue-400 font-black shadow-sm'
                   : 'bg-slate-800 text-slate-300 border-slate-700'
               }`}
             >
               Todas
             </button>
-            {fasesUnicas.map((fase) => (
-              <button
-                key={fase}
-                type="button"
-                onClick={() => {
-                  smartAudio.playClick();
-                  setFiltroFase(fase);
-                }}
-                className={`h-8 px-2.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all border ${
-                  filtroFase === fase
-                    ? 'bg-blue-600 text-white border-blue-400 font-black'
-                    : 'bg-slate-800 text-slate-300 border-slate-700'
-                }`}
-              >
-                Fase {fase}
-              </button>
-            ))}
+
+            {fasesUnicas.length > 0 && <div className="h-4 w-px bg-slate-700 shrink-0" />}
+
+            {/* Demais fases rolando horizontalmente */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1 py-0.5">
+              {fasesUnicas.map((fase) => (
+                <button
+                  key={fase}
+                  type="button"
+                  onClick={() => {
+                    smartAudio.playClick();
+                    setFiltroFase(fase);
+                  }}
+                  className={`h-8 px-3 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 transition-all border ${
+                    filtroFase === fase
+                      ? 'bg-blue-600 text-white border-blue-400 font-black shadow-sm'
+                      : 'bg-slate-800 text-slate-300 border-slate-700'
+                  }`}
+                >
+                  Fase {fase}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* FILTRO 3: Status Fabril e Botão Limpar */}
-          <div className="flex items-center justify-between gap-1.5 pb-2 mb-2 border-b border-slate-800">
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          {/* FILTRO 3: Status Fabril (Com botão 'Todos' travado/fixo sem scroll) e Botão Limpar */}
+          <div className="flex items-center gap-1.5 pb-2 mb-2 border-b border-slate-800">
+            {/* Botão "Todos" fixo/travado à esquerda */}
+            <button
+              type="button"
+              onClick={() => {
+                smartAudio.playClick();
+                setFiltroStatus('todos');
+              }}
+              className={`h-7 px-3 rounded-md text-[11px] font-bold whitespace-nowrap shrink-0 transition-all ${
+                filtroStatus === 'todos'
+                  ? 'bg-slate-200 text-slate-900 font-black ring-1 ring-white/60 shadow-sm'
+                  : 'bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700'
+              }`}
+            >
+              Todos
+            </button>
+
+            {/* Divisor vertical */}
+            <div className="h-4 w-px bg-slate-700 shrink-0" />
+
+            {/* Demais botões roláveis horizontalmente */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1 py-0.5">
               {[
-                { id: 'todos', label: 'Todos' },
                 { id: 'fabricando', label: 'Em Fabricação' },
                 { id: 'pronto', label: 'Pronto Pátio' },
                 { id: 'embarcado', label: 'Embarcado' },
@@ -644,10 +710,10 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
                     smartAudio.playClick();
                     setFiltroStatus(f.id as any);
                   }}
-                  className={`h-7 px-2 rounded-md text-[11px] font-bold whitespace-nowrap transition-all ${
+                  className={`h-7 px-2.5 rounded-md text-[11px] font-bold whitespace-nowrap shrink-0 transition-all ${
                     filtroStatus === f.id
-                      ? 'bg-slate-200 text-slate-900 font-black'
-                      : 'bg-slate-800/80 text-slate-400 hover:text-slate-200'
+                      ? 'bg-slate-200 text-slate-900 font-black shadow-sm'
+                      : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 border border-slate-700/60'
                   }`}
                 >
                   {f.label}
@@ -655,11 +721,12 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
               ))}
             </div>
 
+            {/* Botão Limpar fixo à direita */}
             {temFiltroAtivo && (
               <button
                 type="button"
                 onClick={handleLimparFiltros}
-                className="h-7 px-2.5 rounded-lg bg-red-950/50 hover:bg-red-900/60 border border-red-800/60 text-red-300 text-[11px] font-bold flex items-center gap-1 shrink-0 active:scale-95"
+                className="h-7 px-2.5 rounded-lg bg-red-950/50 hover:bg-red-900/60 border border-red-800/60 text-red-300 text-[11px] font-bold flex items-center gap-1 shrink-0 active:scale-95 ml-auto"
                 title="Limpar todos os filtros aplicados"
               >
                 <RotateCcw className="h-3 w-3" />
