@@ -348,22 +348,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
         // Se o elemento não estiver visível na fase atual, pula estilização detalhada
         if (!isVisibleByPhase) return;
 
-        // 4. Mapeamento de Processos Industriais para Inovação Híbrida (Corte -> Solda -> Pintura -> Expedição -> Montagem)
-        const PROCESS_ORDER_MAP: Record<string, number> = {
-          'corte': 1,
-          'solda': 2,
-          'pintura': 3,
-          'pintura/galv': 3,
-          'pintura/galvanizacao': 3,
-          'pintura / galvanizacao': 3,
-          'galvanizacao': 3,
-          'expedicao': 4,
-          'expedição': 4,
-          'montagem': 5,
-          'montagem obra': 5,
-          'montagem de obra': 5,
-        };
-
+        // 4. Mapeamento de Processos Industriais (Corte, Solda, Pintura, Expedição, Montagem)
         const PROCESS_COLOR_MAP: Record<string, string> = {
           'corte': '#3b82f6',
           'solda': '#f97316',
@@ -374,31 +359,39 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
           'galvanizacao': '#10b981',
           'expedicao': '#06b6d4',
           'expedição': '#06b6d4',
-          'montagem': '#6366f1',
-          'montagem obra': '#6366f1',
-          'montagem de obra': '#6366f1',
+          'montagem': '#8b5cf6',
+          'montagem obra': '#8b5cf6',
+          'montagem de obra': '#8b5cf6',
         };
 
-        const targetProcKey = String(selectedProcess || 'all').toLowerCase();
-        const targetOrder = PROCESS_ORDER_MAP[targetProcKey] || 0;
+        const normalizeStr = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        const targetProcKey = normalizeStr(String(selectedProcess || 'all'));
         const targetColorHex = PROCESS_COLOR_MAP[targetProcKey] || '#22c55e';
 
         let isPointedInTargetProcess = false;
-        if (selectedProcess !== 'all' && prod && prod.pointedQtd > 0) {
-          const pieceProcOrder = Number(prod.processOrdem || 0);
-          const pieceProcName = String(prod.currentProcessName || '').toLowerCase();
+        if (selectedProcess !== 'all' && prod) {
           const procsDone: string[] = Array.isArray(prod.processesCompleted) ? prod.processesCompleted : [];
+          const procPointedMap: Record<string, number> = prod.processPointedQtds || {};
 
-          const normalizeStr = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-          const normTarget = normalizeStr(targetProcKey);
-
-          const hasDirectProcess =
-            procsDone.some((p: string) => normalizeStr(p).includes(normTarget)) ||
-            normalizeStr(pieceProcName).includes(normTarget);
-
-          isPointedInTargetProcess =
-            hasDirectProcess ||
-            (targetOrder > 0 && pieceProcOrder >= targetOrder);
+          // Checagem estrita de apontamento real no processo selecionado
+          if (targetProcKey === 'corte') {
+            isPointedInTargetProcess = (procPointedMap['corte'] && procPointedMap['corte'] > 0) || procsDone.includes('corte');
+          } else if (targetProcKey === 'solda') {
+            isPointedInTargetProcess = (procPointedMap['solda'] && procPointedMap['solda'] > 0) || procsDone.includes('solda');
+          } else if (targetProcKey === 'pintura') {
+            isPointedInTargetProcess =
+              (procPointedMap['pintura'] && procPointedMap['pintura'] > 0) ||
+              (procPointedMap['pintura/galv'] && procPointedMap['pintura/galv'] > 0) ||
+              (procPointedMap['pintura / galvanizacao'] && procPointedMap['pintura / galvanizacao'] > 0) ||
+              (procPointedMap['galvanizacao'] && procPointedMap['galvanizacao'] > 0) ||
+              procsDone.some(p => p.includes('pint') || p.includes('galv'));
+          } else if (targetProcKey === 'expedicao') {
+            isPointedInTargetProcess = (procPointedMap['expedicao'] && procPointedMap['expedicao'] > 0) || procsDone.some(p => p.includes('exped'));
+          } else if (targetProcKey === 'montagem') {
+            isPointedInTargetProcess = (procPointedMap['montagem'] && procPointedMap['montagem'] > 0) || procsDone.some(p => p.includes('montag'));
+          } else {
+            isPointedInTargetProcess = Boolean(procPointedMap[targetProcKey] && procPointedMap[targetProcKey] > 0) || procsDone.includes(targetProcKey);
+          }
         }
 
         // 5. Aplicação de Cores / Materiais (Sólido vs Aramado Híbrido)
@@ -464,24 +457,28 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
             if (prod && prod.pointedQtd > 0) {
               pointedCount++;
               
-              // Determina a cor do processo mais avançado da peça
-              const procName = String(prod.currentProcessName || '').toLowerCase();
+              // Determina a cor do processo mais avançado da peça (sem considerar Detalhamento)
+              const procPointedMap: Record<string, number> = prod.processPointedQtds || {};
               const procsDone: string[] = Array.isArray(prod.processesCompleted) ? prod.processesCompleted : [];
-              const procOrder = Number(prod.processOrdem || 0);
 
-              let pieceColorHex = '#3b82f6'; // Padrão Corte
+              let pieceColorHex = '#a1a1aa'; // Padrão se não tiver processo fabril
 
-              if (procName.includes('montag') || procsDone.some(p => p.includes('montag')) || procOrder >= 5) {
+              if (procPointedMap['montagem'] > 0 || procsDone.some(p => p.includes('montag'))) {
                 pieceColorHex = '#8b5cf6'; // Roxo Montagem
-              } else if (procName.includes('exped') || procsDone.some(p => p.includes('exped')) || procOrder === 4) {
+              } else if (procPointedMap['expedicao'] > 0 || procsDone.some(p => p.includes('exped'))) {
                 pieceColorHex = '#06b6d4'; // Ciano Expedição
-              } else if (procName.includes('pint') || procName.includes('galv') || procsDone.some(p => p.includes('pint') || p.includes('galv')) || procOrder === 3) {
+              } else if (
+                procPointedMap['pintura'] > 0 ||
+                procPointedMap['pintura/galv'] > 0 ||
+                procPointedMap['galvanizacao'] > 0 ||
+                procsDone.some(p => p.includes('pint') || p.includes('galv'))
+              ) {
                 pieceColorHex = '#10b981'; // Verde Pintura
-              } else if (procName.includes('sold') || procsDone.some(p => p.includes('sold')) || procOrder === 2) {
+              } else if (procPointedMap['solda'] > 0 || procsDone.some(p => p.includes('sold'))) {
                 pieceColorHex = '#f97316'; // Laranja Solda
-              } else if (procName.includes('corte') || procsDone.some(p => p.includes('corte')) || procOrder === 1) {
+              } else if (procPointedMap['corte'] > 0 || procsDone.some(p => p.includes('corte'))) {
                 pieceColorHex = '#3b82f6'; // Azul Corte
-              } else if (prod.processColor) {
+              } else if (prod.processColor && !String(prod.currentProcessName || '').toLowerCase().includes('detalh')) {
                 pieceColorHex = prod.processColor;
               }
 
