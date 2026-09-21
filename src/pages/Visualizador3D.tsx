@@ -197,15 +197,17 @@ export default function Visualizador3D() {
 
                 if (qty > 0) {
                   existing.processPointedQtds[procNorm] = (existing.processPointedQtds[procNorm] || 0) + qty;
+                  if (!existing.processesCompleted.includes(procNorm)) {
+                    existing.processesCompleted.push(procNorm);
+                  }
 
                   if (!isDetalhamento) {
                     existing.pointedQtd = Math.max(existing.pointedQtd, qty);
-                    if (!existing.processesCompleted.includes(procNorm)) {
-                      existing.processesCompleted.push(procNorm);
-                    }
                     existing.currentProcessName = procRaw || existing.currentProcessName;
                     existing.processColor = ap.processo?.cor || PROCESS_COLORS[procRaw] || '#10b981';
                     existing.processOrdem = Math.max(existing.processOrdem, Number(ap.processo?.ordem || 0));
+                  } else {
+                    existing.hasDetalhamento = true;
                   }
                 }
               }

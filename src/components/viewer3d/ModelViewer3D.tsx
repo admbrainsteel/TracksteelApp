@@ -395,10 +395,41 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
         }
 
         // 5. Aplicação de Cores / Materiais (Sólido vs Aramado Híbrido)
+        const procPointedMap: Record<string, number> = (prod && prod.processPointedQtds) || {};
+        const procsDone: string[] = Array.isArray(prod?.processesCompleted) ? prod.processesCompleted : [];
+
+        const hasMontagem = Boolean(procPointedMap['montagem'] > 0 || procsDone.some((p: string) => p.includes('montag')));
+        const hasExpedicao = Boolean(procPointedMap['expedicao'] > 0 || procsDone.some((p: string) => p.includes('exped')));
+        const hasPintura = Boolean(
+          procPointedMap['pintura'] > 0 ||
+          procPointedMap['pintura/galv'] > 0 ||
+          procPointedMap['pintura / galvanizacao'] > 0 ||
+          procPointedMap['galvanizacao'] > 0 ||
+          procsDone.some((p: string) => p.includes('pint') || p.includes('galv'))
+        );
+        const hasSolda = Boolean(procPointedMap['solda'] > 0 || procsDone.some((p: string) => p.includes('sold')));
+        const hasCorte = Boolean(procPointedMap['corte'] > 0 || procsDone.some((p: string) => p.includes('corte')));
+        const hasDetalhamento = Boolean(
+          (procPointedMap['detalhamento'] && procPointedMap['detalhamento'] > 0) ||
+          (procPointedMap['detalh'] && procPointedMap['detalh'] > 0) ||
+          procsDone.some((p: string) => p.includes('detalh')) ||
+          prod?.hasDetalhamento
+        );
+
+        const hasAnyApontamento = hasMontagem || hasExpedicao || hasPintura || hasSolda || hasCorte || hasDetalhamento;
+
         if (selectedProcess !== 'all') {
-          // --- MODO INOVAÇÃO: Destaque por Processo ---
-          if (isPointedInTargetProcess) {
-            // Peça apontada no processo: SÓLIDO COM A COR CORRESPONDENTE DO PROCESSO
+          // --- FILTRO POR PROCESSO ESPECÍFICO ---
+          let isPointedInThisProcess = false;
+          if (targetProcKey === 'corte') isPointedInThisProcess = hasCorte;
+          else if (targetProcKey === 'solda') isPointedInThisProcess = hasSolda;
+          else if (targetProcKey === 'pintura') isPointedInThisProcess = hasPintura;
+          else if (targetProcKey === 'expedicao') isPointedInThisProcess = hasExpedicao;
+          else if (targetProcKey === 'montagem') isPointedInThisProcess = hasMontagem;
+          else isPointedInThisProcess = Boolean(procPointedMap[targetProcKey] > 0 || procsDone.includes(targetProcKey));
+
+          if (isPointedInThisProcess) {
+            // SÓLIDO COM A COR DO PROCESSO SELECIONADO
             mesh.material = new THREE.MeshStandardMaterial({
               color: new THREE.Color(targetColorHex),
               metalness: 0.35,
@@ -411,13 +442,13 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
               mesh.userData.edgesLine.visible = false;
             }
           } else {
-            // Peça NÃO apontada no processo: ARAMADO CINZA CLARO FANTASMA ULTRA-SUAVE (Atenuação a 5% - Quase invisível)
+            // ARAMADO FANTASMA CINZA CLARO ULTRA-SUAVE (5% de opacidade)
             if (!mesh.userData.edgesLine) {
               const edgesGeo = new THREE.EdgesGeometry(mesh.geometry, 24);
               const lineMat = new THREE.LineBasicMaterial({
                 color: 0x94a3b8, // Cinza claro industrial
                 transparent: true,
-                opacity: 0.05, // 5% de opacidade para foco total nas peças verdes
+                opacity: 0.05, // 5% de opacidade
               });
               const edgesLine = new THREE.LineSegments(edgesGeo, lineMat);
               mesh.userData.edgesLine = edgesLine;
@@ -445,41 +476,24 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
             }
           }
         } else {
-          // --- MODO GERAL (Botão "Todos": Cada peça brilha na cor do seu último processo apontado) ---
+          // --- MODO "TODOS" ---
           if (colorMode === 'production' && productionData && productionData.size > 0) {
-            if (prod) {
-              matchedCount++;
-              if (!sampleMatch && prod.pointedQtd > 0) {
-                sampleMatch = { pmark: assMark || pmark, dbMarca: prod.marca, proc: prod.currentProcessName, cor: prod.processColor };
-              }
-            }
+            if (hasAnyApontamento) {
+              // A PEÇA TEM APONTAMENTO: RENDERIZA EM SÓLIDO COM A COR DA SUA ETAPA MAIS AVANÇADA
+              let pieceColorHex = '#a1a1aa'; // Detalhamento (Cinza Claro Sólido sem atenuação)
 
-            if (prod && prod.pointedQtd > 0) {
-              pointedCount++;
-              
-              // Determina a cor do processo mais avançado da peça (sem considerar Detalhamento)
-              const procPointedMap: Record<string, number> = prod.processPointedQtds || {};
-              const procsDone: string[] = Array.isArray(prod.processesCompleted) ? prod.processesCompleted : [];
-
-              let pieceColorHex = '#a1a1aa'; // Padrão se não tiver processo fabril
-
-              if (procPointedMap['montagem'] > 0 || procsDone.some(p => p.includes('montag'))) {
+              if (hasMontagem) {
                 pieceColorHex = '#8b5cf6'; // Roxo Montagem
-              } else if (procPointedMap['expedicao'] > 0 || procsDone.some(p => p.includes('exped'))) {
+              } else if (hasExpedicao) {
                 pieceColorHex = '#06b6d4'; // Ciano Expedição
-              } else if (
-                procPointedMap['pintura'] > 0 ||
-                procPointedMap['pintura/galv'] > 0 ||
-                procPointedMap['galvanizacao'] > 0 ||
-                procsDone.some(p => p.includes('pint') || p.includes('galv'))
-              ) {
+              } else if (hasPintura) {
                 pieceColorHex = '#10b981'; // Verde Pintura
-              } else if (procPointedMap['solda'] > 0 || procsDone.some(p => p.includes('sold'))) {
+              } else if (hasSolda) {
                 pieceColorHex = '#f97316'; // Laranja Solda
-              } else if (procPointedMap['corte'] > 0 || procsDone.some(p => p.includes('corte'))) {
+              } else if (hasCorte) {
                 pieceColorHex = '#3b82f6'; // Azul Corte
-              } else if (prod.processColor && !String(prod.currentProcessName || '').toLowerCase().includes('detalh')) {
-                pieceColorHex = prod.processColor;
+              } else if (hasDetalhamento) {
+                pieceColorHex = '#a1a1aa'; // Cinza Claro Industrial Sólido (sem atenuação!)
               }
 
               mesh.material = new THREE.MeshStandardMaterial({
@@ -490,19 +504,46 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
                 opacity: opacity / 100,
                 side: THREE.DoubleSide,
               });
+
+              if (mesh.userData.edgesLine) {
+                mesh.userData.edgesLine.visible = false;
+              }
             } else {
-              // Peça Pendente: Cinza Claro Industrial (#a1a1aa)
-              mesh.material = new THREE.MeshStandardMaterial({
-                color: new THREE.Color(0xa1a1aa),
-                metalness: 0.25,
-                roughness: 0.65,
-                transparent: opacity < 100,
-                opacity: opacity / 100,
-                side: THREE.DoubleSide,
-              });
+              // A PEÇA NÃO TEM NENHUM APONTAMENTO: ARAMADO FANTASMA CINZA CLARO A 5% (ATENUADA)
+              if (!mesh.userData.edgesLine) {
+                const edgesGeo = new THREE.EdgesGeometry(mesh.geometry, 24);
+                const lineMat = new THREE.LineBasicMaterial({
+                  color: 0x94a3b8,
+                  transparent: true,
+                  opacity: 0.05,
+                });
+                const edgesLine = new THREE.LineSegments(edgesGeo, lineMat);
+                mesh.userData.edgesLine = edgesLine;
+                mesh.add(edgesLine);
+              } else {
+                if (mesh.userData.edgesLine.material) {
+                  mesh.userData.edgesLine.material.color.set(0x94a3b8);
+                  mesh.userData.edgesLine.material.transparent = true;
+                  mesh.userData.edgesLine.material.opacity = 0.05;
+                }
+              }
+              mesh.userData.edgesLine.visible = true;
+
+              // Material ativo para Raycaster mas translúcido
+              if (Array.isArray(mesh.material)) {
+                mesh.material.forEach((m) => {
+                  m.visible = true;
+                  m.transparent = true;
+                  m.opacity = 0.001;
+                });
+              } else if (mesh.material) {
+                mesh.material.visible = true;
+                mesh.material.transparent = true;
+                mesh.material.opacity = 0.001;
+              }
             }
           } else {
-            // Modo Padrão / Descrição
+            // Modo Padrão / Descrição: toda a geometria sólida em cinza industrial
             mesh.material = new THREE.MeshStandardMaterial({
               color: new THREE.Color(0xa1a1aa),
               metalness: 0.25,
@@ -511,51 +552,36 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
               opacity: opacity / 100,
               side: THREE.DoubleSide,
             });
-          }
-
-          // Controle de Aramado Geral (Botão Sólido / Aramado)
-          if (isWireframe) {
-            if (!mesh.userData.edgesLine) {
-              const edgesGeo = new THREE.EdgesGeometry(mesh.geometry, 24);
-              const lineMat = new THREE.LineBasicMaterial({
-                color: 0x94a3b8, // Cinza claro industrial idêntico às peças não apontadas
-                transparent: true,
-                opacity: 0.85,
-              });
-              const edgesLine = new THREE.LineSegments(edgesGeo, lineMat);
-              mesh.userData.edgesLine = edgesLine;
-              mesh.add(edgesLine);
-            } else {
-              if (mesh.userData.edgesLine.material) {
-                mesh.userData.edgesLine.material.color.set(0x94a3b8);
-                mesh.userData.edgesLine.material.opacity = 0.85;
-              }
-            }
-            mesh.userData.edgesLine.visible = true;
-
-            if (Array.isArray(mesh.material)) {
-              mesh.material.forEach((m) => { m.visible = false; });
-            } else if (mesh.material) {
-              mesh.material.visible = false;
-            }
-          } else {
             if (mesh.userData.edgesLine) {
               mesh.userData.edgesLine.visible = false;
             }
+          }
+        }
 
-            if (Array.isArray(mesh.material)) {
-              mesh.material.forEach((m) => {
-                m.visible = true;
-                m.transparent = opacity < 100;
-                m.opacity = opacity / 100;
-                if ('wireframe' in m) (m as any).wireframe = false;
-              });
-            } else if (mesh.material) {
-              mesh.material.visible = true;
-              mesh.material.transparent = opacity < 100;
-              mesh.material.opacity = opacity / 100;
-              if ('wireframe' in mesh.material) (mesh.material as any).wireframe = false;
+        // Controle de Aramado Geral (Botão Sólido / Aramado)
+        if (isWireframe) {
+          if (!mesh.userData.edgesLine) {
+            const edgesGeo = new THREE.EdgesGeometry(mesh.geometry, 24);
+            const lineMat = new THREE.LineBasicMaterial({
+              color: 0x94a3b8, // Cinza claro industrial idêntico às peças não apontadas
+              transparent: true,
+              opacity: 0.85,
+            });
+            const edgesLine = new THREE.LineSegments(edgesGeo, lineMat);
+            mesh.userData.edgesLine = edgesLine;
+            mesh.add(edgesLine);
+          } else {
+            if (mesh.userData.edgesLine.material) {
+              mesh.userData.edgesLine.material.color.set(0x94a3b8);
+              mesh.userData.edgesLine.material.opacity = 0.85;
             }
+          }
+          mesh.userData.edgesLine.visible = true;
+
+          if (Array.isArray(mesh.material)) {
+            mesh.material.forEach((m) => { m.visible = false; });
+          } else if (mesh.material) {
+            mesh.material.visible = false;
           }
         }
       }
