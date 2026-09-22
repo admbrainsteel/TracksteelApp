@@ -1,11 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { X, FileText, Printer } from 'lucide-react';
 import { useOFs } from '@/hooks/useOFs';
 import { useRelatorioPecasProcesso, PecaComStatus } from '@/hooks/useRelatorioPecasProcesso';
+import { useDashboardProducaoOtimizado } from '@/hooks/useDashboardProducaoOtimizado';
 import { RelatorioPecasProcessoPDF } from './RelatorioPecasProcessoPDF';
 import { RelatorioPecasProcessoPrint } from './RelatorioPecasProcessoPrint';
 
@@ -22,6 +23,7 @@ export const RelatorioPecasProcessoModal: React.FC<RelatorioPecasProcessoModalPr
   const [selectedFase, setSelectedFase] = useState('todas');
   const { ofs, loading: ofsLoading } = useOFs();
   const { pecasComStatus, resumoProcessos, loading } = useRelatorioPecasProcesso(selectedOF);
+  const { dashboardData } = useDashboardProducaoOtimizado(selectedOF);
 
   // Filtrar peças por fase selecionada
   const pecasFiltradas = selectedFase === 'todas' 
@@ -36,6 +38,33 @@ export const RelatorioPecasProcessoModal: React.FC<RelatorioPecasProcessoModalPr
     pesoTotalPintura: pecasFiltradas.filter(p => p.processos.pintura).reduce((sum, p) => sum + p.peso_total, 0),
     pesoTotalExpedicao: pecasFiltradas.filter(p => p.processos.expedicao).reduce((sum, p) => sum + p.peso_total, 0)
   };
+
+  // Calcular percentual de progresso conforme índices da tela de Dashboard de Produção
+  const percentuais = useMemo(() => {
+    if (selectedFase === 'todas' && dashboardData?.processos && dashboardData.processos.length > 0) {
+      const pCorte = dashboardData.processos.find(p => p.nome.toLowerCase().includes('corte'))?.progressoReal ?? 0;
+      const pSolda = dashboardData.processos.find(p => p.nome.toLowerCase().includes('solda'))?.progressoReal ?? 0;
+      const pPintura = dashboardData.processos.find(p => p.nome.toLowerCase().includes('pint') || p.nome.toLowerCase().includes('galv'))?.progressoReal ?? 0;
+      const pExp = dashboardData.processos.find(p => p.nome.toLowerCase().includes('exped'))?.progressoReal ?? 0;
+
+      return {
+        corte: pCorte,
+        solda: pSolda,
+        pintura: pPintura,
+        expedicao: pExp
+      };
+    }
+
+    const pesoTotalGeral = pecasFiltradas.reduce((sum, p) => sum + p.peso_total, 0);
+    const pesoTotalSoldavel = pecasFiltradas.filter(p => p.tem_componentes).reduce((sum, p) => sum + p.peso_total, 0) || pesoTotalGeral;
+
+    return {
+      corte: pesoTotalGeral > 0 ? (estatisticasFiltradas.pesoTotalCorte / pesoTotalGeral) * 100 : 0,
+      solda: pesoTotalSoldavel > 0 ? (estatisticasFiltradas.pesoTotalSolda / pesoTotalSoldavel) * 100 : 0,
+      pintura: pesoTotalGeral > 0 ? (estatisticasFiltradas.pesoTotalPintura / pesoTotalGeral) * 100 : 0,
+      expedicao: pesoTotalGeral > 0 ? (estatisticasFiltradas.pesoTotalExpedicao / pesoTotalGeral) * 100 : 0,
+    };
+  }, [selectedFase, dashboardData, pecasFiltradas, estatisticasFiltradas]);
 
   // Obter fases únicas das peças
   const fasesUnicas = [...new Set(pecasComStatus.map(peca => peca.etapa_fase))].sort((a, b) => {
@@ -95,12 +124,14 @@ export const RelatorioPecasProcessoModal: React.FC<RelatorioPecasProcessoModalPr
               <RelatorioPecasProcessoPDF
                 pecasComStatus={pecasFiltradas}
                 estatisticas={estatisticasFiltradas}
+                percentuais={percentuais}
                 selectedOF={selectedOF}
                 selectedFase={selectedFase}
               />
               <RelatorioPecasProcessoPrint
                 pecasComStatus={pecasFiltradas}
                 estatisticas={estatisticasFiltradas}
+                percentuais={percentuais}
                 selectedOF={selectedOF}
                 selectedFase={selectedFase}
               />
@@ -115,7 +146,7 @@ export const RelatorioPecasProcessoModal: React.FC<RelatorioPecasProcessoModalPr
                   Preview - OF {selectedOF} {selectedFase !== 'todas' ? `- Fase ${selectedFase}` : ''}
                 </h3>
                 
-                {/* Estatísticas */}
+                {/* Estatísticas com Percentual de Progresso */}
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                   <div className="bg-muted/50 p-3 rounded text-center">
                     <p className="text-sm text-muted-foreground">Total de Peças</p>
@@ -123,19 +154,39 @@ export const RelatorioPecasProcessoModal: React.FC<RelatorioPecasProcessoModalPr
                   </div>
                   <div className="bg-muted/50 p-3 rounded text-center">
                     <p className="text-sm text-muted-foreground">Peso Corte</p>
-                    <p className="text-xl font-bold text-card-foreground">{estatisticasFiltradas.pesoTotalCorte.toFixed(0)} kg</p>
+                    <p className="text-xl font-bold text-card-foreground">
+                      {estatisticasFiltradas.pesoTotalCorte.toFixed(0)} kg{' '}
+                      <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                        ({percentuais.corte.toFixed(1)}%)
+                      </span>
+                    </p>
                   </div>
                   <div className="bg-muted/50 p-3 rounded text-center">
                     <p className="text-sm text-muted-foreground">Peso Solda</p>
-                    <p className="text-xl font-bold text-card-foreground">{estatisticasFiltradas.pesoTotalSolda.toFixed(0)} kg</p>
+                    <p className="text-xl font-bold text-card-foreground">
+                      {estatisticasFiltradas.pesoTotalSolda.toFixed(0)} kg{' '}
+                      <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                        ({percentuais.solda.toFixed(1)}%)
+                      </span>
+                    </p>
                   </div>
                   <div className="bg-muted/50 p-3 rounded text-center">
                     <p className="text-sm text-muted-foreground">Peso Pintura</p>
-                    <p className="text-xl font-bold text-card-foreground">{estatisticasFiltradas.pesoTotalPintura.toFixed(0)} kg</p>
+                    <p className="text-xl font-bold text-card-foreground">
+                      {estatisticasFiltradas.pesoTotalPintura.toFixed(0)} kg{' '}
+                      <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                        ({percentuais.pintura.toFixed(1)}%)
+                      </span>
+                    </p>
                   </div>
                   <div className="bg-muted/50 p-3 rounded text-center">
                     <p className="text-sm text-muted-foreground">Peso Expedição</p>
-                    <p className="text-xl font-bold text-card-foreground">{estatisticasFiltradas.pesoTotalExpedicao.toFixed(0)} kg</p>
+                    <p className="text-xl font-bold text-card-foreground">
+                      {estatisticasFiltradas.pesoTotalExpedicao.toFixed(0)} kg{' '}
+                      <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                        ({percentuais.expedicao.toFixed(1)}%)
+                      </span>
+                    </p>
                   </div>
                 </div>
 
@@ -161,21 +212,67 @@ export const RelatorioPecasProcessoModal: React.FC<RelatorioPecasProcessoModalPr
                         <tr key={`${peca.id}-${index}`} className="hover:bg-muted/20">
                           <td className="border border-border p-2 text-xs text-card-foreground">{peca.of_number}</td>
                           <td className="border border-border p-2 text-xs text-card-foreground">{peca.etapa_fase}</td>
-                          <td className="border border-border p-2 text-xs text-card-foreground">{peca.marca}</td>
+                          <td className="border border-border p-2 text-xs text-card-foreground font-semibold">{peca.marca}</td>
                           <td className="border border-border p-2 text-xs text-center text-card-foreground">{peca.quantidade}</td>
                           <td className="border border-border p-2 text-xs text-right text-card-foreground">{peca.peso_unitario.toFixed(2)} kg</td>
                           <td className="border border-border p-2 text-xs text-right text-card-foreground">{peca.peso_total.toFixed(2)} kg</td>
+                          
+                          {/* Corte com check e data */}
                           <td className="border border-border p-2 text-xs text-center text-card-foreground">
-                            {peca.processos.corte ? '✓' : ''}
+                            {peca.processos.corte ? (
+                              <div className="flex flex-col items-center justify-center leading-tight">
+                                <span className="text-emerald-600 dark:text-emerald-400 font-bold text-sm">✓</span>
+                                {peca.datasProcessos?.corte && (
+                                  <span className="text-[10px] text-muted-foreground font-medium">
+                                    {peca.datasProcessos.corte}
+                                  </span>
+                                )}
+                              </div>
+                            ) : ''}
                           </td>
+
+                          {/* Solda com check e data */}
                           <td className="border border-border p-2 text-xs text-center text-card-foreground">
-                            {!peca.tem_componentes ? 'S/M' : (peca.processos.solda ? '✓' : '')}
+                            {!peca.tem_componentes ? (
+                              <span className="text-purple-600 dark:text-purple-400 font-semibold">S/M</span>
+                            ) : peca.processos.solda ? (
+                              <div className="flex flex-col items-center justify-center leading-tight">
+                                <span className="text-emerald-600 dark:text-emerald-400 font-bold text-sm">✓</span>
+                                {peca.datasProcessos?.solda && (
+                                  <span className="text-[10px] text-muted-foreground font-medium">
+                                    {peca.datasProcessos.solda}
+                                  </span>
+                                )}
+                              </div>
+                            ) : ''}
                           </td>
+
+                          {/* Pintura com check e data */}
                           <td className="border border-border p-2 text-xs text-center text-card-foreground">
-                            {peca.processos.pintura ? '✓' : ''}
+                            {peca.processos.pintura ? (
+                              <div className="flex flex-col items-center justify-center leading-tight">
+                                <span className="text-emerald-600 dark:text-emerald-400 font-bold text-sm">✓</span>
+                                {peca.datasProcessos?.pintura && (
+                                  <span className="text-[10px] text-muted-foreground font-medium">
+                                    {peca.datasProcessos.pintura}
+                                  </span>
+                                )}
+                              </div>
+                            ) : ''}
                           </td>
+
+                          {/* Expedição com check e data */}
                           <td className="border border-border p-2 text-xs text-center text-card-foreground">
-                            {peca.processos.expedicao ? '✓' : ''}
+                            {peca.processos.expedicao ? (
+                              <div className="flex flex-col items-center justify-center leading-tight">
+                                <span className="text-emerald-600 dark:text-emerald-400 font-bold text-sm">✓</span>
+                                {peca.datasProcessos?.expedicao && (
+                                  <span className="text-[10px] text-muted-foreground font-medium">
+                                    {peca.datasProcessos.expedicao}
+                                  </span>
+                                )}
+                              </div>
+                            ) : ''}
                           </td>
                         </tr>
                       ))}

@@ -14,6 +14,12 @@ interface RelatorioPecasProcessoPrintProps {
     pesoTotalPintura: number;
     pesoTotalExpedicao: number;
   };
+  percentuais?: {
+    corte: number;
+    solda: number;
+    pintura: number;
+    expedicao: number;
+  };
   selectedOF: string;
   selectedFase: string;
 }
@@ -21,6 +27,7 @@ interface RelatorioPecasProcessoPrintProps {
 export const RelatorioPecasProcessoPrint: React.FC<RelatorioPecasProcessoPrintProps> = ({
   pecasComStatus,
   estatisticas,
+  percentuais,
   selectedOF,
   selectedFase
 }) => {
@@ -128,10 +135,10 @@ export const RelatorioPecasProcessoPrint: React.FC<RelatorioPecasProcessoPrintPr
           <section style="margin-bottom: 12px;">
             <div style="display: flex; flex-wrap: wrap; justify-content: space-between; font-size: 11px; color: #4b5563; padding: 6px 12px; border: 1px solid #e5e7eb; border-radius: 6px; background-color: #f9fafb;" class="summary-info">
               <div><strong>Total Peças:</strong> ${estatisticas.totalPecas}</div>
-              <div><strong>Corte:</strong> ${estatisticas.pesoTotalCorte.toFixed(0)} kg</div>
-              <div><strong>Solda:</strong> ${estatisticas.pesoTotalSolda.toFixed(0)} kg</div>
-              <div><strong>Pintura:</strong> ${estatisticas.pesoTotalPintura.toFixed(0)} kg</div>
-              <div><strong>Expedição:</strong> ${estatisticas.pesoTotalExpedicao.toFixed(0)} kg</div>
+              <div><strong>Corte:</strong> ${estatisticas.pesoTotalCorte.toFixed(0)} kg <span style="color: #2563eb; font-weight: bold;">(${(percentuais?.corte ?? 0).toFixed(1)}%)</span></div>
+              <div><strong>Solda:</strong> ${estatisticas.pesoTotalSolda.toFixed(0)} kg <span style="color: #2563eb; font-weight: bold;">(${(percentuais?.solda ?? 0).toFixed(1)}%)</span></div>
+              <div><strong>Pintura:</strong> ${estatisticas.pesoTotalPintura.toFixed(0)} kg <span style="color: #2563eb; font-weight: bold;">(${(percentuais?.pintura ?? 0).toFixed(1)}%)</span></div>
+              <div><strong>Expedição:</strong> ${estatisticas.pesoTotalExpedicao.toFixed(0)} kg <span style="color: #2563eb; font-weight: bold;">(${(percentuais?.expedicao ?? 0).toFixed(1)}%)</span></div>
             </div>
           </section>
 
@@ -157,14 +164,34 @@ export const RelatorioPecasProcessoPrint: React.FC<RelatorioPecasProcessoPrintPr
                   <tr>
                     <td>${peca.of_number}</td>
                     <td>${peca.etapa_fase}</td>
-                    <td>${peca.marca}</td>
+                    <td style="font-weight: 600;">${peca.marca}</td>
                     <td>${peca.quantidade}</td>
                     <td class="text-right">${peca.peso_unitario.toFixed(2)} kg</td>
                     <td class="text-right">${peca.peso_total.toFixed(2)} kg</td>
-                    <td>${peca.processos.corte ? 'OK' : ''}</td>
-                    <td>${!peca.tem_componentes ? 'S/M' : (peca.processos.solda ? 'OK' : '')}</td>
-                    <td>${peca.processos.pintura ? 'OK' : ''}</td>
-                    <td>${peca.processos.expedicao ? 'OK' : ''}</td>
+                    <td>
+                      ${peca.processos.corte ? `
+                        <div style="font-weight: bold; color: #16a34a; font-size: 9pt; line-height: 1;">✓</div>
+                        ${peca.datasProcessos?.corte ? `<div style="font-size: 6.5pt; color: #6b7280; margin-top: 1px;">${peca.datasProcessos.corte}</div>` : ''}
+                      ` : ''}
+                    </td>
+                    <td>
+                      ${!peca.tem_componentes ? '<span style="color: #9333ea; font-weight: 600;">S/M</span>' : (peca.processos.solda ? `
+                        <div style="font-weight: bold; color: #16a34a; font-size: 9pt; line-height: 1;">✓</div>
+                        ${peca.datasProcessos?.solda ? `<div style="font-size: 6.5pt; color: #6b7280; margin-top: 1px;">${peca.datasProcessos.solda}</div>` : ''}
+                      ` : '')}
+                    </td>
+                    <td>
+                      ${peca.processos.pintura ? `
+                        <div style="font-weight: bold; color: #16a34a; font-size: 9pt; line-height: 1;">✓</div>
+                        ${peca.datasProcessos?.pintura ? `<div style="font-size: 6.5pt; color: #6b7280; margin-top: 1px;">${peca.datasProcessos.pintura}</div>` : ''}
+                      ` : ''}
+                    </td>
+                    <td>
+                      ${peca.processos.expedicao ? `
+                        <div style="font-weight: bold; color: #16a34a; font-size: 9pt; line-height: 1;">✓</div>
+                        ${peca.datasProcessos?.expedicao ? `<div style="font-size: 6.5pt; color: #6b7280; margin-top: 1px;">${peca.datasProcessos.expedicao}</div>` : ''}
+                      ` : ''}
+                    </td>
                   </tr>
                 `).join('')}
               </tbody>

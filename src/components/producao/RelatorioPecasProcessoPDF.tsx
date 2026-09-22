@@ -16,6 +16,12 @@ interface RelatorioPecasProcessoPDFProps {
     pesoTotalPintura: number;
     pesoTotalExpedicao: number;
   };
+  percentuais?: {
+    corte: number;
+    solda: number;
+    pintura: number;
+    expedicao: number;
+  };
   selectedOF: string;
   selectedFase: string;
 }
@@ -23,6 +29,7 @@ interface RelatorioPecasProcessoPDFProps {
 export const RelatorioPecasProcessoPDF: React.FC<RelatorioPecasProcessoPDFProps> = ({
   pecasComStatus,
   estatisticas,
+  percentuais,
   selectedOF,
   selectedFase
 }) => {
@@ -47,38 +54,53 @@ export const RelatorioPecasProcessoPDF: React.FC<RelatorioPecasProcessoPDFProps>
       doc.setFont('helvetica', 'normal');
       doc.text(`OF: ${selectedOF}${faseText}   |   Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 23);
       
-      // Resumo por Processo em linha mais compacta
-      let yPos = 32;
-      doc.setFontSize(9);
+      // Resumo por Processo em box estilizado e alinhado
+      let yPos = 29;
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(14, yPos, 182, 10, 1, 1, 'F');
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(14, yPos, 182, 10, 1, 1, 'S');
+
+      doc.setFontSize(7.5);
       
       doc.setFont('helvetica', 'bold');
-      doc.text(`Total Peças:`, 14, yPos);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${estatisticas.totalPecas}`, 36, yPos);
+      doc.setTextColor(71, 85, 105);
+      doc.text('Total Peças:', 17, yPos + 6.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text(`${estatisticas.totalPecas}`, 33, yPos + 6.5);
 
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Corte:`, 50, yPos);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${estatisticas.pesoTotalCorte.toFixed(0)} kg`, 62, yPos);
+      doc.setTextColor(71, 85, 105);
+      doc.text('Corte:', 44, yPos + 6.5);
+      doc.setTextColor(15, 43, 92);
+      doc.text(`${estatisticas.pesoTotalCorte.toFixed(0)} kg`, 54, yPos + 6.5);
+      doc.setTextColor(37, 99, 235);
+      doc.text(`(${(percentuais?.corte ?? 0).toFixed(1)}%)`, 70, yPos + 6.5);
 
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Solda:`, 90, yPos);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${estatisticas.pesoTotalSolda.toFixed(0)} kg`, 102, yPos);
+      doc.setTextColor(71, 85, 105);
+      doc.text('Solda:', 86, yPos + 6.5);
+      doc.setTextColor(15, 43, 92);
+      doc.text(`${estatisticas.pesoTotalSolda.toFixed(0)} kg`, 96, yPos + 6.5);
+      doc.setTextColor(37, 99, 235);
+      doc.text(`(${(percentuais?.solda ?? 0).toFixed(1)}%)`, 112, yPos + 6.5);
 
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Pintura:`, 130, yPos);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${estatisticas.pesoTotalPintura.toFixed(0)} kg`, 145, yPos);
+      doc.setTextColor(71, 85, 105);
+      doc.text('Pintura:', 127, yPos + 6.5);
+      doc.setTextColor(15, 43, 92);
+      doc.text(`${estatisticas.pesoTotalPintura.toFixed(0)} kg`, 138, yPos + 6.5);
+      doc.setTextColor(37, 99, 235);
+      doc.text(`(${(percentuais?.pintura ?? 0).toFixed(1)}%)`, 150, yPos + 6.5);
 
-      doc.setFont('helvetica', 'bold');
-      doc.text(`Expedição:`, 175, yPos);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`${estatisticas.pesoTotalExpedicao.toFixed(0)} kg`, 192, yPos);
+      doc.setTextColor(71, 85, 105);
+      doc.text('Exp.:', 165, yPos + 6.5);
+      doc.setTextColor(15, 43, 92);
+      doc.text(`${estatisticas.pesoTotalExpedicao.toFixed(0)} kg`, 173, yPos + 6.5);
+      doc.setTextColor(37, 99, 235);
+      doc.text(`(${(percentuais?.expedicao ?? 0).toFixed(1)}%)`, 185, yPos + 6.5);
       
-      yPos = 38; // Ajusta yPos para o início da tabela
+      yPos = 42; // Ajusta yPos para o início da tabela
       
-      // Preparar dados para a tabela
+      // Preparar dados para a tabela com indicação de data abaixo do check
       const tableData = pecasComStatus.map(peca => [
         peca.of_number,
         peca.etapa_fase,
@@ -86,10 +108,10 @@ export const RelatorioPecasProcessoPDF: React.FC<RelatorioPecasProcessoPDFProps>
         peca.quantidade.toString(),
         `${peca.peso_unitario.toFixed(2)} kg`,
         `${peca.peso_total.toFixed(2)} kg`,
-        peca.processos.corte ? 'OK' : '',
-        !peca.tem_componentes ? 'S/M' : (peca.processos.solda ? 'OK' : ''),
-        peca.processos.pintura ? 'OK' : '',
-        peca.processos.expedicao ? 'OK' : ''
+        peca.processos.corte ? (peca.datasProcessos?.corte ? `✓\n${peca.datasProcessos.corte}` : '✓') : '',
+        !peca.tem_componentes ? 'S/M' : (peca.processos.solda ? (peca.datasProcessos?.solda ? `✓\n${peca.datasProcessos.solda}` : '✓') : ''),
+        peca.processos.pintura ? (peca.datasProcessos?.pintura ? `✓\n${peca.datasProcessos.pintura}` : '✓') : '',
+        peca.processos.expedicao ? (peca.datasProcessos?.expedicao ? `✓\n${peca.datasProcessos.expedicao}` : '✓') : ''
       ]);
       
       // Cabeçalhos da tabela

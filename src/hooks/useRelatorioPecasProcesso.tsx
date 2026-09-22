@@ -18,6 +18,12 @@ export interface PecaComStatus {
     pintura: boolean;
     expedicao: boolean;
   };
+  datasProcessos?: {
+    corte?: string | null;
+    solda?: string | null;
+    pintura?: string | null;
+    expedicao?: string | null;
+  };
 }
 
 export interface ResumoProcesso {
@@ -25,6 +31,29 @@ export interface ResumoProcesso {
   pesoTotal: number;
   quantidadePecas: number;
 }
+
+// Formata data ISO ou YYYY-MM-DD para 'dd/mm'
+export const formatarDiaMes = (dataStr?: string | null): string => {
+  if (!dataStr) return '';
+  try {
+    const raw = dataStr.split('T')[0];
+    const partes = raw.split('-');
+    if (partes.length === 3) {
+      const dia = partes[2].padStart(2, '0');
+      const mes = partes[1].padStart(2, '0');
+      return `${dia}/${mes}`;
+    }
+    const d = new Date(dataStr);
+    if (!isNaN(d.getTime())) {
+      const dia = d.getDate().toString().padStart(2, '0');
+      const mes = (d.getMonth() + 1).toString().padStart(2, '0');
+      return `${dia}/${mes}`;
+    }
+  } catch (e) {
+    // fallback
+  }
+  return '';
+};
 
 // Função para ordenação numérica natural
 const naturalSort = (a: string, b: string): number => {
@@ -86,39 +115,103 @@ export const useRelatorioPecasProcesso = (ofNumber: string) => {
         const processosMap = new Map(processosData?.map(p => [p.nome, p.id]) || []);
         console.log('Processos mapeados:', Object.fromEntries(processosMap));
 
-        // Buscar apontamentos para todas as peças da OF
+        // Buscar apontamentos para todas as peças da OF incluindo data_apontamento e created_at
         const pecaIds = pecasData.map(p => p.id);
-        const { data: apontamentosData, error: apontamentosError } = await supabase
-          .from('apontamentos_producao')
-          .select(`
-            peca_id,
-            processo_id,
-            quantidade_produzida,
-            processos_fabricacao!apontamentos_producao_processo_id_fkey(nome)
-          `)
-          .eq('of_number', ofNumber)
-          .in('peca_id', pecaIds);
+        const [resApontamentos, resRomaneios] = await Promise.all([
+          supabase
+            .from('apontamentos_producao')
+            .select(`
+              peca_id,
+              processo_id,
+              quantidade_produzida,
+              data_apontamento,
+              created_at,
+              processos_fabricacao!apontamentos_producao_processo_id_fkey(nome)
+            `)
+            .eq('of_number', ofNumber)
+            .in('peca_id', pecaIds),
 
-        if (apontamentosError) {
-          console.error('Erro ao buscar apontamentos:', apontamentosError);
-          throw apontamentosError;
+          // Buscar romaneios de expedição para garantir datas e status de expedição
+          supabase
+            .from('itens_romaneio_pecas')
+            .select(`
+              marca,
+              peca_id,
+              quantidade_expedida,
+              created_at,
+              romaneios_expedicao!inner(of_number, data_saida, data_emissao, created_at)
+            `)
+            .eq('romaneios_expedicao.of_number', ofNumber)
+        ]);
+
+        if (resApontamentos.error) {
+          console.error('Erro ao buscar apontamentos:', resApontamentos.error);
+          throw resApontamentos.error;
         }
 
-        console.log('Apontamentos encontrados:', apontamentosData?.length || 0);
+        const apontamentosData = resApontamentos.data || [];
+        const romaneiosData = resRomaneios.data || [];
 
-        // Mapear status dos processos por peça
+        console.log('Apontamentos encontrados:', apontamentosData.length);
+
+        // Mapear status dos processos por peça e guardar a ÚLTIMA data apontada de cada processo
         const statusPorPeca = new Map<string, Set<string>>();
+        const datasPorPeca = new Map<string, { corte: string; solda: string; pintura: string; expedicao: string }>();
         
-        apontamentosData?.forEach(apt => {
+        apontamentosData.forEach(apt => {
           if (!statusPorPeca.has(apt.peca_id)) {
             statusPorPeca.set(apt.peca_id, new Set());
           }
-          statusPorPeca.get(apt.peca_id)!.add(apt.processos_fabricacao.nome);
+          const nomeProc = apt.processos_fabricacao?.nome || '';
+          statusPorPeca.get(apt.peca_id)!.add(nomeProc);
+
+          if (!datasPorPeca.has(apt.peca_id)) {
+            datasPorPeca.set(apt.peca_id, { corte: '', solda: '', pintura: '', expedicao: '' });
+          }
+          const datas = datasPorPeca.get(apt.peca_id)!;
+          const dataApt = apt.data_apontamento || apt.created_at || '';
+          const nomeLower = nomeProc.toLowerCase();
+
+          if (dataApt) {
+            if (nomeLower.includes('corte')) {
+              if (!datas.corte || dataApt > datas.corte) datas.corte = dataApt;
+            } else if (nomeLower.includes('solda')) {
+              if (!datas.solda || dataApt > datas.solda) datas.solda = dataApt;
+            } else if (nomeLower.includes('pint') || nomeLower.includes('galv')) {
+              if (!datas.pintura || dataApt > datas.pintura) datas.pintura = dataApt;
+            } else if (nomeLower.includes('exped')) {
+              if (!datas.expedicao || dataApt > datas.expedicao) datas.expedicao = dataApt;
+            }
+          }
         });
 
-        // Construir array de peças com status
+        // Adicionar informações vindas dos Romaneios de Expedição
+        romaneiosData.forEach((item: any) => {
+          const pecaAlvo = pecasData.find(p => p.id === item.peca_id || p.marca === item.marca);
+          if (pecaAlvo) {
+            if (!statusPorPeca.has(pecaAlvo.id)) {
+              statusPorPeca.set(pecaAlvo.id, new Set());
+            }
+            statusPorPeca.get(pecaAlvo.id)!.add('Expedicao');
+
+            if (!datasPorPeca.has(pecaAlvo.id)) {
+              datasPorPeca.set(pecaAlvo.id, { corte: '', solda: '', pintura: '', expedicao: '' });
+            }
+            const datas = datasPorPeca.get(pecaAlvo.id)!;
+            const dataExp = item.romaneios_expedicao?.data_saida ||
+                            item.romaneios_expedicao?.data_emissao ||
+                            item.romaneios_expedicao?.created_at ||
+                            item.created_at || '';
+            if (dataExp && (!datas.expedicao || dataExp > datas.expedicao)) {
+              datas.expedicao = dataExp;
+            }
+          }
+        });
+
+        // Construir array de peças com status e última data apontada
         const pecasComStatusFormatadas: PecaComStatus[] = pecasData.map(peca => {
           const processosRealizados = statusPorPeca.get(peca.id) || new Set();
+          const datas = datasPorPeca.get(peca.id) || { corte: '', solda: '', pintura: '', expedicao: '' };
           
           return {
             id: peca.id,
@@ -136,6 +229,12 @@ export const useRelatorioPecasProcesso = (ofNumber: string) => {
                        processosRealizados.has('Pintura/Galv') || 
                        processosRealizados.has('Pintura'),
               expedicao: processosRealizados.has('Expedicao')
+            },
+            datasProcessos: {
+              corte: formatarDiaMes(datas.corte),
+              solda: formatarDiaMes(datas.solda),
+              pintura: formatarDiaMes(datas.pintura),
+              expedicao: formatarDiaMes(datas.expedicao)
             }
           };
         });
