@@ -19,6 +19,7 @@ interface ItemDisponivel {
   id: string;
   marca: string;
   descricao: string;
+  perfil?: string;
   tipo: 'peca' | 'componente';
   quantidade_disponivel: number;
   processo_atual_permitido: number;
@@ -161,7 +162,8 @@ export const ApontamentoForm = () => {
         pecasDisponiveis.push({
           id: peca.id,
           marca: peca.marca,
-          descricao: peca.descricao || '',
+          descricao: peca.descricao || peca.perfil_principal || '',
+          perfil: peca.perfil_principal || peca.descricao || '',
           tipo: 'peca',
           quantidade_disponivel: saldoDisponivel,
           processo_atual_permitido: ordemProcesso,
@@ -197,6 +199,7 @@ export const ApontamentoForm = () => {
             id: comp.componente_ids[0] || '',
             marca: comp.marca_componente,
             descricao: comp.descricao || comp.perfil || '',
+            perfil: comp.perfil || comp.descricao || '',
             tipo: 'componente',
             quantidade_disponivel: saldoComp,
             processo_atual_permitido: ordemProcesso,
@@ -362,6 +365,54 @@ export const ApontamentoForm = () => {
       quantidade_produzida: value,
       todas_disponiveis: false
     }));
+  };
+
+  const handleApontarItemDireto = async (item: ItemDisponivel, quantidade: number): Promise<boolean> => {
+    if (!formData.processo_id) {
+      toast.error('Selecione um processo antes de apontar');
+      return false;
+    }
+
+    if (isNaN(quantidade) || quantidade <= 0 || quantidade > item.quantidade_disponivel) {
+      toast.error(`Quantidade inválida. Saldo disponível: ${item.quantidade_disponivel}`);
+      return false;
+    }
+
+    setSaving(true);
+    try {
+      const apontamentoData: Parameters<typeof criarApontamento>[0] = {
+        of_number: formData.of_number,
+        tipo_apontamento: item.tipo,
+        processo_id: formData.processo_id,
+        quantidade_produzida: quantidade,
+        data_apontamento: formData.data_apontamento,
+        observacoes: formData.observacoes || undefined
+      };
+
+      if (item.tipo === 'componente') {
+        apontamentoData.componente_id = item.id;
+      } else {
+        apontamentoData.peca_id = item.id;
+      }
+
+      const result = await criarApontamento(apontamentoData);
+
+      if (result.success) {
+        toast.success(`${quantidade} un de ${item.marca} apontada(s) com sucesso!`);
+        await refetch();
+        resetFormForNewEntry();
+        return true;
+      } else {
+        toast.error('Erro ao registrar apontamento');
+        return false;
+      }
+    } catch (error) {
+      console.error('Erro no apontamento direto:', error);
+      toast.error('Erro ao registrar apontamento');
+      return false;
+    } finally {
+      setSaving(false);
+    }
   };
 
   const resetFormForNewEntry = () => {
@@ -560,6 +611,7 @@ export const ApontamentoForm = () => {
                 itemSelecionado={itemSelecionado}
                 onItemSelect={handleItemSelect}
                 onBatchSelect={handleBatchSelect}
+                onApontarItemDireto={handleApontarItemDireto}
                 loading={isLoadingItens}
               />
             </div>

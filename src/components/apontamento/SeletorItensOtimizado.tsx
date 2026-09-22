@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from 'sonner';
-import { Search, Package, Shield, AlertTriangle, Settings } from 'lucide-react';
+import { Search, Package, Shield, AlertTriangle, Settings, Check, Loader2 } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
 import { Peca } from '@/hooks/usePecas';
 import { useComponentesPeca } from '@/hooks/useComponentesPeca';
@@ -19,10 +19,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-interface ItemDisponivel {
+export interface ItemDisponivel {
   id: string;
   marca: string;
   descricao: string;
+  perfil?: string;
   tipo: 'peca' | 'componente';
   quantidade_disponivel: number;
   processo_atual_permitido: number;
@@ -54,6 +55,7 @@ interface SeletorItensOtimizadoProps {
   itemSelecionado?: ItemDisponivel | null;
   onItemSelect?: (item: ItemDisponivel) => void;
   onBatchSelect?: (items: ItemDisponivel[], tipo: 'peca' | 'componente') => Promise<void>;
+  onApontarItemDireto?: (item: ItemDisponivel, quantidade: number) => Promise<boolean>;
   loading?: boolean;
   onSelectPeca?: (peca: PecaWithComponents) => void;
   onSelectComponente?: (componente: ComponenteItemData) => void;
@@ -71,6 +73,7 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
   itemSelecionado,
   onItemSelect,
   onBatchSelect,
+  onApontarItemDireto,
   loading = false,
   onSelectPeca, 
   onSelectComponente, 
@@ -83,6 +86,11 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
   const [loadingPecas, setLoadingPecas] = useState(false);
   const [loadingComponentes, setLoadingComponentes] = useState(false);
   const [componentes, setComponentes] = useState<ComponenteItemData[]>([]);
+
+  // Estados locais para apontamento direto por card (quantidade, modo todas e loading)
+  const [qtdCards, setQtdCards] = useState<Record<string, string>>({});
+  const [todasCards, setTodasCards] = useState<Record<string, boolean>>({});
+  const [loadingApontandoId, setLoadingApontandoId] = useState<string | null>(null);
   const [showComponentes, setShowComponentes] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -153,16 +161,81 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
   const pecasOrdenadas = useMemo(() => {
     let pecasFiltradas = pecasDisponiveis;
     if (filtroNumeroPeca) {
+      const termo = filtroNumeroPeca.toLowerCase().trim();
       pecasFiltradas = pecasDisponiveis.filter(peca => 
-        peca.marca.toLowerCase().includes(filtroNumeroPeca.toLowerCase())
+        peca.marca.toLowerCase().includes(termo) ||
+        (peca.perfil && peca.perfil.toLowerCase().includes(termo)) ||
+        (peca.descricao && peca.descricao.toLowerCase().includes(termo))
       );
     }
     return pecasFiltradas.sort((a, b) => a.marca.localeCompare(b.marca, undefined, { numeric: true, sensitivity: 'base' }));
   }, [pecasDisponiveis, filtroNumeroPeca]);
 
   const componentesOrdenados = useMemo(() => {
-    return componentesDisponiveis.sort((a, b) => a.marca.localeCompare(b.marca, undefined, { numeric: true, sensitivity: 'base' }));
-  }, [componentesDisponiveis]);
+    let comps = componentesDisponiveis;
+    if (filtroNumeroPeca) {
+      const termo = filtroNumeroPeca.toLowerCase().trim();
+      comps = componentesDisponiveis.filter(comp =>
+        comp.marca.toLowerCase().includes(termo) ||
+        (comp.perfil && comp.perfil.toLowerCase().includes(termo)) ||
+        (comp.descricao && comp.descricao.toLowerCase().includes(termo))
+      );
+    }
+    return comps.sort((a, b) => a.marca.localeCompare(b.marca, undefined, { numeric: true, sensitivity: 'base' }));
+  }, [componentesDisponiveis, filtroNumeroPeca]);
+
+  const handleQtdCardChange = useCallback((itemId: string, value: string) => {
+    setQtdCards(prev => ({ ...prev, [itemId]: value }));
+    setTodasCards(prev => ({ ...prev, [itemId]: false }));
+  }, []);
+
+  const handleToggleTodas = useCallback((itemId: string, qtdDisponivel: number) => {
+    setTodasCards(prev => {
+      const novoEstado = !prev[itemId];
+      if (novoEstado) {
+        setQtdCards(q => ({ ...q, [itemId]: qtdDisponivel.toString() }));
+      } else {
+        setQtdCards(q => ({ ...q, [itemId]: '' }));
+      }
+      return { ...prev, [itemId]: novoEstado };
+    });
+  }, []);
+
+  const handleExecutarBaixa = useCallback(async (item: ItemDisponivel) => {
+    if (!onApontarItemDireto) return;
+    const isTodas = todasCards[item.id];
+    const qtdDigitada = qtdCards[item.id];
+    const quantidade = isTodas ? item.quantidade_disponivel : parseInt(qtdDigitada);
+
+    if (isNaN(quantidade) || quantidade <= 0) {
+      toast.error(`Informe a quantidade para ${item.marca} ou ative 'Todas'`);
+      return;
+    }
+
+    if (quantidade > item.quantidade_disponivel) {
+      toast.error(`Quantidade não pode ser maior que ${item.quantidade_disponivel} disponível`);
+      return;
+    }
+
+    setLoadingApontandoId(item.id);
+    try {
+      const sucesso = await onApontarItemDireto(item, quantidade);
+      if (sucesso) {
+        setQtdCards(prev => {
+          const copia = { ...prev };
+          delete copia[item.id];
+          return copia;
+        });
+        setTodasCards(prev => {
+          const copia = { ...prev };
+          delete copia[item.id];
+          return copia;
+        });
+      }
+    } finally {
+      setLoadingApontandoId(null);
+    }
+  }, [onApontarItemDireto, todasCards, qtdCards]);
 
   const fetchPecas = useCallback(async (term: string) => {
     if (!term.trim()) {
@@ -298,50 +371,120 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
     </div>
   );
 
-  const ItemDisponivelComponent = React.memo(({ item, isSelected }: { item: ItemDisponivel; isSelected: boolean }) => (
-    <div className="relative">
-      <div
-        className={`p-3 border rounded-md cursor-pointer transition-colors ${
-          isSelected
-            ? 'border-primary bg-primary/10 ring-1 ring-primary'
-            : 'border-border bg-card hover:bg-accent/50'
-        }`}
-        onClick={() => handleItemSelect(item)}
-      >
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <div className="font-semibold text-sm text-foreground">{item.marca}</div>
-            <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-              {item.quantidade_disponivel} disponível
+  const ItemDisponivelComponent = ({ item, isSelected }: { item: ItemDisponivel; isSelected: boolean }) => {
+    const isTodas = Boolean(todasCards[item.id]);
+    const qtdValue = qtdCards[item.id] ?? (isTodas ? item.quantidade_disponivel.toString() : '');
+    const isLoading = loadingApontandoId === item.id;
+
+    return (
+      <div className="relative">
+        <div
+          className={`p-3 border rounded-md transition-colors ${
+            isSelected
+              ? 'border-primary bg-primary/10 ring-1 ring-primary'
+              : 'border-border bg-card hover:bg-accent/40'
+          }`}
+          onClick={() => handleItemSelect(item)}
+        >
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="font-semibold text-sm text-foreground flex items-center gap-2">
+                <span>{item.marca}</span>
+                {item.perfil && (
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-mono font-normal">
+                    {item.perfil}
+                  </span>
+                )}
+              </div>
+              <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                {item.quantidade_disponivel} disponível
+              </div>
             </div>
-          </div>
-          {item.descricao && (
-            <div className="text-xs text-muted-foreground truncate" title={item.descricao}>
-              {item.descricao}
+
+            {item.descricao && item.descricao !== item.perfil && (
+              <div className="text-xs text-muted-foreground truncate" title={item.descricao}>
+                {item.descricao}
+              </div>
+            )}
+
+            {/* Linha com processo e controles rápidos de apontamento desenhados pelo usuário */}
+            <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
+              <div className="text-xs text-muted-foreground font-medium">
+                Processo: {item.nome_processo || item.processo_atual_permitido}
+              </div>
+
+              {onApontarItemDireto && (
+                <div 
+                  className="flex items-center gap-1.5 ml-auto"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Input
+                    type="number"
+                    min="1"
+                    max={item.quantidade_disponivel}
+                    placeholder="Quant."
+                    value={qtdValue}
+                    onChange={(e) => handleQtdCardChange(item.id, e.target.value)}
+                    disabled={isTodas || isLoading}
+                    className="h-7 w-20 text-xs px-2 text-center font-medium bg-background border-input shadow-none"
+                  />
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={isTodas ? "default" : "outline"}
+                    onClick={() => handleToggleTodas(item.id, item.quantidade_disponivel)}
+                    disabled={isLoading}
+                    className={`h-7 px-2.5 text-xs font-semibold transition-colors ${
+                      isTodas 
+                        ? "bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm" 
+                        : "hover:bg-accent text-foreground"
+                    }`}
+                    title="Habilitar/desabilitar apontar todas as unidades disponíveis"
+                  >
+                    Todas
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={isLoading || (!isTodas && (!qtdValue || parseInt(qtdValue) <= 0))}
+                    onClick={() => handleExecutarBaixa(item)}
+                    className="h-7 px-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs flex items-center gap-1 shadow-sm transition-all"
+                    title="Baixar quantidade no apontamento"
+                  >
+                    {isLoading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <>
+                        <Check className="h-3.5 w-3.5" />
+                        <span>Baixar</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
-          )}
-          <div className="text-xs text-muted-foreground font-medium">
-            Processo: {item.nome_processo || item.processo_atual_permitido}
           </div>
         </div>
-      </div>
 
-      {isAdmin && (
-        <Button
-          size="sm"
-          variant="ghost"
-          className="absolute top-2 right-2 h-6 w-6 p-0 text-orange-500 hover:text-orange-600 hover:bg-orange-500/10"
-          onClick={(e) => {
-            e.stopPropagation();
-            handleAdminAction(item);
-          }}
-          title="Verificar apontamentos e forçar exclusão"
-        >
-          <Settings className="h-3 w-3" />
-        </Button>
-      )}
-    </div>
-  ));
+        {isAdmin && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="absolute top-2 right-2 h-6 w-6 p-0 text-orange-500 hover:text-orange-600 hover:bg-orange-500/10"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleAdminAction(item);
+            }}
+            title="Verificar apontamentos e forçar exclusão"
+          >
+            <Settings className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
+    );
+  };
 
   if (onSelectPeca) {
     return (
@@ -418,10 +561,10 @@ export const SeletorItensOtimizado: React.FC<SeletorItensOtimizadoProps> = ({
                   <div className="flex items-center gap-2">
                     <Input
                       type="text"
-                      placeholder="Filtrar por número da peça..."
+                      placeholder="Filtrar por marca ou perfil..."
                       value={filtroNumeroPeca}
                       onChange={(e) => setFiltroNumeroPeca(e.target.value)}
-                      className="bg-background border-input text-foreground placeholder:text-muted-foreground h-8 w-48 shadow-sm"
+                      className="bg-background border-input text-foreground placeholder:text-muted-foreground h-8 w-56 shadow-sm text-xs"
                     />
                     <Button
                       size="sm"
