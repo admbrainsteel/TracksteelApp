@@ -32,6 +32,19 @@ export const AppSidebarMenuItem: React.FC<SidebarMenuItemProps> = ({
   if (!canAccess && !isAdmin) {
     return null; // Don't show item if no access
   }
+
+  // Filtrar subitens permitidos para o usuário logado
+  const subItemsPermitidos = (item.subItems || []).filter((subItem) => {
+    if (subItem.url === "/admin/theme-customization" && !isAdmin) {
+      return false;
+    }
+    return isAdmin || canAccessItem(subItem.key);
+  });
+
+  // Se o item for apenas um agrupador de subitens e todos estiverem bloqueados, não renderizar o agrupador
+  if (item.subItems && item.subItems.length > 0 && subItemsPermitidos.length === 0 && !isAdmin) {
+    return null;
+  }
   
   return (
     <SidebarMenuItem key={item.key || item.title}>
@@ -51,29 +64,22 @@ export const AppSidebarMenuItem: React.FC<SidebarMenuItemProps> = ({
           </CollapsibleTrigger>
           <CollapsibleContent>
             <SidebarMenuSub>
-              {item.subItems?.map((subItem) => {
-                // Filter theme customization for non-admins
-                if (subItem.url === "/admin/theme-customization" && !isAdmin) {
-                  return null;
-                }
-                
-                return (
-                  <SidebarMenuSubItem key={subItem.key || subItem.title}>
-                    <SidebarMenuSubButton 
-                      asChild
-                      isActive={isActive(subItem.url)}
+              {subItemsPermitidos.map((subItem) => (
+                <SidebarMenuSubItem key={subItem.key || subItem.title}>
+                  <SidebarMenuSubButton 
+                    asChild
+                    isActive={isActive(subItem.url)}
+                  >
+                    <Link 
+                      to={subItem.url}
+                      onClick={() => onMenuItemClick(false)}
                     >
-                      <Link 
-                        to={subItem.url}
-                        onClick={() => onMenuItemClick(false)}
-                      >
-                        {subItem.icon && <subItem.icon className="mr-2 h-4 w-4" />}
-                        <span>{subItem.title}</span>
-                      </Link>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                );
-              })}
+                      {subItem.icon && <subItem.icon className="mr-2 h-4 w-4" />}
+                      <span>{subItem.title}</span>
+                    </Link>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              ))}
             </SidebarMenuSub>
           </CollapsibleContent>
         </Collapsible>

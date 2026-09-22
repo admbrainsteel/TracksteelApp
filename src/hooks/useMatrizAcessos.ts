@@ -216,14 +216,23 @@ export const useMatrizAcessos = () => {
 
       if (profError) throw profError;
 
-      // 2. Carregar recursos por privilégio
-      const { data: privResources, error: privResError } = await supabase
+      // 2. Carregar recursos específicos diretos por usuário (user_interface_permissions)
+      const { data: userInterfacePerms } = await supabase
+        .from('user_interface_permissions')
+        .select('user_id, resource_key, permission');
+
+      // Indexar por user_id -> resource_key -> permission
+      const userPermsMap: Record<string, Record<string, string>> = {};
+      (userInterfacePerms || []).forEach((uip: any) => {
+        if (!userPermsMap[uip.user_id]) userPermsMap[uip.user_id] = {};
+        userPermsMap[uip.user_id][uip.resource_key] = uip.permission;
+      });
+
+      // 3. Carregar recursos por privilégio como fallback
+      const { data: privResources } = await supabase
         .from('privilege_interface_resources')
         .select('privilege_id, resource_key');
 
-      if (privResError) console.warn('Aviso ao carregar privilege_interface_resources:', privResError);
-
-      // Indexar recursos por privilege_id
       const recursosPorPrivilege: Record<string, Set<string>> = {};
       (privResources || []).forEach((pr: any) => {
         if (!recursosPorPrivilege[pr.privilege_id]) {
@@ -241,17 +250,28 @@ export const useMatrizAcessos = () => {
           ? recursosPorPrivilege[privId]
           : new Set<string>();
 
+        const directPerms = userPermsMap[p.id] || {};
+
         const permissoesMap: Record<string, NivelAcesso> = {};
 
         GRUPOS_MODULOS.forEach((g) => {
           g.recursos.forEach((r) => {
             if (isAdmin) {
               permissoesMap[r.key] = 'criar';
+            } else if (directPerms[r.key]) {
+              // Prioridade 1: Permissão direta do usuário
+              const perm = directPerms[r.key];
+              if (perm === 'can_create_update_delete' || perm === 'can_admin' || perm === 'can_create_only') {
+                permissoesMap[r.key] = 'criar';
+              } else if (perm === 'can_view_only') {
+                permissoesMap[r.key] = 'visualizar';
+              } else {
+                permissoesMap[r.key] = 'nenhum';
+              }
             } else if (recursosSet.has(`${r.key}:edit`) || recursosSet.has(`${r.key}_edit`)) {
               permissoesMap[r.key] = 'criar';
             } else if (recursosSet.has(r.key)) {
-              // Se tiver o recurso base, verificar se o perfil é apenas visualizador ou editor
-              permissoesMap[r.key] = 'criar'; // padrão ativo é criar
+              permissoesMap[r.key] = 'visualizar';
             } else {
               permissoesMap[r.key] = 'nenhum';
             }
@@ -324,6 +344,32 @@ export const useMatrizAcessos = () => {
     );
 
     try {
+      // 1. Gravação direta e individual por usuário na tabela user_interface_permissions (Prioridade Máxima)
+      const dbPermission =
+        novoNivel === 'criar'
+          ? 'can_create_update_delete'
+          : novoNivel === 'visualizar'
+            ? 'can_view_only'
+            : 'no_access';
+
+      const { error: uipError } = await supabase
+        .from('user_interface_permissions')
+        .upsert(
+          {
+            user_id: userId,
+            resource_key: resourceKey,
+            permission: dbPermission as any,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'user_id,resource_key' }
+        );
+
+      if (uipError) {
+        console.error('Erro ao salvar em user_interface_permissions:', uipError);
+        throw uipError;
+      }
+
+      // 2. Compatibilidade legada com privilégios de grupo (se houver)
       if (user.privilegeId) {
         // Remover permissões antigas do recurso
         await supabase
@@ -379,6 +425,28 @@ export const useMatrizAcessos = () => {
     );
 
     try {
+      // 1. Gravação direta em lote na tabela user_interface_permissions
+      const uipRecords = Object.entries(novoMap).map(([resKey, nivel]) => ({
+        user_id: userId,
+        resource_key: resKey,
+        permission: (nivel === 'criar'
+          ? 'can_create_update_delete'
+          : nivel === 'visualizar'
+            ? 'can_view_only'
+            : 'no_access') as any,
+        updated_at: new Date().toISOString(),
+      }));
+
+      const { error: batchError } = await supabase
+        .from('user_interface_permissions')
+        .upsert(uipRecords, { onConflict: 'user_id,resource_key' });
+
+      if (batchError) {
+        console.error('Erro no batch upsert em user_interface_permissions:', batchError);
+        throw batchError;
+      }
+
+      // 2. Compatibilidade legada com privilégios de grupo
       if (user.privilegeId) {
         // Limpar recursos atuais do privilégio
         await supabase

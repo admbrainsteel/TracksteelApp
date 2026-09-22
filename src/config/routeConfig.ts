@@ -173,7 +173,8 @@ export const routeConfig: RouteDefinition[] = [
   {
     path: '/visualizador-3d',
     component: () => import('@/pages/Visualizador3D'),
-    guard: 'protected',
+    guard: 'resource',
+    resourceKey: 'visualizador-3d',
   },
 
   // ── Painel Industrial ────────────────────────────────────

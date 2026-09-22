@@ -19,7 +19,7 @@ export function AppSidebar() {
   const { setOpenMobile } = useSidebar();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const { iconStyle } = useIconStyle();
-  const { hasAccess, loading: permissionsLoading } = useUserPermissions();
+  const { hasAccess, loading: permissionsLoading, resourcePermissions } = useUserPermissions();
   const { canAccessTools, canInteractWithSpecialMenus } = usePermissionControl();
   const isMobile = useIsMobile();
   const [openGroups, setOpenGroups] = useState<{ [key: string]: boolean }>({
@@ -99,6 +99,63 @@ export function AppSidebar() {
     try {
       // Admin can always access everything
       if (isAdmin) return true;
+
+      // Mapeamento de chave de menu/submenu da sidebar para resource_key do BD
+      const itemToResourceMap: Record<string, string> = {
+        'pcp': 'producao-pcp',
+        'dashboard-producao': 'producao-dashboard',
+        'apontamento-producao': 'producao-apontamento',
+        'diario-producao': 'diario-producao',
+        'prioridades-fabricacao': 'prioridades-fabricacao',
+        'visao-geral': 'producao-visao',
+        'visualizador-3d': 'visualizador-3d',
+        'ordens-fabricacao': 'ofs-lista',
+        'ficha-tecnica-of': 'cadastro-of',
+        'cronograma': 'ofs-cronograma',
+        'cadastro-pecas': 'cadastro-pecas',
+        'equipamentos': 'equipamentos',
+        'expedicao': 'expedicao',
+        'estoque-main': 'estoque',
+        'estoque': 'estoque',
+        'solicitacao-compras': 'estoque-solicitacao-compras',
+        'dashboard-obras': 'obra-dashboard',
+        'configuracoes-obra': 'obra-configuracoes',
+        'obra': 'obra-dashboard',
+        'gerenciar-usuarios': 'user-management',
+        'user-management': 'user-management',
+        'configuracoes-gerais': 'configuracoes-gerais',
+        'inconsistencias': 'ferramentas-inconsistencias',
+        'ferramentas': 'ferramentas',
+        'sistema': 'sistema',
+        'sugestoes': 'sugestoes',
+        'admin': 'admin',
+        'dashboard': 'dashboard',
+      };
+
+      const resKey = itemToResourceMap[itemKey] || itemKey;
+
+      // Se há restrição direta configurada no BD para este recurso
+      if (resourcePermissions && resourcePermissions[resKey]) {
+        return resourcePermissions[resKey] !== 'no_access';
+      }
+
+      // Se o usuário tem perfil de "apenas Smart" (tem modo-smart mas não tem esse recurso)
+      const temAcessoSmart =
+        resourcePermissions &&
+        resourcePermissions['modo-smart'] &&
+        resourcePermissions['modo-smart'] !== 'no_access';
+
+      const permsCadastradas = Object.keys(resourcePermissions || {});
+      const soTemSmart =
+        temAcessoSmart &&
+        permsCadastradas.length > 0 &&
+        permsCadastradas.every(
+          (k) => k.startsWith('smart') || k === 'modo-smart' || resourcePermissions[k] === 'no_access'
+        );
+
+      if (soTemSmart && !resKey.startsWith('smart') && resKey !== 'modo-smart') {
+        return false;
+      }
       
       // Se o item requer permissão especial, verificar permissões específicas
       if (requiresSpecialPermission) {
@@ -110,9 +167,7 @@ export function AppSidebar() {
         }
       }
       
-      // Users with any functional permission can see most menus
-      // Restriction will be applied in the pages/components themselves
-      return hasAccess();
+      return hasAccess(resKey);
     } catch (error) {
       console.warn('Error checking item access:', error);
       return false;
