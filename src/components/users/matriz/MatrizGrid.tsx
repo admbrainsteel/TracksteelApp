@@ -1,22 +1,22 @@
 import React from 'react';
-import { UsuarioMatriz, GrupoRecurso } from '@/hooks/useMatrizAcessos';
+import { UsuarioMatriz, GrupoRecurso, NivelAcesso } from '@/hooks/useMatrizAcessos';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Check, X, Shield, Sparkles, User, HelpCircle } from 'lucide-react';
+import { Sparkles, Eye, Edit3, ShieldAlert } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface MatrizGridProps {
   usuarios: UsuarioMatriz[];
   grupos: GrupoRecurso[];
-  onTogglePermissao: (userId: string, resourceKey: string) => void;
+  onToggleNivel: (userId: string, resourceKey: string, tipo: 'V' | 'C') => void;
   onOpenTemplates: (user: UsuarioMatriz) => void;
 }
 
 export const MatrizGrid: React.FC<MatrizGridProps> = ({
   usuarios,
   grupos,
-  onTogglePermissao,
+  onToggleNivel,
   onOpenTemplates,
 }) => {
   // Cores de fundo e borda para os grupos
@@ -32,7 +32,7 @@ export const MatrizGrid: React.FC<MatrizGridProps> = ({
   return (
     <div className="rounded-2xl border border-border bg-card overflow-hidden shadow-sm">
       <div className="overflow-x-auto max-w-full">
-        <table className="w-full text-left border-collapse min-w-[900px]">
+        <table className="w-full text-left border-collapse min-w-[950px]">
           {/* CABEÇALHO DE GRUPOS DE MÓDULOS */}
           <thead>
             <tr className="border-b border-border/80 bg-muted/40">
@@ -68,10 +68,10 @@ export const MatrizGrid: React.FC<MatrizGridProps> = ({
                 grupo.recursos.map((rec) => (
                   <th
                     key={rec.key}
-                    className="p-2 text-center border-r border-border/30 font-medium whitespace-nowrap min-w-[110px]"
+                    className="p-2 text-center border-r border-border/30 font-medium whitespace-nowrap min-w-[120px]"
                     title={rec.nome}
                   >
-                    <span className="truncate block max-w-[120px] mx-auto">
+                    <span className="truncate block max-w-[125px] mx-auto">
                       {rec.nome}
                     </span>
                   </th>
@@ -128,10 +128,12 @@ export const MatrizGrid: React.FC<MatrizGridProps> = ({
                     </div>
                   </td>
 
-                  {/* Células Clicáveis da Matriz */}
+                  {/* Células da Matriz com o Balão Duplo [ V ] [ C ] */}
                   {grupos.map((grupo) =>
                     grupo.recursos.map((rec) => {
-                      const temAcesso = user.recursosPermitidos.has(rec.key);
+                      const nivel: NivelAcesso = user.permissoesMap[rec.key] || 'nenhum';
+                      const isVAtivo = nivel === 'visualizar' || nivel === 'criar';
+                      const isCAtivo = nivel === 'criar';
 
                       return (
                         <td
@@ -141,25 +143,59 @@ export const MatrizGrid: React.FC<MatrizGridProps> = ({
                           <TooltipProvider delayDuration={150}>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <button
-                                  onClick={() => onTogglePermissao(user.id, rec.key)}
-                                  className={`w-full py-1.5 rounded-lg font-medium text-xs flex items-center justify-center transition-all ${
-                                    temAcesso
-                                      ? 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/30'
-                                      : 'bg-muted/40 text-muted-foreground/40 hover:bg-muted/70 hover:text-muted-foreground border border-transparent'
+                                {/* O Balão Principal com 2 metades internas */}
+                                <div
+                                  className={`inline-flex items-center p-0.5 rounded-lg border transition-all ${
+                                    isCAtivo
+                                      ? 'border-emerald-500/40 bg-emerald-500/10 shadow-sm shadow-emerald-500/10'
+                                      : isVAtivo
+                                      ? 'border-sky-500/40 bg-sky-500/10 shadow-sm shadow-sky-500/10'
+                                      : 'border-border/60 bg-muted/30 opacity-70'
                                   }`}
                                 >
-                                  {temAcesso ? (
-                                    <Check className="h-4 w-4 stroke-[2.5]" />
-                                  ) : (
-                                    <X className="h-3.5 w-3.5 opacity-40" />
-                                  )}
-                                </button>
+                                  {/* Botão Interno V (Visualizar) */}
+                                  <button
+                                    onClick={() => onToggleNivel(user.id, rec.key, 'V')}
+                                    className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${
+                                      isVAtivo
+                                        ? isCAtivo
+                                          ? 'bg-emerald-500 text-white shadow-xs'
+                                          : 'bg-sky-500 text-white shadow-xs'
+                                        : 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted'
+                                    }`}
+                                    title="V: Apenas Visualizar"
+                                  >
+                                    V
+                                  </button>
+
+                                  {/* Separador sutil */}
+                                  <div className="w-[1px] h-3.5 bg-border/60 mx-0.5" />
+
+                                  {/* Botão Interno C (Criar/Editar) */}
+                                  <button
+                                    onClick={() => onToggleNivel(user.id, rec.key, 'C')}
+                                    className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all flex items-center gap-1 ${
+                                      isCAtivo
+                                        ? 'bg-emerald-500 text-white shadow-xs'
+                                        : 'text-muted-foreground/50 hover:text-muted-foreground hover:bg-muted'
+                                    }`}
+                                    title="C: Criar e Editar (ativa ambos)"
+                                  >
+                                    C
+                                  </button>
+                                </div>
                               </TooltipTrigger>
                               <TooltipContent side="top" className="text-xs">
                                 <p className="font-bold">{rec.nome}</p>
-                                <p className="text-muted-foreground">
-                                  {temAcesso ? 'Clique para Bloquear' : 'Clique para Liberar'}
+                                <p className="text-muted-foreground mt-0.5">
+                                  {nivel === 'criar'
+                                    ? '🟢 Permissão Total: Criação, Edição e Apontamento (V + C)'
+                                    : nivel === 'visualizar'
+                                    ? '🔵 Apenas Leitura / Consulta (V)'
+                                    : '⚪ Bloqueado / Oculto'}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground/80 mt-1 italic">
+                                  * Clique em V para apenas ver | Clique em C para liberar tudo
                                 </p>
                               </TooltipContent>
                             </Tooltip>
@@ -173,6 +209,44 @@ export const MatrizGrid: React.FC<MatrizGridProps> = ({
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Legenda Explicativa do Balão no Rodapé */}
+      <div className="p-3 bg-muted/20 border-t border-border/50 flex flex-wrap items-center justify-between text-xs text-muted-foreground gap-3">
+        <div className="flex items-center gap-4">
+          <span className="font-semibold text-foreground">Legenda dos Balões:</span>
+          
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center p-0.5 rounded border border-border/60 bg-muted/40">
+              <span className="px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground/50">V</span>
+              <span className="w-[1px] h-3 bg-border/60 mx-0.5" />
+              <span className="px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground/50">C</span>
+            </span>
+            <span>Bloqueado (Nem visualiza)</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center p-0.5 rounded border border-sky-500/40 bg-sky-500/10">
+              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-sky-500 text-white rounded">V</span>
+              <span className="w-[1px] h-3 bg-border/60 mx-0.5" />
+              <span className="px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground/50">C</span>
+            </span>
+            <span>Apenas Visualização (Leitura)</span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center p-0.5 rounded border border-emerald-500/40 bg-emerald-500/10">
+              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500 text-white rounded">V</span>
+              <span className="w-[1px] h-3 bg-border/60 mx-0.5" />
+              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500 text-white rounded">C</span>
+            </span>
+            <span>Criação / Edição Total</span>
+          </div>
+        </div>
+
+        <div className="text-[11px] italic">
+          * Clicar em C ativa ambos em verde | Clicar em V desativa o C.
+        </div>
       </div>
     </div>
   );

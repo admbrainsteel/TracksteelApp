@@ -21,7 +21,7 @@ export const MatrizAcessosPainel: React.FC<MatrizAcessosPainelProps> = ({
     gruposModulos,
     usuarioSimuladoId,
     setUsuarioSimuladoId,
-    togglePermissao,
+    toggleNivel,
     aplicarTemplate,
     recarregar,
   } = useMatrizAcessos();
@@ -41,9 +41,10 @@ export const MatrizAcessosPainel: React.FC<MatrizAcessosPainelProps> = ({
 
   // Métricas rápidas
   const totalUsuarios = usuarios.length;
-  const totalSmartExclusivo = usuarios.filter(
-    (u) => u.recursosPermitidos.has('modo-smart') && u.recursosPermitidos.size <= 4
-  ).length;
+  const totalSmartExclusivo = usuarios.filter((u) => {
+    const ativos = Object.entries(u.permissoesMap).filter(([, v]) => v !== 'nenhum');
+    return u.permissoesMap['modo-smart'] !== 'nenhum' && ativos.length <= 4;
+  }).length;
   const totalAdmins = usuarios.filter((u) =>
     u.privilegeName.toLowerCase().includes('admin')
   ).length;
@@ -136,7 +137,7 @@ export const MatrizAcessosPainel: React.FC<MatrizAcessosPainelProps> = ({
         <MatrizGrid
           usuarios={usuariosFiltrados}
           grupos={gruposModulos}
-          onTogglePermissao={togglePermissao}
+          onToggleNivel={toggleNivel}
           onOpenTemplates={(user) => setSelectedUserForTemplate(user)}
         />
       )}

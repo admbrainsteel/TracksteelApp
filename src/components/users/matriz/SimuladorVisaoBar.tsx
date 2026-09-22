@@ -22,7 +22,12 @@ export const SimuladorVisaoBar: React.FC<SimuladorVisaoBarProps> = ({
 
   // Total de módulos disponíveis
   const totalModulos = grupos.reduce((acc, g) => acc + g.recursos.length, 0);
-  const totalPermitidos = usuarioSimulado ? usuarioSimulado.recursosPermitidos.size : 0;
+  const totalPermitidos = usuarioSimulado
+    ? Object.values(usuarioSimulado.permissoesMap).filter((v) => v !== 'nenhum').length
+    : 0;
+  const isSmartExclusivo = usuarioSimulado
+    ? usuarioSimulado.permissoesMap['modo-smart'] !== 'nenhum' && totalPermitidos <= 4
+    : false;
 
   return (
     <div className="rounded-xl border border-border/80 bg-muted/30 p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
@@ -63,13 +68,13 @@ export const SimuladorVisaoBar: React.FC<SimuladorVisaoBarProps> = ({
             <Badge
               variant="outline"
               className={`h-7 px-2 border font-semibold flex items-center gap-1 ${
-                usuarioSimulado.recursosPermitidos.has('modo-smart') && totalPermitidos <= 4
+                isSmartExclusivo
                   ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-400'
                   : 'border-sky-500/40 bg-sky-500/10 text-sky-400'
               }`}
             >
               <CheckCircle2 className="h-3 w-3" />
-              {usuarioSimulado.recursosPermitidos.has('modo-smart') && totalPermitidos <= 4
+              {isSmartExclusivo
                 ? 'Modo Smart Exclusivo'
                 : `${totalPermitidos}/${totalModulos} Módulos`}
             </Badge>

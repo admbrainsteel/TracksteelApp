@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+export type NivelAcesso = 'nenhum' | 'visualizar' | 'criar';
+
 export interface UsuarioMatriz {
   id: string;
   email: string;
@@ -12,13 +14,13 @@ export interface UsuarioMatriz {
   functionId: string | null;
   functionName: string;
   profileImageUrl: string | null;
-  recursosPermitidos: Set<string>;
+  permissoesMap: Record<string, NivelAcesso>;
 }
 
 export interface GrupoRecurso {
   key: string;
   titulo: string;
-  cor: string; // Ex: 'emerald', 'sky', 'indigo', 'amber', 'rose'
+  cor: string; // 'emerald', 'sky', 'indigo', 'amber', 'teal', 'rose'
   descricao: string;
   recursos: {
     key: string;
@@ -107,7 +109,7 @@ export interface TemplateAcesso {
   descricao: string;
   icone: string;
   badge: string;
-  recursosPermitidos: string[];
+  permissoesPadrao: Record<string, NivelAcesso>;
 }
 
 export const TEMPLATES_ACESSO: TemplateAcesso[] = [
@@ -117,12 +119,12 @@ export const TEMPLATES_ACESSO: TemplateAcesso[] = [
     descricao: 'Acesso 100% restrito ao Modo Smart touch. Não enxerga nenhum menu corporativo do ERP.',
     icone: 'Factory',
     badge: 'Chão de Fábrica',
-    recursosPermitidos: [
-      'modo-smart',
-      'smart-apontamento',
-      'smart-metricas',
-      'smart-pdf',
-    ],
+    permissoesPadrao: {
+      'modo-smart': 'visualizar',
+      'smart-apontamento': 'criar', // pode apontar produção
+      'smart-metricas': 'visualizar', // pode ver suas métricas
+      'smart-pdf': 'criar', // pode gerar checklist/PDF
+    },
   },
   {
     id: 'pcp_planejamento',
@@ -130,17 +132,17 @@ export const TEMPLATES_ACESSO: TemplateAcesso[] = [
     descricao: 'Acesso completo à Mesa Tática do PCP, Dashboards, Cronogramas, OFs e Visualizador 3D.',
     icone: 'Layers',
     badge: 'Planejamento',
-    recursosPermitidos: [
-      'producao-pcp',
-      'producao-dashboard',
-      'diario-producao',
-      'prioridades-fabricacao',
-      'visualizador-3d',
-      'ofs-lista',
-      'ofs-cronograma',
-      'cadastro-pecas',
-      'modo-smart',
-    ],
+    permissoesPadrao: {
+      'producao-pcp': 'criar',
+      'producao-dashboard': 'visualizar',
+      'diario-producao': 'visualizar',
+      'prioridades-fabricacao': 'criar',
+      'visualizador-3d': 'visualizar',
+      'ofs-lista': 'criar',
+      'ofs-cronograma': 'criar',
+      'cadastro-pecas': 'criar',
+      'modo-smart': 'visualizar',
+    },
   },
   {
     id: 'expedicao_logistica',
@@ -148,12 +150,12 @@ export const TEMPLATES_ACESSO: TemplateAcesso[] = [
     descricao: 'Controle de romaneios, pesagens, expedição de peças e solicitações de compras.',
     icone: 'Truck',
     badge: 'Logística',
-    recursosPermitidos: [
-      'expedicao',
-      'estoque',
-      'estoque-solicitacao-compras',
-      'modo-smart',
-    ],
+    permissoesPadrao: {
+      'expedicao': 'criar',
+      'estoque': 'criar',
+      'estoque-solicitacao-compras': 'criar',
+      'modo-smart': 'visualizar',
+    },
   },
   {
     id: 'fiscal_obra',
@@ -161,20 +163,23 @@ export const TEMPLATES_ACESSO: TemplateAcesso[] = [
     descricao: 'Acompanhamento do canteiro de obras, romaneios recebidos e Modo Smart de montagem.',
     icone: 'HardHat',
     badge: 'Obra',
-    recursosPermitidos: [
-      'obra-dashboard',
-      'obra-configuracoes',
-      'visualizador-3d',
-      'modo-smart',
-    ],
+    permissoesPadrao: {
+      'obra-dashboard': 'visualizar',
+      'obra-configuracoes': 'visualizar',
+      'visualizador-3d': 'visualizar',
+      'modo-smart': 'visualizar',
+    },
   },
   {
     id: 'administrador_total',
     nome: 'Administrador / Gestor Total',
-    descricao: 'Acesso irrestrito a todas as telas, configurações, usuários e ferramentas do sistema.',
+    descricao: 'Acesso irrestrito com criação e edição em todas as telas e configurações.',
     icone: 'Crown',
     badge: 'Controle Total',
-    recursosPermitidos: GRUPOS_MODULOS.flatMap((g) => g.recursos.map((r) => r.key)),
+    permissoesPadrao: GRUPOS_MODULOS.flatMap((g) => g.recursos).reduce((acc, r) => {
+      acc[r.key] = 'criar';
+      return acc;
+    }, {} as Record<string, NivelAcesso>),
   },
 ];
 
@@ -230,15 +235,28 @@ export const useMatrizAcessos = () => {
       // Mapear usuários para a Matriz
       const mapped: UsuarioMatriz[] = (profiles || []).map((p: any) => {
         const privId = p.privilege_id;
-        const recursos = privId && recursosPorPrivilege[privId]
-          ? new Set(recursosPorPrivilege[privId])
+        const privNome = p.privileges?.name || 'Padrão';
+        const isAdmin = privNome.toLowerCase().includes('admin');
+        const recursosSet = privId && recursosPorPrivilege[privId]
+          ? recursosPorPrivilege[privId]
           : new Set<string>();
 
-        // Se o privilégio tiver nome "Admin" ou similar, já inclui todos
-        const privNome = p.privileges?.name || 'Padrão';
-        if (privNome.toLowerCase().includes('admin')) {
-          GRUPOS_MODULOS.forEach((g) => g.recursos.forEach((r) => recursos.add(r.key)));
-        }
+        const permissoesMap: Record<string, NivelAcesso> = {};
+
+        GRUPOS_MODULOS.forEach((g) => {
+          g.recursos.forEach((r) => {
+            if (isAdmin) {
+              permissoesMap[r.key] = 'criar';
+            } else if (recursosSet.has(`${r.key}:edit`) || recursosSet.has(`${r.key}_edit`)) {
+              permissoesMap[r.key] = 'criar';
+            } else if (recursosSet.has(r.key)) {
+              // Se tiver o recurso base, verificar se o perfil é apenas visualizador ou editor
+              permissoesMap[r.key] = 'criar'; // padrão ativo é criar
+            } else {
+              permissoesMap[r.key] = 'nenhum';
+            }
+          });
+        });
 
         return {
           id: p.id,
@@ -250,7 +268,7 @@ export const useMatrizAcessos = () => {
           functionId: p.function_id,
           functionName: p.user_functions?.name || 'Sem Cargo',
           profileImageUrl: p.profile_image_url,
-          recursosPermitidos: recursos,
+          permissoesMap,
         };
       });
 
@@ -267,54 +285,78 @@ export const useMatrizAcessos = () => {
     carregarDados();
   }, []);
 
-  // TOGGLE DIRETO DE UMA PERMISSÃO NA MATRIZ
-  const togglePermissao = async (userId: string, resourceKey: string) => {
+  // LÓGICA SOLICITADA PELO USUÁRIO PARA BOTÕES V E C:
+  // - Clicar em V (Visualizar):
+  //    * Se o nível atual for 'criar' -> rebaixa para 'visualizar' (desativa o C)
+  //    * Se o nível atual for 'visualizar' -> desativa ambos ('nenhum')
+  //    * Se o nível atual for 'nenhum' -> ativa 'visualizar' (V verde, C desativado)
+  // - Clicar em C (Criar/Editar):
+  //    * Se o nível for 'nenhum' ou 'visualizar' -> ativa 'criar' (ambos V e C ficam verdes!)
+  //    * Se o nível já for 'criar' -> desliga C (rebaixa para 'visualizar')
+  const toggleNivel = async (userId: string, resourceKey: string, tipo: 'V' | 'C') => {
     const user = usuarios.find((u) => u.id === userId);
     if (!user) return;
 
-    const temAcesso = user.recursosPermitidos.has(resourceKey);
-    const novoSet = new Set(user.recursosPermitidos);
+    const nivelAtual = user.permissoesMap[resourceKey] || 'nenhum';
+    let novoNivel: NivelAcesso = 'nenhum';
 
-    if (temAcesso) {
-      novoSet.delete(resourceKey);
+    if (tipo === 'V') {
+      if (nivelAtual === 'criar') {
+        novoNivel = 'visualizar'; // desativa o C
+      } else if (nivelAtual === 'visualizar') {
+        novoNivel = 'nenhum'; // desliga ambos
+      } else {
+        novoNivel = 'visualizar'; // liga V
+      }
     } else {
-      novoSet.add(resourceKey);
+      // tipo === 'C'
+      if (nivelAtual === 'criar') {
+        novoNivel = 'visualizar'; // desliga C mantendo V
+      } else {
+        novoNivel = 'criar'; // ativa C e V juntos!
+      }
     }
 
-    // Atualização otimista na tela
+    // Atualização otimista imediata na tela
+    const novoMap = { ...user.permissoesMap, [resourceKey]: novoNivel };
     setUsuarios((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, recursosPermitidos: novoSet } : u))
+      prev.map((u) => (u.id === userId ? { ...u, permissoesMap: novoMap } : u))
     );
 
     try {
-      // Se o usuário tem privilege_id, salvar no banco
       if (user.privilegeId) {
-        if (temAcesso) {
-          // Remover
-          await supabase
-            .from('privilege_interface_resources')
-            .delete()
-            .eq('privilege_id', user.privilegeId)
-            .eq('resource_key', resourceKey);
-        } else {
-          // Adicionar
-          await supabase
-            .from('privilege_interface_resources')
-            .upsert(
-              { privilege_id: user.privilegeId, resource_key: resourceKey },
-              { onConflict: 'privilege_id,resource_key' }
-            );
+        // Remover permissões antigas do recurso
+        await supabase
+          .from('privilege_interface_resources')
+          .delete()
+          .eq('privilege_id', user.privilegeId)
+          .in('resource_key', [resourceKey, `${resourceKey}:edit`]);
+
+        // Gravar novo estado
+        if (novoNivel === 'visualizar') {
+          await supabase.from('privilege_interface_resources').insert({
+            privilege_id: user.privilegeId,
+            resource_key: resourceKey,
+          });
+        } else if (novoNivel === 'criar') {
+          await supabase.from('privilege_interface_resources').insert([
+            { privilege_id: user.privilegeId, resource_key: resourceKey },
+            { privilege_id: user.privilegeId, resource_key: `${resourceKey}:edit` },
+          ]);
         }
       }
-      toast.success(
-        temAcesso
-          ? `Módulo '${resourceKey}' bloqueado para ${user.fullName}.`
-          : `Módulo '${resourceKey}' liberado para ${user.fullName}!`
-      );
+
+      const desc = {
+        nenhum: 'Bloqueado (✕)',
+        visualizar: 'Apenas Visualização [V]',
+        criar: 'Criação e Edição Total [V + C]',
+      }[novoNivel];
+
+      toast.success(`${resourceKey}: ${desc} para ${user.fullName}`);
     } catch (err) {
-      console.error('Erro ao atualizar permissão:', err);
+      console.error('Erro ao atualizar nível de permissão:', err);
       toast.error('Erro ao salvar alteração no banco.');
-      carregarDados(); // Reverter se falhar
+      carregarDados();
     }
   };
 
@@ -324,11 +366,16 @@ export const useMatrizAcessos = () => {
     const template = TEMPLATES_ACESSO.find((t) => t.id === templateId);
     if (!user || !template) return;
 
-    const novoSet = new Set(template.recursosPermitidos);
+    const novoMap: Record<string, NivelAcesso> = {};
+    GRUPOS_MODULOS.forEach((g) => {
+      g.recursos.forEach((r) => {
+        novoMap[r.key] = template.permissoesPadrao[r.key] || 'nenhum';
+      });
+    });
 
     // Atualização otimista
     setUsuarios((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, recursosPermitidos: novoSet } : u))
+      prev.map((u) => (u.id === userId ? { ...u, permissoesMap: novoMap } : u))
     );
 
     try {
@@ -340,10 +387,15 @@ export const useMatrizAcessos = () => {
           .eq('privilege_id', user.privilegeId);
 
         // Inserir os novos recursos do template
-        const records = template.recursosPermitidos.map((resKey) => ({
-          privilege_id: user.privilegeId,
-          resource_key: resKey,
-        }));
+        const records: { privilege_id: string; resource_key: string }[] = [];
+        Object.entries(novoMap).forEach(([resKey, nivel]) => {
+          if (nivel === 'visualizar') {
+            records.push({ privilege_id: user.privilegeId!, resource_key: resKey });
+          } else if (nivel === 'criar') {
+            records.push({ privilege_id: user.privilegeId!, resource_key: resKey });
+            records.push({ privilege_id: user.privilegeId!, resource_key: `${resKey}:edit` });
+          }
+        });
 
         if (records.length > 0) {
           await supabase.from('privilege_interface_resources').insert(records);
@@ -371,7 +423,7 @@ export const useMatrizAcessos = () => {
     usuarioSimulado,
     usuarioSimuladoId,
     setUsuarioSimuladoId,
-    togglePermissao,
+    toggleNivel,
     aplicarTemplate,
     recarregar: carregarDados,
   };
