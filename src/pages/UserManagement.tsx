@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, UserPlus, Shield, Settings, Mail, Activity } from 'lucide-react';
+import { Users, UserPlus, Shield, Settings, Mail, Activity, LayoutGrid } from 'lucide-react';
 import { UsersTable } from '@/components/users/UsersTable';
 import { PendingUsersTable } from '@/components/users/PendingUsersTable';
 import { FunctionsManager } from '@/components/users/FunctionsManager';
@@ -10,13 +10,14 @@ import { PrivilegesManager } from '@/components/users/PrivilegesManager';
 import { PasswordResetRequests } from '@/components/users/PasswordResetRequests';
 import { SessionLogsSimple } from '@/components/users/SessionLogsSimple';
 import { UserModal } from '@/components/users/UserModal';
+import { MatrizAcessosPainel } from '@/components/users/matriz/MatrizAcessosPainel';
 import { useUserManagement, UserProfile } from '@/hooks/useUserManagement';
 import { usePermissionControl } from '@/hooks/usePermissionControl';
 
 const UserManagement = () => {
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
-  const [activeTab, setActiveTab] = useState('users');
+  const [activeTab, setActiveTab] = useState('matriz');
   
   const { 
     canView, 
@@ -157,7 +158,16 @@ const UserManagement = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 bg-muted h-auto p-1">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-7 bg-muted h-auto p-1">
+          <TabsTrigger 
+            value="matriz" 
+            className="flex items-center gap-1 md:gap-2 text-xs md:text-sm p-2 md:p-3 font-semibold text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+          >
+            <LayoutGrid className="h-3 w-3 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">Matriz de Acessos</span>
+            <span className="sm:hidden">Matriz</span>
+          </TabsTrigger>
+
           <TabsTrigger 
             value="users" 
             className="flex items-center gap-1 md:gap-2 text-xs md:text-sm p-2 md:p-3"
@@ -222,6 +232,10 @@ const UserManagement = () => {
             </TabsTrigger>
           )}
         </TabsList>
+
+        <TabsContent value="matriz" className="space-y-4 mt-4">
+          <MatrizAcessosPainel onOpenNovoUsuario={canCreate() ? handleCreateUser : undefined} />
+        </TabsContent>
 
         <TabsContent value="users" className="space-y-4 mt-4">
           <Card className="card-mobile">
@@ -308,7 +322,7 @@ const UserManagement = () => {
               </CardHeader>
               <CardContent className="card-content-mobile">
                 <PrivilegesManager
-                  privileges={privileges}
+                  privileges={privileges as any}
                   onCreate={canCreate() ? createPrivilege : undefined}
                   onUpdate={canEdit() ? updatePrivilege : undefined}
                   onDelete={canDelete() ? deletePrivilege : undefined}

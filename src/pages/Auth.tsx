@@ -16,7 +16,7 @@ import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, user, loading, isRecoveryFlow, session } = useAuth();
+  const { signIn, user, loading, isRecoveryFlow } = useAuth();
   const { brandSettings } = useBrandSettings();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -46,11 +46,16 @@ const Auth = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldShowReset, showPasswordReset, loading, location.pathname]);
 
-  // Redirecionar usuários autenticados para página principal (exceto em fluxo de recuperação)
+  // Redirecionar usuários autenticados para página principal ou Modo Smart
   useEffect(() => {
     if (!loading && user && !showPasswordReset) {
-      console.log('🔄 Redirecionando usuário autenticado para página principal');
-      navigate('/');
+      const isSmartMode = localStorage.getItem('tracksteel_app_mode') === 'smart';
+      console.log('🔄 Redirecionando usuário autenticado:', isSmartMode ? '/smart' : '/');
+      if (isSmartMode) {
+        navigate('/smart');
+      } else {
+        navigate('/');
+      }
     }
   }, [user, loading, navigate, showPasswordReset]);
 
