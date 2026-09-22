@@ -15,6 +15,7 @@ export { default as Producao } from './Producao';
 export { default as DiarioProducao } from './DiarioProducao';
 export { default as ApontamentoProducao } from './ApontamentoProducao';
 export { default as DashboardProducao } from './DashboardProducao';
+export { default as PCP } from './PCP';
 export { default as Expedicao } from './Expedicao';
 export { default as Obra } from './Obra';
 export { default as ObraConfiguracoes } from './ObraConfiguracoes';

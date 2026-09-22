@@ -179,6 +179,7 @@ export function useInterfaceResources() {
           'diario-producao',
           'producao-apontamento',
           'producao-dashboard',
+          'producao-pcp',
           'prioridades-fabricacao',
           'painel-industrial',
           'expedicao',

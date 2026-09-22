@@ -35,7 +35,8 @@ export const syncInterfaceResources = async (menuItems: any[], adminMenuItems: a
       { resource_key: 'diario-producao', resource_name: 'Diário de Produção', icon_name: null, route_path: '/diario-producao', is_submenu: true, parent_key: 'producao', order_index: 2 },
       { resource_key: 'producao-apontamento', resource_name: 'Apontamento de Produção', icon_name: null, route_path: '/apontamento-producao', is_submenu: true, parent_key: 'producao', order_index: 3 },
       { resource_key: 'producao-dashboard', resource_name: 'Dashboard de Produção', icon_name: null, route_path: '/dashboard-producao', is_submenu: true, parent_key: 'producao', order_index: 4 },
-      { resource_key: 'prioridades-fabricacao', resource_name: 'Prioridades de Fabricação', icon_name: null, route_path: '/prioridades-fabricacao', is_submenu: true, parent_key: 'producao', order_index: 5 },
+      { resource_key: 'producao-pcp', resource_name: 'PCP (Planejamento)', icon_name: null, route_path: '/pcp', is_submenu: true, parent_key: 'producao', order_index: 5 },
+      { resource_key: 'prioridades-fabricacao', resource_name: 'Prioridades de Fabricação', icon_name: null, route_path: '/prioridades-fabricacao', is_submenu: true, parent_key: 'producao', order_index: 6 },
       
       // Painel Industrial
       { resource_key: 'painel-industrial', resource_name: 'Painel Industrial', icon_name: 'Monitor', route_path: '/painel-industrial', is_submenu: false, order_index: 7 },

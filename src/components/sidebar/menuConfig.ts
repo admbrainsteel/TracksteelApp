@@ -139,6 +139,11 @@ export const menuGroups: MenuGroup[] = [
             url: "/dashboard-producao",
           },
           {
+            key: "pcp",
+            title: "PCP (Planejamento)",
+            url: "/pcp",
+          },
+          {
             key: "prioridades-fabricacao",
             title: "Prioridades de Fabricação",
             url: "/prioridades-fabricacao",

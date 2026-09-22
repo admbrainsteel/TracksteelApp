@@ -162,6 +162,12 @@ export const routeConfig: RouteDefinition[] = [
     guard: 'resource',
     resourceKey: 'producao-dashboard',
   },
+  {
+    path: '/pcp',
+    component: () => import('@/pages/PCP'),
+    guard: 'resource',
+    resourceKey: 'producao-pcp',
+  },
 
   // ── Visualizador 3D ──────────────────────────────────────
   {
