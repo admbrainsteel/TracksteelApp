@@ -65,13 +65,19 @@ export const SmartHub: React.FC<SmartHubProps> = ({
         <button
           type="button"
           onClick={() => handleAcao('producao')}
-          className="min-h-[110px] sm:min-h-[125px] p-4 rounded-3xl bg-gradient-to-br from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700 hover:from-amber-400 hover:to-amber-500 text-white shadow-lg shadow-amber-900/20 dark:shadow-amber-950/40 border-2 border-amber-300/60 dark:border-amber-400/40 flex flex-col justify-between text-left transition-all active:scale-[0.97] group"
+          className="min-h-[110px] sm:min-h-[125px] p-4 rounded-3xl
+            bg-amber-50 hover:bg-amber-100 active:bg-amber-100
+            dark:bg-gradient-to-br dark:from-amber-600 dark:to-amber-700 dark:hover:from-amber-500 dark:hover:to-amber-600
+            border-2 border-amber-400 dark:border-amber-400/40
+            shadow-md shadow-amber-200/60 dark:shadow-amber-950/40
+            text-amber-800 dark:text-white
+            flex flex-col justify-between text-left transition-all active:scale-[0.97] group"
         >
           <div className="flex items-center justify-between w-full">
-            <div className="p-2.5 rounded-2xl bg-white/20 dark:bg-white/15 text-white backdrop-blur-sm">
+            <div className="p-2.5 rounded-2xl bg-amber-400/25 dark:bg-white/15 text-amber-700 dark:text-white backdrop-blur-sm">
               <Hammer className="h-7 w-7" />
             </div>
-            <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/20 dark:bg-black/25 text-amber-100">
+            <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-200 dark:bg-black/25 text-amber-800 dark:text-amber-100">
               Passo 1
             </span>
           </div>
@@ -79,7 +85,7 @@ export const SmartHub: React.FC<SmartHubProps> = ({
             <div className="text-lg sm:text-xl font-black tracking-tight leading-tight">
               1. PRODUÇÃO
             </div>
-            <div className="text-xs text-amber-100 font-medium opacity-90 mt-0.5">
+            <div className="text-xs text-amber-600 dark:text-amber-100 font-medium opacity-90 mt-0.5">
               Corte, Dobra, Solda, Pintura...
             </div>
           </div>
@@ -89,13 +95,19 @@ export const SmartHub: React.FC<SmartHubProps> = ({
         <button
           type="button"
           onClick={() => handleAcao('embarque')}
-          className="min-h-[110px] sm:min-h-[125px] p-4 rounded-3xl bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 active:from-blue-700 active:to-blue-800 text-white shadow-lg shadow-blue-900/20 dark:shadow-blue-950/40 border-2 border-blue-300/60 dark:border-blue-400/40 flex flex-col justify-between text-left transition-all active:scale-[0.97] group"
+          className="min-h-[110px] sm:min-h-[125px] p-4 rounded-3xl
+            bg-blue-50 hover:bg-blue-100 active:bg-blue-100
+            dark:bg-gradient-to-br dark:from-blue-600 dark:to-blue-700 dark:hover:from-blue-500 dark:hover:to-blue-600
+            border-2 border-blue-500 dark:border-blue-400/40
+            shadow-md shadow-blue-200/60 dark:shadow-blue-950/40
+            text-blue-800 dark:text-white
+            flex flex-col justify-between text-left transition-all active:scale-[0.97] group"
         >
           <div className="flex items-center justify-between w-full">
-            <div className="p-2.5 rounded-2xl bg-white/20 dark:bg-white/15 text-white backdrop-blur-sm">
+            <div className="p-2.5 rounded-2xl bg-blue-400/20 dark:bg-white/15 text-blue-700 dark:text-white backdrop-blur-sm">
               <Truck className="h-7 w-7" />
             </div>
-            <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/20 dark:bg-black/25 text-blue-100">
+            <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-200 dark:bg-black/25 text-blue-800 dark:text-blue-100">
               Passo 2
             </span>
           </div>
@@ -103,7 +115,7 @@ export const SmartHub: React.FC<SmartHubProps> = ({
             <div className="text-lg sm:text-xl font-black tracking-tight leading-tight">
               2. EMBARQUE
             </div>
-            <div className="text-xs text-blue-100 font-medium opacity-90 mt-0.5">
+            <div className="text-xs text-blue-600 dark:text-blue-100 font-medium opacity-90 mt-0.5">
               Romaneios e saída da fábrica
             </div>
           </div>
@@ -113,13 +125,19 @@ export const SmartHub: React.FC<SmartHubProps> = ({
         <button
           type="button"
           onClick={() => handleAcao('montagem')}
-          className="min-h-[110px] sm:min-h-[125px] p-4 rounded-3xl bg-gradient-to-br from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 active:from-emerald-700 active:to-emerald-800 text-white shadow-lg shadow-emerald-900/20 dark:shadow-emerald-950/40 border-2 border-emerald-300/60 dark:border-emerald-400/40 flex flex-col justify-between text-left transition-all active:scale-[0.97] group"
+          className="min-h-[110px] sm:min-h-[125px] p-4 rounded-3xl
+            bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-100
+            dark:bg-gradient-to-br dark:from-emerald-600 dark:to-emerald-700 dark:hover:from-emerald-500 dark:hover:to-emerald-600
+            border-2 border-emerald-500 dark:border-emerald-400/40
+            shadow-md shadow-emerald-200/60 dark:shadow-emerald-950/40
+            text-emerald-800 dark:text-white
+            flex flex-col justify-between text-left transition-all active:scale-[0.97] group"
         >
           <div className="flex items-center justify-between w-full">
-            <div className="p-2.5 rounded-2xl bg-white/20 dark:bg-white/15 text-white backdrop-blur-sm">
+            <div className="p-2.5 rounded-2xl bg-emerald-400/20 dark:bg-white/15 text-emerald-700 dark:text-white backdrop-blur-sm">
               <PackageCheck className="h-7 w-7" />
             </div>
-            <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/20 dark:bg-black/25 text-emerald-100">
+            <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-200 dark:bg-black/25 text-emerald-800 dark:text-emerald-100">
               Passo 3
             </span>
           </div>
@@ -127,7 +145,7 @@ export const SmartHub: React.FC<SmartHubProps> = ({
             <div className="text-lg sm:text-xl font-black tracking-tight leading-tight">
               3. MONTAGEM
             </div>
-            <div className="text-xs text-emerald-100 font-medium opacity-90 mt-0.5">
+            <div className="text-xs text-emerald-600 dark:text-emerald-100 font-medium opacity-90 mt-0.5">
               Conferência e avanço na obra
             </div>
           </div>
@@ -137,21 +155,27 @@ export const SmartHub: React.FC<SmartHubProps> = ({
         <button
           type="button"
           onClick={() => handleAcao('consulta')}
-          className="min-h-[110px] sm:min-h-[125px] p-4 rounded-3xl bg-gradient-to-br from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 active:from-purple-700 active:to-purple-800 text-white shadow-lg shadow-purple-900/20 dark:shadow-purple-950/40 border-2 border-purple-300/60 dark:border-purple-400/40 flex flex-col justify-between text-left transition-all active:scale-[0.97] group"
+          className="min-h-[110px] sm:min-h-[125px] p-4 rounded-3xl
+            bg-purple-50 hover:bg-purple-100 active:bg-purple-100
+            dark:bg-gradient-to-br dark:from-purple-600 dark:to-purple-700 dark:hover:from-purple-500 dark:hover:to-purple-600
+            border-2 border-purple-500 dark:border-purple-400/40
+            shadow-md shadow-purple-200/60 dark:shadow-purple-950/40
+            text-purple-800 dark:text-white
+            flex flex-col justify-between text-left transition-all active:scale-[0.97] group"
         >
           <div className="flex items-center justify-between w-full">
-            <div className="p-2.5 rounded-2xl bg-white/20 dark:bg-white/15 text-white backdrop-blur-sm">
+            <div className="p-2.5 rounded-2xl bg-purple-400/20 dark:bg-white/15 text-purple-700 dark:text-white backdrop-blur-sm">
               <Search className="h-7 w-7" />
             </div>
-            <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/20 dark:bg-black/25 text-purple-100">
+            <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-200 dark:bg-black/25 text-purple-800 dark:text-purple-100">
               Info
             </span>
           </div>
           <div>
             <div className="text-lg sm:text-xl font-black tracking-tight leading-tight">
-              4. PEÇAS & PDF
+              4. PEÇAS &amp; PDF
             </div>
-            <div className="text-xs text-purple-100 font-medium opacity-90 mt-0.5">
+            <div className="text-xs text-purple-600 dark:text-purple-100 font-medium opacity-90 mt-0.5">
               Status da peça e relatórios
             </div>
           </div>

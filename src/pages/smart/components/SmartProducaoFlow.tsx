@@ -70,18 +70,19 @@ export const calcularSaldoProcessoPeca = (
   let qtdDisponivelParaEntrar = Number(peca.quantidade) || 0;
   let motivoBloqueio: string | null = null;
 
-  // REGRA 1: Peças sem montagem (S/M) não passam por Montagem nem por Solda
-  if (ehSemMontagem && (ehSolda || ehMontagem)) {
+  // REGRA 1: Peças sem montagem (S/M) não passam por Solda
+  // (Não existe processo "Montagem" de fábrica - a montagem é apenas na obra)
+  if (ehSemMontagem && ehSolda) {
     qtdDisponivelParaEntrar = 0;
-    motivoBloqueio = 'Peça S/M (Pula Montagem e Solda)';
+    motivoBloqueio = 'Peça S/M (Pula Solda - vai direto para Pintura)';
   } else if (indexAtual > 0) {
     // REGRA 2: Encontrar processo anterior válido
     let procAnteriorValido: ProcessoFabricacao | null = null;
     for (let i = indexAtual - 1; i >= 0; i--) {
       const proc = procsOrdenados[i];
       const nomeP = proc.nome.toLowerCase();
-      // Se a peça for S/M, pula solda e montagem na busca do anterior (ex: Corte -> Pintura)
-      if (ehSemMontagem && (nomeP.includes('solda') || nomeP.includes('montag'))) {
+      // Se a peça for S/M, pula solda na busca do anterior (ex: Corte -> Pintura)
+      if (ehSemMontagem && nomeP.includes('solda')) {
         continue;
       }
       procAnteriorValido = proc;
@@ -341,14 +342,13 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
               <span>Carregando etapas...</span>
             </div>
           ) : processos.length === 0 ? (
-            // Fallback com processos industriais padrões caso a tabela esteja vazia
+            // Fallback com processos industriais corretos (ordem real de produção)
             [
               { id: '1', nome: 'Corte', ordem: 1 },
               { id: '2', nome: 'Dobra / Furação', ordem: 2 },
-              { id: '3', nome: 'Montagem', ordem: 3 },
-              { id: '4', nome: 'Solda', ordem: 4 },
-              { id: '5', nome: 'Pintura', ordem: 5 },
-              { id: '6', nome: 'Galvanização', ordem: 6 },
+              { id: '3', nome: 'Solda', ordem: 3 },
+              { id: '4', nome: 'Pintura', ordem: 4 },
+              { id: '5', nome: 'Galvanização', ordem: 5 },
             ].map((p) => (
               <button
                 key={p.id}
@@ -561,7 +561,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
                         {item.tem_componentes === false && (
                           <span
                             className="text-[10px] px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 border border-purple-300 dark:bg-purple-950/80 dark:text-purple-300 dark:border-purple-800/50 font-black"
-                            title="Peça Sem Montagem (Pula Solda e Montagem)"
+                            title="Peça Sem Montagem (Pula Solda - vai direto para Pintura)"
                           >
                             S/M
                           </span>

@@ -568,7 +568,6 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
         p.quantidade.toString(),
         p.detalhamento.toString(),
         p.corte.toString(),
-        p.montagem.toString(),
         p.solda.toString(),
         p.pintura.toString(),
         p.expedido.toString(),
@@ -577,7 +576,7 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
 
       autoTable(doc, {
         startY: 33,
-        head: [['Marca', 'Perfil / Peça', 'Fase', 'Total', 'Det.', 'Corte', 'Mont.', 'Solda', 'Pint.', 'Exp.', 'Obra']],
+        head: [['Marca', 'Perfil / Peça', 'Fase', 'Total', 'Det.', 'Corte', 'Solda', 'Pint.', 'Exp.', 'Obra']],
         body: tableRows,
         theme: 'plain',
         headStyles: {
@@ -910,12 +909,11 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
                     </div>
                   </div>
 
-                  {/* Linha do Tempo Visual com TODAS as Etapas Fabris */}
-                  <div className="grid grid-cols-7 gap-1 mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-700/80 text-center">
+                  {/* Linha do Tempo Visual com Etapas Fabris Corretas: Det → Corte → Solda → Pint → Emb → Obra */}
+                  <div className="grid grid-cols-6 gap-1 mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-700/80 text-center">
                     {[
                       { nome: 'Det.', valor: peca.detalhamento, isPula: false },
                       { nome: 'Corte', valor: peca.corte, isPula: false },
-                      { nome: 'Mont.', valor: peca.montagem, isPula: peca.tem_componentes === false },
                       { nome: 'Solda', valor: peca.solda, isPula: peca.tem_componentes === false },
                       { nome: 'Pint.', valor: peca.pintura, isPula: false },
                       { nome: 'Emb.', valor: peca.expedido, isPula: false },
