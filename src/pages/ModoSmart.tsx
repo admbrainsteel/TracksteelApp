@@ -125,7 +125,7 @@ export const ModoSmart: React.FC = () => {
   const headerInfo = getHeaderInfo();
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans select-none antialiased">
+    <div className="min-h-screen bg-slate-100/90 text-slate-800 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans select-none antialiased transition-colors duration-200">
       {/* Cabeçalho Fixo do Modo Smart */}
       <SmartHeader
         titulo={headerInfo.titulo}

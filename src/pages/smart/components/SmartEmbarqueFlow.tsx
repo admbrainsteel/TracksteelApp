@@ -649,22 +649,22 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
               smartAudio.playClick();
               setSubTela('selecionar_romaneio');
             }}
-            className="w-full min-h-[90px] p-5 rounded-3xl bg-slate-800 hover:bg-slate-750 active:scale-[0.98] text-slate-100 border-2 border-slate-700 hover:border-blue-500/60 flex items-center justify-between text-left shadow-md transition-all group"
+            className="w-full min-h-[90px] p-5 rounded-3xl bg-white hover:bg-slate-50 dark:bg-slate-800 dark:hover:bg-slate-750 active:scale-[0.98] text-slate-800 dark:text-slate-100 border-2 border-slate-200 hover:border-blue-500/60 dark:border-slate-700 flex items-center justify-between text-left shadow-sm transition-all group"
           >
             <div className="flex items-center gap-3.5">
-              <div className="p-3 rounded-2xl bg-slate-700 text-blue-400">
+              <div className="p-3 rounded-2xl bg-blue-100 text-blue-700 dark:bg-slate-700 dark:text-blue-400">
                 <ListChecks className="h-7 w-7" />
               </div>
               <div>
-                <div className="text-lg font-black tracking-tight">
+                <div className="text-lg font-black tracking-tight text-slate-900 dark:text-slate-100">
                   Romaneios da Obra & Conferência
                 </div>
-                <div className="text-xs text-slate-400 font-medium">
+                <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                   {romaneios.length} romaneio(s) ativo(s) — carregar peças ou abrir PDF
                 </div>
               </div>
             </div>
-            <ChevronRight className="h-6 w-6 text-slate-400 group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
+            <ChevronRight className="h-6 w-6 text-slate-400 group-hover:text-blue-600 dark:text-slate-400 dark:group-hover:text-blue-400 group-hover:translate-x-1 transition-all" />
           </button>
         </div>
 
@@ -675,7 +675,7 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
             smartAudio.playClick();
             onVoltarHub();
           }}
-          className="w-full h-14 bg-slate-800 border-slate-700 text-slate-200 text-sm font-bold rounded-2xl mt-4 active:scale-98"
+          className="w-full h-14 bg-white hover:bg-slate-100 text-slate-800 border-slate-300 dark:bg-slate-800 dark:hover:bg-slate-750 dark:border-slate-700 dark:text-slate-200 text-sm font-bold rounded-2xl mt-4 active:scale-98 transition-colors"
         >
           Voltar ao Menu Principal
         </Button>
@@ -690,37 +690,40 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
     return (
       <div className="flex flex-col flex-1 p-4 max-w-xl mx-auto w-full">
         <div className="mb-4 text-center">
-          <span className="text-xs font-black uppercase text-blue-400 tracking-wider">
-            NOVO CARREGAMENTO
+          <span className="text-xs font-black uppercase text-blue-700 dark:text-blue-400 tracking-wider">
+            NOVO ROMANEIO
           </span>
-          <h2 className="text-xl font-black text-slate-100 uppercase mt-0.5">
-            Dados do Veículo & Frete
+          <h2 className="text-xl font-black text-slate-900 dark:text-slate-100 uppercase mt-0.5">
+            Iniciar Carga de Embarque
           </h2>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Identifique o veículo para abrir a conferência de saída
+          </p>
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-4 pb-4">
           {/* Nome / Placa do Motorista */}
           <div>
-            <label className="text-xs font-black uppercase text-slate-300 tracking-wider block mb-1.5">
+            <label className="text-xs font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider block mb-1.5">
               Motorista ou Identificação do Veículo
             </label>
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <User className="h-5 w-5 text-blue-400" />
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-blue-600 dark:text-blue-400">
+                <User className="h-5 w-5" />
               </div>
               <Input
                 type="text"
                 value={nomeMotorista}
                 onChange={(e) => setNomeMotorista(e.target.value)}
                 placeholder="Ex: João Silva - Placa ABC-1234"
-                className="h-14 pl-11 bg-slate-800 border-slate-700 text-slate-100 text-base font-bold rounded-2xl"
+                className="h-14 pl-11 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 text-base font-bold rounded-2xl shadow-sm focus-visible:ring-blue-500"
               />
             </div>
           </div>
 
           {/* Tipo de Veículo */}
           <div>
-            <label className="text-xs font-black uppercase text-slate-300 tracking-wider block mb-1.5">
+            <label className="text-xs font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider block mb-1.5">
               Tipo de Transporte / Veículo
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -739,8 +742,8 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
                   }}
                   className={`h-12 rounded-xl text-xs font-bold border-2 transition-all flex items-center justify-center gap-1.5 ${
                     tipoTransporte === tipo.id
-                      ? 'bg-blue-600 text-white border-blue-400 font-black shadow-md'
-                      : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-600'
+                      ? 'bg-blue-600 text-white border-blue-500 font-black shadow-md'
+                      : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:border-slate-600'
                   }`}
                 >
                   <Truck className="h-4 w-4" />
@@ -752,7 +755,7 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
 
           {/* Tipo de Frete */}
           <div>
-            <label className="text-xs font-black uppercase text-slate-300 tracking-wider block mb-1.5">
+            <label className="text-xs font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider block mb-1.5">
               Tipo de Frete
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -764,8 +767,8 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
                 }}
                 className={`h-12 rounded-xl text-xs font-bold border-2 transition-all ${
                   freteTipo === 'proprio'
-                    ? 'bg-blue-600 text-white border-blue-400 font-black'
-                    : 'bg-slate-800 text-slate-300 border-slate-700'
+                    ? 'bg-blue-600 text-white border-blue-500 font-black shadow-sm'
+                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
                 }`}
               >
                 Frete Próprio
@@ -778,8 +781,8 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
                 }}
                 className={`h-12 rounded-xl text-xs font-bold border-2 transition-all ${
                   freteTipo === 'terceiros'
-                    ? 'bg-blue-600 text-white border-blue-400 font-black'
-                    : 'bg-slate-800 text-slate-300 border-slate-700'
+                    ? 'bg-blue-600 text-white border-blue-500 font-black shadow-sm'
+                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
                 }`}
               >
                 Terceiros / Contratado
@@ -793,7 +796,7 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
             type="button"
             disabled={criandoRomaneio}
             onClick={handleCriarRomaneio}
-            className="w-full h-15 bg-blue-600 hover:bg-blue-500 text-white text-base font-black rounded-2xl shadow-lg shadow-blue-950/50 uppercase active:scale-98"
+            className="w-full h-15 bg-blue-600 hover:bg-blue-500 text-white text-base font-black rounded-2xl shadow-lg shadow-blue-900/20 dark:shadow-blue-950/50 uppercase active:scale-98"
           >
             {criandoRomaneio ? 'Criando Romaneio...' : 'INICIAR CARGA DESTE CAMINHÃO 🚀'}
           </Button>
@@ -821,28 +824,28 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
     return (
       <div className="flex flex-col flex-1 p-4 max-w-xl mx-auto w-full">
         <div className="mb-4 text-center">
-          <span className="text-xs font-black uppercase text-blue-400 tracking-wider">
+          <span className="text-xs font-black uppercase text-blue-600 dark:text-blue-400 tracking-wider">
             EXPEDIÇÃO DA OBRA
           </span>
-          <h2 className="text-xl font-black text-slate-100 uppercase mt-0.5">
+          <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase mt-0.5">
             Romaneios de Carga
           </h2>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Selecione para carregar peças ou abrir conferência e PDF
           </p>
         </div>
 
         <div className="flex-1 overflow-y-auto space-y-3 pb-4">
           {loadingRomaneios ? (
-            <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
+            <div className="py-12 flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 gap-2">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
               <span>Buscando romaneios...</span>
             </div>
           ) : romaneios.length === 0 ? (
-            <div className="p-8 text-center bg-slate-800/40 rounded-2xl border border-slate-800">
-              <AlertCircle className="h-10 w-10 text-slate-500 mx-auto mb-2" />
-              <h3 className="text-base font-bold text-slate-200">Nenhum romaneio aberto</h3>
-              <p className="text-xs text-slate-400 mt-1">
+            <div className="p-8 text-center bg-white dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+              <AlertCircle className="h-10 w-10 text-slate-400 dark:text-slate-500 mx-auto mb-2" />
+              <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">Nenhum romaneio aberto</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Crie um novo romaneio para iniciar a expedição
               </p>
             </div>
@@ -850,28 +853,28 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
             romaneios.map((r) => (
               <div
                 key={r.id}
-                className="p-4 rounded-2xl bg-slate-800/90 border-2 border-slate-700 shadow-sm space-y-3"
+                className="p-4 rounded-2xl bg-white dark:bg-slate-800/90 border-2 border-slate-200 dark:border-slate-700 shadow-sm space-y-3"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+                    <div className="h-12 w-12 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-500/20 dark:text-blue-400 flex items-center justify-center shrink-0">
                       <Truck className="h-6 w-6" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-base font-black text-blue-400">
+                        <span className="text-base font-black text-blue-600 dark:text-blue-400">
                           {r.numero_romaneio}
                         </span>
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-slate-700 text-slate-300 font-bold uppercase">
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 font-bold uppercase">
                           {r.status || 'Aberto'}
                         </span>
                       </div>
-                      <div className="text-xs text-slate-200 font-semibold mt-0.5">
+                      <div className="text-xs text-slate-800 dark:text-slate-200 font-semibold mt-0.5">
                         {r.nome_motorista || 'Motorista padrão'}
                       </div>
-                      <div className="text-[11px] text-slate-400">
+                      <div className="text-[11px] text-slate-500 dark:text-slate-400">
                         Veículo: {formatTransporte(r.tipo_transporte)} | Peso:{' '}
-                        <b className="text-amber-400">
+                        <b className="text-amber-700 dark:text-amber-400">
                           {(r.peso_total_romaneio || 0).toLocaleString('pt-BR')} kg
                         </b>
                       </div>
@@ -880,7 +883,7 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
                 </div>
 
                 {/* Botões de Ação Direta no Card */}
-                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-700/60">
+                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100 dark:border-slate-700/60">
                   <button
                     type="button"
                     onClick={() => {
@@ -897,9 +900,9 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
                   <button
                     type="button"
                     onClick={() => handleAbrirConferencia(r)}
-                    className="h-10 px-3 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-100 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 border border-slate-600"
+                    className="h-10 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-slate-100 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 border border-slate-200 dark:border-slate-600 shadow-sm"
                   >
-                    <Eye className="h-4 w-4 text-amber-400" />
+                    <Eye className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                     <span>Conferir & PDF</span>
                   </button>
                 </div>
@@ -915,7 +918,7 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
             smartAudio.playClick();
             setSubTela('menu');
           }}
-          className="w-full h-14 bg-slate-800 border-slate-700 text-slate-200 text-sm font-bold rounded-2xl mt-2 active:scale-98"
+          className="w-full h-14 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold rounded-2xl mt-2 active:scale-98 shadow-sm"
         >
           ⬅️ Voltar ao Menu
         </Button>
@@ -930,23 +933,23 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
     return (
       <div className="flex flex-col flex-1 p-4 max-w-xl mx-auto w-full">
         {/* Banner do Romaneio Ativo com Atalho para Conferência */}
-        <div className="p-3.5 rounded-2xl bg-blue-950/60 border border-blue-700/60 mb-3 shadow-md flex items-center justify-between gap-2">
+        <div className="p-3.5 rounded-2xl bg-blue-50/90 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-700/60 mb-3 shadow-sm flex items-center justify-between gap-2">
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-black uppercase text-blue-400 tracking-wider">
+              <span className="text-xs font-black uppercase text-blue-700 dark:text-blue-400 tracking-wider">
                 CAMINHÃO ATIVO
               </span>
-              <span className="text-xs font-bold px-2 py-0.5 rounded bg-blue-500/20 text-blue-300">
+              <span className="text-xs font-bold px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-500/20 text-blue-800 dark:text-blue-300">
                 {romaneioAtivo.numero_romaneio}
               </span>
             </div>
-            <div className="text-xs text-slate-300 mt-0.5">
-              Motorista: <span className="font-bold">{romaneioAtivo.nome_motorista}</span> | Peso:{' '}
-              <span className="font-bold text-amber-400">
+            <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
+              Motorista: <span className="font-bold text-slate-800 dark:text-white">{romaneioAtivo.nome_motorista}</span> | Peso:{' '}
+              <span className="font-bold text-amber-700 dark:text-amber-400">
                 {(romaneioAtivo.peso_total_romaneio || 0).toLocaleString('pt-BR')} kg
               </span>
               {itensRomaneio.length > 0 && (
-                <span className="text-blue-300 font-semibold ml-1.5">
+                <span className="text-blue-700 dark:text-blue-300 font-semibold ml-1.5">
                   ({itensRomaneio.length} marcas na carga)
                 </span>
               )}
@@ -960,7 +963,7 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
                 carregarItensDoRomaneio(romaneioAtivo.id);
                 setSubTela('conferencia_romaneio');
               }}
-              className="h-8 px-2.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-black flex items-center gap-1 active:scale-95"
+              className="h-8 px-2.5 rounded-lg bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-900 dark:bg-amber-500/20 dark:hover:bg-amber-500/30 dark:border-amber-500/40 dark:text-amber-300 text-xs font-black flex items-center gap-1 active:scale-95 shadow-sm"
               title="Abrir conferência do que já foi colocado no romaneio"
             >
               <Eye className="h-3.5 w-3.5" />
@@ -973,7 +976,7 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
                 setRomaneioAtivo(null);
                 setSubTela('menu');
               }}
-              className="text-xs font-bold text-slate-400 hover:text-slate-200 underline px-1 py-1"
+              className="text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 underline px-1 py-1"
             >
               Trocar
             </button>
@@ -982,26 +985,26 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
 
         {/* Modal/Seção de Quantidade para o Item Selecionado */}
         {pecaEmbarque ? (
-          <div className="p-4 rounded-2xl bg-slate-800 border-2 border-blue-500/80 mb-3 shadow-lg">
+          <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border-2 border-blue-500/80 mb-3 shadow-md">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <span className="text-xl font-black text-amber-400">
+                <span className="text-xl font-black text-amber-700 dark:text-amber-400">
                   {pecaEmbarque.marca}
                 </span>
                 {pecaEmbarque.tem_componentes === false && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-950/80 text-purple-300 font-bold border border-purple-800/50">
+                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 font-bold border border-purple-300 dark:bg-purple-950/80 dark:text-purple-300 dark:border-purple-800/50">
                     S/M
                   </span>
                 )}
               </div>
-              <span className="text-xs font-bold text-slate-400">
+              <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
                 Saldo Disponível: {pecaEmbarque.saldoDisponivel} un
               </span>
             </div>
 
             <div className="flex items-center justify-center gap-3 my-3">
-              <div className="h-16 px-6 rounded-2xl bg-slate-900 border border-slate-700 flex items-center justify-center">
-                <span className="text-3xl font-black text-blue-400">{qtdEmbarcar}</span>
+              <div className="h-16 px-6 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center">
+                <span className="text-3xl font-black text-blue-600 dark:text-blue-400">{qtdEmbarcar}</span>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <button
@@ -1010,7 +1013,7 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
                     smartAudio.playClick();
                     setQtdEmbarcar((p) => Math.min(pecaEmbarque.saldoDisponivel, p + 1));
                   }}
-                  className="h-12 px-3 rounded-xl bg-slate-700 font-bold text-white active:scale-95"
+                  className="h-12 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white font-bold active:scale-95 border border-slate-200 dark:border-transparent"
                 >
                   +1
                 </button>
@@ -1020,7 +1023,7 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
                     smartAudio.playClick();
                     setQtdEmbarcar((p) => Math.min(pecaEmbarque.saldoDisponivel, p + 2));
                   }}
-                  className="h-12 px-3 rounded-xl bg-slate-700 font-bold text-white active:scale-95"
+                  className="h-12 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 dark:text-white font-bold active:scale-95 border border-slate-200 dark:border-transparent"
                 >
                   +2
                 </button>
@@ -1030,7 +1033,7 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
                     smartAudio.playClick();
                     setQtdEmbarcar(pecaEmbarque.saldoDisponivel);
                   }}
-                  className="h-12 px-2.5 rounded-xl bg-blue-500/20 text-blue-300 font-black text-xs active:scale-95"
+                  className="h-12 px-2.5 rounded-xl bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-500/20 dark:text-blue-300 font-black text-xs active:scale-95 border border-blue-200 dark:border-transparent"
                 >
                   TODAS
                 </button>
@@ -1042,7 +1045,7 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
                 type="button"
                 disabled={salvandoItem}
                 onClick={handleIncluirPeca}
-                className="h-13 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl text-xs uppercase"
+                className="h-13 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl text-xs uppercase shadow-sm"
               >
                 {salvandoItem ? 'Gravando...' : 'INCLUIR NO CAMINHÃO'}
               </Button>
@@ -1050,7 +1053,7 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
                 type="button"
                 variant="outline"
                 onClick={() => setPecaEmbarque(null)}
-                className="h-13 bg-slate-700 text-slate-300 text-xs font-bold rounded-xl"
+                className="h-13 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl border border-slate-200 dark:border-transparent"
               >
                 Cancelar
               </Button>
@@ -1060,22 +1063,22 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
 
         {/* Lista de Peças Prontas para Embarcar */}
         <div className="flex-1 overflow-y-auto space-y-2.5 pb-4">
-          <div className="text-xs font-black uppercase text-slate-400 tracking-wider mb-1">
+          <div className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider mb-1">
             Peças com Saldo para Embarque
           </div>
 
           {loadingPecas ? (
-            <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
+            <div className="py-12 flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 gap-2">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
               <span>Carregando peças prontas...</span>
             </div>
           ) : pecasProntas.filter((p) => p.saldoDisponivel > 0).length === 0 ? (
-            <div className="p-8 text-center bg-slate-800/40 rounded-2xl border border-slate-800">
-              <Package className="h-10 w-10 text-slate-500 mx-auto mb-2" />
-              <h3 className="text-base font-bold text-slate-200">
+            <div className="p-8 text-center bg-white dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+              <Package className="h-10 w-10 text-slate-400 dark:text-slate-500 mx-auto mb-2" />
+              <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
                 Nenhuma peça com saldo de embarque
               </h3>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
                 Todas as peças prontas já foram embarcadas em romaneios anteriores
               </p>
             </div>
@@ -1085,23 +1088,23 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
               .map((p) => (
                 <div
                   key={p.id}
-                  className="p-3.5 rounded-2xl bg-slate-800/95 border border-slate-700 flex items-center justify-between gap-2 shadow-sm"
+                  className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 shadow-sm"
                 >
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-lg font-black text-amber-400">{p.marca}</span>
+                      <span className="text-lg font-black text-amber-700 dark:text-amber-400">{p.marca}</span>
                       {p.tem_componentes === false && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-950/80 text-purple-300 font-bold border border-purple-800/50">
+                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 font-bold border border-purple-300 dark:bg-purple-950/80 dark:text-purple-300 dark:border-purple-800/50">
                           S/M
                         </span>
                       )}
-                      <span className="text-[11px] px-2 py-0.5 rounded bg-slate-700 text-slate-300 font-semibold">
+                      <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 font-semibold border border-slate-200 dark:border-transparent">
                         {p.etapa_fase || 'Estrutural'}
                       </span>
                     </div>
-                    <div className="text-xs text-slate-300 mt-0.5">
+                    <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
                       Saldo p/ Embarque:{' '}
-                      <span className="font-bold text-blue-400">{p.saldoDisponivel} un</span>
+                      <span className="font-bold text-blue-600 dark:text-blue-400">{p.saldoDisponivel} un</span>
                     </div>
                   </div>
 
@@ -1113,7 +1116,7 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
                       setPecaEmbarque(p);
                       setQtdEmbarcar(1);
                     }}
-                    className="h-11 px-3.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl active:scale-95 text-xs uppercase shrink-0"
+                    className="h-11 px-3.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl active:scale-95 text-xs uppercase shrink-0 shadow-sm"
                   >
                     Embarcar
                   </Button>
@@ -1131,7 +1134,7 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
               carregarItensDoRomaneio(romaneioAtivo.id);
               setSubTela('conferencia_romaneio');
             }}
-            className="w-full h-15 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-black rounded-2xl shadow-lg uppercase active:scale-98 gap-2"
+            className="w-full h-15 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-black rounded-2xl shadow-md uppercase active:scale-98 gap-2"
           >
             <FileCheck className="h-5 w-5" />
             <span>CONFERIR & FINALIZAR ROMANEIO</span>
@@ -1144,7 +1147,7 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
               smartAudio.playClick();
               setSubTela('menu');
             }}
-            className="w-full h-12 bg-slate-800 border-slate-700 text-slate-300 text-xs font-bold rounded-2xl"
+            className="w-full h-12 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold rounded-2xl shadow-sm"
           >
             ⬅️ Voltar ao Menu
           </Button>
@@ -1170,17 +1173,17 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
       <div className="flex flex-col flex-1 p-4 max-w-xl mx-auto w-full">
         {/* Cabeçalho da Conferência */}
         <div className="mb-3 text-center">
-          <span className="text-xs font-black uppercase text-amber-400 tracking-wider">
+          <span className="text-xs font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider">
             CONFERÊNCIA DE EMBARQUE
           </span>
-          <h2 className="text-xl font-black text-slate-100 uppercase mt-0.5">
+          <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase mt-0.5">
             {romaneioAtivo.numero_romaneio}
           </h2>
           <div className="flex items-center justify-center gap-2 mt-1">
-            <span className="text-xs text-slate-300 font-medium">
+            <span className="text-xs text-slate-600 dark:text-slate-300 font-medium">
               OF {obra.of_number} — {obra.cliente || 'Industrial'}
             </span>
-            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold uppercase">
+            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-300 font-bold uppercase border border-emerald-200 dark:border-transparent">
               {romaneioAtivo.status || 'Em conferência'}
             </span>
           </div>
@@ -1188,49 +1191,49 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
 
         {/* KPIs em Grid Rápido */}
         <div className="grid grid-cols-3 gap-2 mb-3">
-          <div className="p-3 rounded-2xl bg-slate-800 border border-slate-700 text-center">
-            <span className="text-[10px] font-black uppercase text-slate-400 block">
+          <div className="p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center shadow-sm">
+            <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 block">
               Marcas
             </span>
-            <span className="text-xl font-black text-amber-400">
+            <span className="text-xl font-black text-amber-600 dark:text-amber-400">
               {itensRomaneio.length}
             </span>
           </div>
-          <div className="p-3 rounded-2xl bg-slate-800 border border-slate-700 text-center">
-            <span className="text-[10px] font-black uppercase text-slate-400 block">
+          <div className="p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center shadow-sm">
+            <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 block">
               Peças
             </span>
-            <span className="text-xl font-black text-blue-400">
+            <span className="text-xl font-black text-blue-600 dark:text-blue-400">
               {totalPecasCarregadas} un
             </span>
           </div>
-          <div className="p-3 rounded-2xl bg-slate-800 border border-slate-700 text-center">
-            <span className="text-[10px] font-black uppercase text-slate-400 block">
+          <div className="p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-center shadow-sm">
+            <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 block">
               Peso Carga
             </span>
-            <span className="text-lg font-black text-emerald-400">
+            <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
               {pesoTotalCarregado.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} kg
             </span>
           </div>
         </div>
 
         {/* Card de Dados do Transporte */}
-        <div className="p-3 rounded-2xl bg-slate-800/80 border border-slate-700 mb-3 text-xs text-slate-300 space-y-1">
+        <div className="p-3 rounded-2xl bg-white/90 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 mb-3 text-xs text-slate-700 dark:text-slate-300 space-y-1 shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-slate-400">Motorista:</span>
-            <span className="font-bold text-slate-200">
+            <span className="text-slate-500 dark:text-slate-400">Motorista:</span>
+            <span className="font-bold text-slate-800 dark:text-slate-200">
               {romaneioAtivo.nome_motorista || 'Não informado'}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-slate-400">Veículo:</span>
-            <span className="font-bold text-slate-200">
+            <span className="text-slate-500 dark:text-slate-400">Veículo:</span>
+            <span className="font-bold text-slate-800 dark:text-slate-200">
               {formatTransporte(romaneioAtivo.tipo_transporte)}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-slate-400">Tipo de Frete:</span>
-            <span className="font-bold text-slate-200">
+            <span className="text-slate-500 dark:text-slate-400">Tipo de Frete:</span>
+            <span className="font-bold text-slate-800 dark:text-slate-200">
               {formatFrete(romaneioAtivo.frete_tipo)}
             </span>
           </div>
@@ -1238,29 +1241,29 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
 
         {/* Lista de Peças Colocadas no Romaneio para Conferência */}
         <div className="flex-1 overflow-y-auto space-y-2 pb-3">
-          <div className="flex items-center justify-between text-xs font-black uppercase text-slate-400 tracking-wider mb-1 px-1">
+          <div className="flex items-center justify-between text-xs font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider mb-1 px-1">
             <span>Peças Colocadas no Caminhão ({itensRomaneio.length})</span>
-            <span className="text-slate-500 font-normal">Toque na lixeira para estornar</span>
+            <span className="text-slate-400 dark:text-slate-500 font-normal">Toque na lixeira para estornar</span>
           </div>
 
           {loadingItensRomaneio ? (
-            <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
+            <div className="py-12 flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 gap-2">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
               <span>Carregando itens do romaneio...</span>
             </div>
           ) : itensRomaneio.length === 0 ? (
-            <div className="p-8 text-center bg-slate-800/40 rounded-2xl border border-slate-800">
-              <Package className="h-10 w-10 text-slate-500 mx-auto mb-2" />
-              <h3 className="text-base font-bold text-slate-200">
+            <div className="p-8 text-center bg-white dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+              <Package className="h-10 w-10 text-slate-400 dark:text-slate-500 mx-auto mb-2" />
+              <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">
                 Nenhuma peça colocada neste romaneio ainda
               </h3>
-              <p className="text-xs text-slate-400 mt-1 mb-3">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-3">
                 Adicione peças prontas no caminhão para gerar o romaneio
               </p>
               <Button
                 type="button"
                 onClick={() => setSubTela('carregando_pecas')}
-                className="h-11 px-4 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded-xl"
+                className="h-11 px-4 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded-xl shadow-sm"
               >
                 + Adicionar Peças ao Caminhão
               </Button>
@@ -1269,43 +1272,43 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
             itensRomaneio.map((item, idx) => (
               <div
                 key={item.id}
-                className="p-3 rounded-2xl bg-slate-800/95 border border-slate-700/80 flex items-center justify-between gap-2 shadow-sm"
+                className="p-3 rounded-2xl bg-white dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-2 shadow-sm"
               >
                 <div className="flex items-center gap-3">
-                  <div className="h-7 w-7 rounded-lg bg-slate-700 flex items-center justify-center text-[11px] font-black text-slate-300 shrink-0">
+                  <div className="h-7 w-7 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-[11px] font-black text-slate-600 dark:text-slate-300 shrink-0">
                     #{idx + 1}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-base font-black text-amber-400">
+                      <span className="text-base font-black text-amber-700 dark:text-amber-400">
                         {item.marca}
                       </span>
                       {(item.tem_componentes === false || pecasProntas.some(p => p.id === item.peca_id && p.tem_componentes === false)) && (
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-purple-950/80 text-purple-300 font-bold border border-purple-800/40">
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-purple-100 text-purple-800 font-bold border border-purple-300 dark:bg-purple-950/80 dark:text-purple-300 dark:border-purple-800/40">
                           S/M
                         </span>
                       )}
-                      <span className="text-[10px] px-2 py-0.5 rounded bg-blue-950/80 text-blue-300 font-bold border border-blue-800/40">
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold border border-blue-200 dark:bg-blue-950/80 dark:text-blue-300 dark:border-blue-800/40">
                         {item.fase || '1'}
                       </span>
                     </div>
                     {item.descricao && (
-                      <div className="text-xs text-slate-300 line-clamp-1">
+                      <div className="text-xs text-slate-600 dark:text-slate-300 line-clamp-1">
                         {item.descricao}
                       </div>
                     )}
-                    <div className="text-[11px] text-slate-400 mt-0.5">
-                      Peso Total: <b className="text-slate-200">{item.peso_total.toFixed(1)} kg</b> ({item.peso_unitario.toFixed(1)} kg/un)
+                    <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      Peso Total: <b className="text-slate-800 dark:text-slate-200">{item.peso_total.toFixed(1)} kg</b> ({item.peso_unitario.toFixed(1)} kg/un)
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
                   <div className="text-right">
-                    <span className="text-lg font-black text-blue-400">
+                    <span className="text-lg font-black text-blue-600 dark:text-blue-400">
                       {item.quantidade_expedida}
                     </span>
-                    <span className="text-[10px] text-slate-400 block font-semibold">un</span>
+                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block font-semibold">un</span>
                   </div>
 
                   {/* Botão de Excluir / Estornar Item */}
@@ -1313,7 +1316,7 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
                     type="button"
                     disabled={removendoItemId === item.id}
                     onClick={() => handleRemoverItemRomaneio(item)}
-                    className="h-9 w-9 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/50 text-rose-400 flex items-center justify-center active:scale-95 transition-all"
+                    className="h-9 w-9 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 dark:border-rose-800/50 dark:text-rose-400 flex items-center justify-center active:scale-95 transition-all shadow-sm"
                     title="Remover peça deste romaneio"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -1325,13 +1328,13 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
         </div>
 
         {/* Botões de Ação na Base: Imprimir PDF, Compartilhar e Concluir */}
-        <div className="space-y-2 pt-2 border-t border-slate-800">
+        <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
           {/* Botão Principal: Imprimir / Baixar PDF Oficial */}
           <Button
             type="button"
             disabled={gerandoPDF || itensRomaneio.length === 0}
             onClick={() => gerarRomaneioPDF('download')}
-            className="w-full h-14 bg-amber-500 hover:bg-amber-400 text-slate-950 text-sm font-black rounded-2xl shadow-lg shadow-amber-950/30 uppercase active:scale-98 gap-2"
+            className="w-full h-14 bg-amber-500 hover:bg-amber-400 text-slate-950 text-sm font-black rounded-2xl shadow-md uppercase active:scale-98 gap-2"
           >
             <Download className="h-5 w-5" />
             <span>{gerandoPDF ? 'Gerando Romaneio...' : 'BAIXAR / IMPRIMIR PDF DO ROMANEIO'}</span>
@@ -1343,7 +1346,7 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
               type="button"
               disabled={itensRomaneio.length === 0}
               onClick={() => gerarRomaneioPDF('whatsapp')}
-              className="h-12 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center justify-center gap-1.5 active:scale-95 transition-all disabled:opacity-50"
+              className="h-12 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black flex items-center justify-center gap-1.5 active:scale-95 transition-all disabled:opacity-50 shadow-sm"
             >
               <Share2 className="h-4 w-4" />
               <span>Enviar WhatsApp</span>
@@ -1355,9 +1358,9 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
                 smartAudio.playClick();
                 setSubTela('carregando_pecas');
               }}
-              className="h-12 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+              className="h-12 px-3 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:border-slate-700 dark:text-slate-200 text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all shadow-sm"
             >
-              <Plus className="h-4 w-4 text-blue-400" />
+              <Plus className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               <span>+ Adicionar Peças</span>
             </button>
           </div>
@@ -1366,7 +1369,7 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
           <Button
             type="button"
             onClick={() => handleConcluirRomaneioOficial('Expedido')}
-            className="w-full h-12 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black rounded-xl uppercase active:scale-98 gap-1.5"
+            className="w-full h-12 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black rounded-xl uppercase active:scale-98 gap-1.5 shadow-sm"
           >
             <CheckCircle2 className="h-4 w-4" />
             <span>CONCLUIR & MARCAR COMO EXPEDIDO</span>
@@ -1381,7 +1384,7 @@ export const SmartEmbarqueFlow: React.FC<SmartEmbarqueFlowProps> = ({ obra, onVo
               setSubTela('menu');
               setRomaneioAtivo(null);
             }}
-            className="w-full h-10 text-slate-400 hover:text-slate-200 text-xs font-bold"
+            className="w-full h-10 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 text-xs font-bold"
           >
             ⬅️ Voltar ao Menu Principal
           </Button>

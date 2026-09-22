@@ -36,12 +36,12 @@ export const SmartHub: React.FC<SmartHubProps> = ({
   return (
     <div className="flex flex-col flex-1 p-4 max-w-xl mx-auto w-full">
       {/* Barra de Contexto da Obra */}
-      <div className="mb-4 p-3.5 rounded-2xl bg-slate-800/80 border border-slate-700/80 flex items-center justify-between gap-2 shadow-sm">
+      <div className="mb-4 p-3.5 rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 flex items-center justify-between gap-2 shadow-sm">
         <div className="min-w-0">
-          <span className="text-[11px] font-black uppercase text-amber-400 tracking-wider">
+          <span className="text-[11px] font-black uppercase text-amber-700 dark:text-amber-400 tracking-wider">
             OBRA ATIVA
           </span>
-          <div className="text-base font-black text-slate-100 truncate">
+          <div className="text-base font-black text-slate-900 dark:text-slate-100 truncate">
             OF {obra.of_number} — {obra.cliente || 'Obra Industrial'}
           </div>
         </div>
@@ -52,9 +52,9 @@ export const SmartHub: React.FC<SmartHubProps> = ({
             smartAudio.playClick();
             onTrocarObra();
           }}
-          className="h-10 px-3 border-slate-600 bg-slate-700/60 hover:bg-slate-650 text-slate-200 hover:text-white rounded-xl text-xs font-bold shrink-0 active:scale-95 gap-1.5"
+          className="h-10 px-3 border-slate-300 dark:border-slate-600 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/60 dark:hover:bg-slate-650 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold shrink-0 active:scale-95 gap-1.5 transition-colors"
         >
-          <ArrowLeftRight className="h-4 w-4 text-amber-400" />
+          <ArrowLeftRight className="h-4 w-4 text-amber-600 dark:text-amber-400" />
           <span>Trocar</span>
         </Button>
       </div>
@@ -65,13 +65,13 @@ export const SmartHub: React.FC<SmartHubProps> = ({
         <button
           type="button"
           onClick={() => handleAcao('producao')}
-          className="min-h-[110px] sm:min-h-[125px] p-4 rounded-3xl bg-gradient-to-br from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 active:from-amber-700 active:to-amber-800 text-white shadow-lg shadow-amber-950/40 border-2 border-amber-400/40 flex flex-col justify-between text-left transition-all active:scale-[0.97] group"
+          className="min-h-[110px] sm:min-h-[125px] p-4 rounded-3xl bg-gradient-to-br from-amber-500 to-amber-600 dark:from-amber-600 dark:to-amber-700 hover:from-amber-400 hover:to-amber-500 text-white shadow-lg shadow-amber-900/20 dark:shadow-amber-950/40 border-2 border-amber-300/60 dark:border-amber-400/40 flex flex-col justify-between text-left transition-all active:scale-[0.97] group"
         >
           <div className="flex items-center justify-between w-full">
-            <div className="p-2.5 rounded-2xl bg-white/15 text-white backdrop-blur-sm">
+            <div className="p-2.5 rounded-2xl bg-white/20 dark:bg-white/15 text-white backdrop-blur-sm">
               <Hammer className="h-7 w-7" />
             </div>
-            <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/25 text-amber-100">
+            <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/20 dark:bg-black/25 text-amber-100">
               Passo 1
             </span>
           </div>
@@ -89,13 +89,13 @@ export const SmartHub: React.FC<SmartHubProps> = ({
         <button
           type="button"
           onClick={() => handleAcao('embarque')}
-          className="min-h-[110px] sm:min-h-[125px] p-4 rounded-3xl bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 active:from-blue-700 active:to-blue-800 text-white shadow-lg shadow-blue-950/40 border-2 border-blue-400/40 flex flex-col justify-between text-left transition-all active:scale-[0.97] group"
+          className="min-h-[110px] sm:min-h-[125px] p-4 rounded-3xl bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 active:from-blue-700 active:to-blue-800 text-white shadow-lg shadow-blue-900/20 dark:shadow-blue-950/40 border-2 border-blue-300/60 dark:border-blue-400/40 flex flex-col justify-between text-left transition-all active:scale-[0.97] group"
         >
           <div className="flex items-center justify-between w-full">
-            <div className="p-2.5 rounded-2xl bg-white/15 text-white backdrop-blur-sm">
+            <div className="p-2.5 rounded-2xl bg-white/20 dark:bg-white/15 text-white backdrop-blur-sm">
               <Truck className="h-7 w-7" />
             </div>
-            <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/25 text-blue-100">
+            <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/20 dark:bg-black/25 text-blue-100">
               Passo 2
             </span>
           </div>
@@ -113,13 +113,13 @@ export const SmartHub: React.FC<SmartHubProps> = ({
         <button
           type="button"
           onClick={() => handleAcao('montagem')}
-          className="min-h-[110px] sm:min-h-[125px] p-4 rounded-3xl bg-gradient-to-br from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 active:from-emerald-700 active:to-emerald-800 text-white shadow-lg shadow-emerald-950/40 border-2 border-emerald-400/40 flex flex-col justify-between text-left transition-all active:scale-[0.97] group"
+          className="min-h-[110px] sm:min-h-[125px] p-4 rounded-3xl bg-gradient-to-br from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 active:from-emerald-700 active:to-emerald-800 text-white shadow-lg shadow-emerald-900/20 dark:shadow-emerald-950/40 border-2 border-emerald-300/60 dark:border-emerald-400/40 flex flex-col justify-between text-left transition-all active:scale-[0.97] group"
         >
           <div className="flex items-center justify-between w-full">
-            <div className="p-2.5 rounded-2xl bg-white/15 text-white backdrop-blur-sm">
+            <div className="p-2.5 rounded-2xl bg-white/20 dark:bg-white/15 text-white backdrop-blur-sm">
               <PackageCheck className="h-7 w-7" />
             </div>
-            <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/25 text-emerald-100">
+            <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/20 dark:bg-black/25 text-emerald-100">
               Passo 3
             </span>
           </div>
@@ -137,13 +137,13 @@ export const SmartHub: React.FC<SmartHubProps> = ({
         <button
           type="button"
           onClick={() => handleAcao('consulta')}
-          className="min-h-[110px] sm:min-h-[125px] p-4 rounded-3xl bg-gradient-to-br from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 active:from-purple-700 active:to-purple-800 text-white shadow-lg shadow-purple-950/40 border-2 border-purple-400/40 flex flex-col justify-between text-left transition-all active:scale-[0.97] group"
+          className="min-h-[110px] sm:min-h-[125px] p-4 rounded-3xl bg-gradient-to-br from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 active:from-purple-700 active:to-purple-800 text-white shadow-lg shadow-purple-900/20 dark:shadow-purple-950/40 border-2 border-purple-300/60 dark:border-purple-400/40 flex flex-col justify-between text-left transition-all active:scale-[0.97] group"
         >
           <div className="flex items-center justify-between w-full">
-            <div className="p-2.5 rounded-2xl bg-white/15 text-white backdrop-blur-sm">
+            <div className="p-2.5 rounded-2xl bg-white/20 dark:bg-white/15 text-white backdrop-blur-sm">
               <Search className="h-7 w-7" />
             </div>
-            <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/25 text-purple-100">
+            <span className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/20 dark:bg-black/25 text-purple-100">
               Info
             </span>
           </div>
@@ -159,33 +159,33 @@ export const SmartHub: React.FC<SmartHubProps> = ({
       </div>
 
       {/* Card Informativo de Produção do Operador Hoje */}
-      <div className="mt-4 p-4 rounded-2xl bg-slate-800/90 border border-slate-700/80 flex flex-col gap-3 shadow-sm">
+      <div className="mt-4 p-4 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 flex flex-col gap-3 shadow-sm">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-slate-300">
-            <TrendingUp className="h-5 w-5 text-amber-400" />
+          <div className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
+            <TrendingUp className="h-5 w-5 text-amber-600 dark:text-amber-400" />
             <span className="text-xs font-black uppercase tracking-wider">
               Minha Produção Hoje
             </span>
           </div>
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30">
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-800 dark:text-amber-400 border border-amber-300 dark:border-amber-500/30">
             <Sparkles className="h-3 w-3" />
             Turno Ativo
           </span>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+        <div className="grid grid-cols-2 gap-2 bg-slate-50 dark:bg-slate-900/60 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
           <div>
-            <div className="text-2xl sm:text-3xl font-black text-amber-400 leading-tight">
+            <div className="text-2xl sm:text-3xl font-black text-amber-700 dark:text-amber-400 leading-tight">
               {producaoHoje.totalPecas}
             </div>
-            <div className="text-xs text-slate-400 font-medium">Peças Apontadas</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Peças Apontadas</div>
           </div>
-          <div className="border-l border-slate-800 pl-3">
-            <div className="text-2xl sm:text-3xl font-black text-slate-100 leading-tight">
+          <div className="border-l border-slate-200 dark:border-slate-800 pl-3">
+            <div className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-slate-100 leading-tight">
               {producaoHoje.totalKg.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}{' '}
-              <span className="text-sm text-slate-400">kg</span>
+              <span className="text-sm text-slate-500 dark:text-slate-400">kg</span>
             </div>
-            <div className="text-xs text-slate-400 font-medium">Peso Total</div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Peso Total</div>
           </div>
         </div>
 
@@ -195,9 +195,9 @@ export const SmartHub: React.FC<SmartHubProps> = ({
             smartAudio.playClick();
             onGerarRelatorioTurno();
           }}
-          className="w-full h-12 bg-slate-700 hover:bg-slate-650 active:bg-slate-600 text-slate-100 font-bold rounded-xl gap-2 border border-slate-600 text-sm active:scale-98"
+          className="w-full h-12 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-650 active:bg-slate-300 dark:active:bg-slate-600 text-slate-800 dark:text-slate-100 font-bold rounded-xl gap-2 border border-slate-300 dark:border-slate-600 text-sm active:scale-98 transition-colors"
         >
-          <FileText className="h-4 w-4 text-amber-400" />
+          <FileText className="h-4 w-4 text-amber-600 dark:text-amber-400" />
           <span>Gerar Relatório do Meu Turno (PDF)</span>
         </Button>
       </div>

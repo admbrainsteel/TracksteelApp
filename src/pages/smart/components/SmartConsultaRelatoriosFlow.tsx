@@ -344,12 +344,12 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
   // Badge da etapa
   const getBadgeEtapa = (concluido: number, total: number) => {
     if (concluido >= total && total > 0) {
-      return { icon: <CheckCircle2 className="h-4 w-4 text-emerald-400" />, cor: 'text-emerald-400', label: `${concluido}` };
+      return { icon: <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />, cor: 'text-emerald-700 dark:text-emerald-400', label: `${concluido}` };
     }
     if (concluido > 0) {
-      return { icon: <Clock className="h-4 w-4 text-amber-400" />, cor: 'text-amber-400', label: `${concluido}/${total}` };
+      return { icon: <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />, cor: 'text-amber-700 dark:text-amber-400', label: `${concluido}/${total}` };
     }
-    return { icon: <Circle className="h-4 w-4 text-slate-600" />, cor: 'text-slate-500', label: '0' };
+    return { icon: <Circle className="h-4 w-4 text-slate-300 dark:text-slate-600" />, cor: 'text-slate-400 dark:text-slate-500', label: '0' };
   };
 
   // ─────────────────────────────────────────────────────────────
@@ -623,7 +623,7 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
   return (
     <div className="flex flex-col flex-1 p-3.5 max-w-xl mx-auto w-full">
       {/* Navegação entre Abas: Consulta Rápida vs Relatórios */}
-      <div className="grid grid-cols-2 gap-2 mb-3 bg-slate-800 p-1 rounded-2xl border border-slate-700">
+      <div className="grid grid-cols-2 gap-2 mb-3 bg-slate-200/80 dark:bg-slate-800 p-1 rounded-2xl border border-slate-300 dark:border-slate-700">
         <button
           type="button"
           onClick={() => {
@@ -632,8 +632,8 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
           }}
           className={`h-11 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all ${
             abaAtiva === 'consulta'
-              ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-              : 'text-slate-300 hover:text-white'
+              ? 'bg-amber-500 text-slate-950 shadow-sm font-black'
+              : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
           }`}
         >
           <Search className="h-4 w-4" />
@@ -648,8 +648,8 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
           }}
           className={`h-11 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all ${
             abaAtiva === 'relatorios'
-              ? 'bg-amber-500 text-slate-950 shadow-md font-black'
-              : 'text-slate-300 hover:text-white'
+              ? 'bg-amber-500 text-slate-950 shadow-sm font-black'
+              : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
           }`}
         >
           <FileText className="h-4 w-4" />
@@ -665,20 +665,20 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
           {/* Campo de Busca Rápida */}
           <div className="relative mb-2">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-              <Search className="h-5 w-5 text-amber-400" />
+              <Search className="h-5 w-5 text-amber-600 dark:text-amber-400" />
             </div>
             <Input
               type="text"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               placeholder="Buscar por Marca, Perfil (W, L...), Descrição..."
-              className="h-13 pl-11 pr-11 bg-slate-800/90 border-slate-700 text-slate-100 text-sm sm:text-base font-medium rounded-2xl placeholder:text-slate-500"
+              className="h-13 pl-11 pr-11 bg-white dark:bg-slate-800/90 border-slate-300 dark:border-slate-700 text-slate-800 dark:text-slate-100 text-sm sm:text-base font-medium rounded-2xl placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm"
             />
             {busca && (
               <button
                 type="button"
                 onClick={() => setBusca('')}
-                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-200"
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -687,7 +687,7 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
 
           {/* FILTRO 1: Pílulas Rápidas de Perfis Abreviações (W/HP, L, CH, U, RED, TUB) */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 mb-1.5 no-scrollbar">
-            <span className="text-[10px] font-black uppercase text-amber-400 px-1 shrink-0">
+            <span className="text-[10px] font-black uppercase text-amber-700 dark:text-amber-400 px-1 shrink-0">
               PERFIL:
             </span>
             {[
@@ -710,7 +710,7 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
                   className={`h-8 px-3 rounded-lg text-xs font-black whitespace-nowrap shrink-0 transition-all border ${
                     ativo
                       ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-sm'
-                      : 'bg-slate-800 text-slate-300 border-slate-700 hover:border-slate-600'
+                      : 'bg-white text-slate-700 border-slate-300 hover:border-slate-400 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 dark:hover:border-slate-600 shadow-sm'
                   }`}
                 >
                   {p.label}
@@ -721,7 +721,7 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
 
           {/* FILTRO 2: Fases da Obra (Com botão 'Todas' travado/fixo) */}
           <div className="flex items-center gap-1.5 pb-1.5 mb-1.5">
-            <span className="text-[10px] font-black uppercase text-blue-400 px-1 shrink-0">
+            <span className="text-[10px] font-black uppercase text-blue-700 dark:text-blue-400 px-1 shrink-0">
               FASE:
             </span>
             <button
@@ -732,14 +732,14 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
               }}
               className={`h-8 px-3 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 transition-all border ${
                 filtroFase === 'todas'
-                  ? 'bg-blue-600 text-white border-blue-400 font-black shadow-sm'
-                  : 'bg-slate-800 text-slate-300 border-slate-700'
+                  ? 'bg-blue-600 text-white border-blue-500 font-black shadow-sm'
+                  : 'bg-white text-slate-700 border-slate-300 hover:border-slate-400 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 shadow-sm'
               }`}
             >
               Todas
             </button>
 
-            {fasesUnicas.length > 0 && <div className="h-4 w-px bg-slate-700 shrink-0" />}
+            {fasesUnicas.length > 0 && <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 shrink-0" />}
 
             {/* Demais fases rolando horizontalmente */}
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1 py-0.5">
@@ -753,8 +753,8 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
                   }}
                   className={`h-8 px-3 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 transition-all border ${
                     filtroFase === fase
-                      ? 'bg-blue-600 text-white border-blue-400 font-black shadow-sm'
-                      : 'bg-slate-800 text-slate-300 border-slate-700'
+                      ? 'bg-blue-600 text-white border-blue-500 font-black shadow-sm'
+                      : 'bg-white text-slate-700 border-slate-300 hover:border-slate-400 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700 shadow-sm'
                   }`}
                 >
                   Fase {fase}
@@ -764,7 +764,7 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
           </div>
 
           {/* FILTRO 3: Status Fabril (Com botão 'Todos' travado/fixo sem scroll) e Botão Limpar */}
-          <div className="flex items-center gap-1.5 pb-2 mb-2 border-b border-slate-800">
+          <div className="flex items-center gap-1.5 pb-2 mb-2 border-b border-slate-200 dark:border-slate-800">
             {/* Botão "Todos" fixo/travado à esquerda */}
             <button
               type="button"
@@ -774,15 +774,15 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
               }}
               className={`h-7 px-3 rounded-md text-[11px] font-bold whitespace-nowrap shrink-0 transition-all ${
                 filtroStatus === 'todos'
-                  ? 'bg-slate-200 text-slate-900 font-black ring-1 ring-white/60 shadow-sm'
-                  : 'bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-700'
+                  ? 'bg-slate-800 text-white font-black dark:bg-slate-200 dark:text-slate-900 shadow-sm'
+                  : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-300 dark:bg-slate-800 dark:text-slate-400 dark:hover:text-slate-200 dark:border-slate-700 shadow-sm'
               }`}
             >
               Todos
             </button>
 
             {/* Divisor vertical */}
-            <div className="h-4 w-px bg-slate-700 shrink-0" />
+            <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 shrink-0" />
 
             {/* Demais botões roláveis horizontalmente */}
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar flex-1 py-0.5">
@@ -801,8 +801,8 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
                   }}
                   className={`h-7 px-2.5 rounded-md text-[11px] font-bold whitespace-nowrap shrink-0 transition-all ${
                     filtroStatus === f.id
-                      ? 'bg-slate-200 text-slate-900 font-black shadow-sm'
-                      : 'bg-slate-800/80 text-slate-400 hover:text-slate-200 border border-slate-700/60'
+                      ? 'bg-slate-800 text-white font-black dark:bg-slate-200 dark:text-slate-900 shadow-sm'
+                      : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 dark:bg-slate-800/80 dark:text-slate-400 dark:hover:text-slate-200 dark:border-slate-700/60 shadow-sm'
                   }`}
                 >
                   {f.label}
@@ -815,7 +815,7 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
               <button
                 type="button"
                 onClick={handleLimparFiltros}
-                className="h-7 px-2.5 rounded-lg bg-red-950/50 hover:bg-red-900/60 border border-red-800/60 text-red-300 text-[11px] font-bold flex items-center gap-1 shrink-0 active:scale-95 ml-auto"
+                className="h-7 px-2.5 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 dark:bg-red-950/50 dark:hover:bg-red-900/60 dark:border-red-800/60 dark:text-red-300 text-[11px] font-bold flex items-center gap-1 shrink-0 active:scale-95 ml-auto shadow-sm"
                 title="Limpar todos os filtros aplicados"
               >
                 <RotateCcw className="h-3 w-3" />
@@ -825,9 +825,9 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
           </div>
 
           {/* Contador de Peças Encontradas */}
-          <div className="flex items-center justify-between text-xs text-slate-400 px-1 mb-2">
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 px-1 mb-2">
             <span>
-              Exibindo <b className="text-amber-400">{pecasFiltradas.length}</b> de{' '}
+              Exibindo <b className="text-amber-700 dark:text-amber-400 font-bold">{pecasFiltradas.length}</b> de{' '}
               {pecasStatus.length} marcas
             </span>
             <span className="text-[11px] font-semibold text-slate-500">
@@ -838,22 +838,22 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
           {/* Lista de Peças Ordenadas com Timeline Completa */}
           <div className="flex-1 overflow-y-auto space-y-2.5 pb-4">
             {loading ? (
-              <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
+              <div className="py-12 flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 gap-2">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent" />
                 <span>Carregando peças e apontamentos...</span>
               </div>
             ) : pecasFiltradas.length === 0 ? (
-              <div className="p-8 text-center bg-slate-800/40 rounded-2xl border border-slate-800">
-                <AlertCircle className="h-10 w-10 text-slate-500 mx-auto mb-2" />
-                <h3 className="text-base font-bold text-slate-200">Nenhuma peça encontrada</h3>
-                <p className="text-xs text-slate-400 mt-1 mb-3">
+              <div className="p-8 text-center bg-white dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+                <AlertCircle className="h-10 w-10 text-slate-400 dark:text-slate-500 mx-auto mb-2" />
+                <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">Nenhuma peça encontrada</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-3">
                   Tente ajustar a busca, a fase ou clique em limpar filtros
                 </p>
                 <Button
                   type="button"
                   variant="outline"
                   onClick={handleLimparFiltros}
-                  className="h-10 px-4 bg-slate-800 border-slate-700 text-amber-400 font-bold text-xs rounded-xl"
+                  className="h-10 px-4 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-amber-700 dark:text-amber-400 font-bold text-xs rounded-xl shadow-sm"
                 >
                   <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
                   Limpar Filtros
@@ -863,55 +863,55 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
               pecasFiltradas.map((peca) => (
                 <div
                   key={peca.id}
-                  className="p-3.5 rounded-2xl bg-slate-800/95 border border-slate-700 shadow-sm"
+                  className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 shadow-sm"
                 >
                   {/* Linha Superior: Marca, Perfil, Fase e Quantidade */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xl font-black text-amber-400 tracking-wider">
+                        <span className="text-xl font-black text-amber-700 dark:text-amber-400 tracking-wider">
                           {peca.marca}
                         </span>
 
                         {peca.tem_componentes === false && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-950/80 text-purple-300 font-bold border border-purple-800/50">
+                          <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 font-bold border border-purple-300 dark:bg-purple-950/80 dark:text-purple-300 dark:border-purple-800/50">
                             S/M
                           </span>
                         )}
 
                         {peca.perfil_principal && (
-                          <span className="text-xs px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 font-black border border-amber-500/30">
+                          <span className="text-xs px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 font-black border border-amber-300 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/30">
                             {peca.perfil_principal}
                           </span>
                         )}
 
-                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-blue-500/15 text-blue-300 font-bold border border-blue-500/30">
+                        <span className="text-[11px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 font-bold border border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/30">
                           Fase {peca.etapa_fase}
                         </span>
 
                         {peca.material && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 font-semibold">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 font-semibold border border-slate-200 dark:border-transparent">
                             {peca.material}
                           </span>
                         )}
                       </div>
 
-                      <div className="text-xs text-slate-300 mt-1 line-clamp-1">
+                      <div className="text-xs text-slate-600 dark:text-slate-300 mt-1 line-clamp-1">
                         {peca.descricao || 'Peça Estrutural'}
                       </div>
                     </div>
 
                     <div className="text-right shrink-0">
-                      <span className="text-xs text-slate-400 block font-medium">Total</span>
-                      <span className="text-base font-black text-white">
+                      <span className="text-xs text-slate-500 dark:text-slate-400 block font-medium">Total</span>
+                      <span className="text-base font-black text-slate-900 dark:text-white">
                         {peca.quantidade}{' '}
-                        <span className="text-xs font-normal text-slate-400">un</span>
+                        <span className="text-xs font-normal text-slate-500 dark:text-slate-400">un</span>
                       </span>
                     </div>
                   </div>
 
                   {/* Linha do Tempo Visual com TODAS as Etapas Fabris */}
-                  <div className="grid grid-cols-7 gap-1 mt-3 pt-2.5 border-t border-slate-700/80 text-center">
+                  <div className="grid grid-cols-7 gap-1 mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-700/80 text-center">
                     {[
                       { nome: 'Det.', valor: peca.detalhamento, isPula: false },
                       { nome: 'Corte', valor: peca.corte, isPula: false },
@@ -923,14 +923,14 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
                     ].map((etapa, idx) => {
                       if (etapa.isPula) {
                         return (
-                          <div key={idx} className="flex flex-col items-center opacity-60">
-                            <div className="text-[9px] font-bold text-slate-400 mb-0.5 uppercase">
+                          <div key={idx} className="flex flex-col items-center opacity-70">
+                            <div className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 uppercase">
                               {etapa.nome}
                             </div>
-                            <div className="h-5 px-1 rounded-md bg-slate-900 border border-purple-800/40 mb-0.5 flex items-center justify-center">
-                              <span className="text-[9px] font-bold text-purple-400">S/M</span>
+                            <div className="h-5 px-1 rounded-md bg-purple-50 dark:bg-slate-900 border border-purple-200 dark:border-purple-800/40 mb-0.5 flex items-center justify-center">
+                              <span className="text-[9px] font-bold text-purple-700 dark:text-purple-400">S/M</span>
                             </div>
-                            <span className="text-[10px] font-bold text-slate-500">
+                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500">
                               N/A
                             </span>
                           </div>
@@ -940,10 +940,10 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
                       const badge = getBadgeEtapa(etapa.valor, peca.quantidade);
                       return (
                         <div key={idx} className="flex flex-col items-center">
-                          <div className="text-[9px] font-bold text-slate-400 mb-0.5 uppercase">
+                          <div className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 uppercase">
                             {etapa.nome}
                           </div>
-                          <div className="p-0.5 rounded-md bg-slate-900 border border-slate-700/60 mb-0.5">
+                          <div className="p-0.5 rounded-md bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/60 mb-0.5">
                             {badge.icon}
                           </div>
                           <span className={`text-[10px] font-black ${badge.cor}`}>
@@ -966,29 +966,29 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
       {abaAtiva === 'relatorios' && (
         <div className="flex flex-col flex-1 overflow-y-auto space-y-4 pb-4">
           <div className="text-center mb-1">
-            <h3 className="text-base font-black text-slate-100 uppercase">
+            <h3 className="text-base font-black text-slate-800 dark:text-slate-100 uppercase">
               Selecione o Relatório Desejado
             </h3>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Gere documentos oficiais para download ou envio imediato
             </p>
           </div>
 
           {/* CARD 1: RELATÓRIO DO MEU TURNO */}
-          <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/15 via-slate-800 to-slate-800 border border-amber-500/30 shadow-md">
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-white dark:from-amber-500/15 dark:via-slate-800 dark:to-slate-800 border border-amber-300 dark:border-amber-500/30 shadow-sm">
             <div className="flex items-start justify-between gap-2 mb-3">
               <div>
-                <span className="text-xs font-black uppercase text-amber-400 tracking-wider">
+                <span className="text-xs font-black uppercase text-amber-700 dark:text-amber-400 tracking-wider">
                   Opção 1
                 </span>
-                <h4 className="text-base font-black text-slate-100">
+                <h4 className="text-base font-black text-slate-800 dark:text-slate-100">
                   Relatório do Meu Turno (Hoje)
                 </h4>
-                <p className="text-xs text-slate-300 mt-0.5">
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
                   Lista todas as peças apontadas por você no turno de hoje
                 </p>
               </div>
-              <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-400">
+              <div className="p-2.5 rounded-xl bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-400">
                 <FileText className="h-6 w-6" />
               </div>
             </div>
@@ -998,7 +998,7 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
                 type="button"
                 disabled={gerandoPDF}
                 onClick={() => gerarRelatorioTurnoPDF('download')}
-                className="h-12 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl gap-1.5 active:scale-95"
+                className="h-12 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs rounded-xl gap-1.5 active:scale-95 shadow-sm"
               >
                 <Download className="h-4 w-4" />
                 <span>Baixar PDF</span>
@@ -1008,7 +1008,7 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
                 type="button"
                 disabled={gerandoPDF}
                 onClick={() => gerarRelatorioTurnoPDF('whatsapp')}
-                className="h-12 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl gap-1.5 active:scale-95"
+                className="h-12 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl gap-1.5 active:scale-95 shadow-sm"
               >
                 <MessageCircle className="h-4 w-4" />
                 <span>WhatsApp</span>
@@ -1018,7 +1018,7 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
                 type="button"
                 disabled={gerandoPDF}
                 onClick={() => gerarRelatorioTurnoPDF('email')}
-                className="h-12 bg-slate-700 hover:bg-slate-650 text-white font-black text-xs rounded-xl gap-1.5 active:scale-95"
+                className="h-12 bg-slate-700 hover:bg-slate-600 text-white font-black text-xs rounded-xl gap-1.5 active:scale-95 shadow-sm"
               >
                 <Mail className="h-4 w-4" />
                 <span>E-mail</span>
@@ -1027,20 +1027,20 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
           </div>
 
           {/* CARD 2: RELATÓRIO GERAL DA OBRA */}
-          <div className="p-4 rounded-2xl bg-slate-800 border border-slate-700 shadow-md">
+          <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
             <div className="flex items-start justify-between gap-2 mb-3">
               <div>
-                <span className="text-xs font-black uppercase text-blue-400 tracking-wider">
+                <span className="text-xs font-black uppercase text-blue-700 dark:text-blue-400 tracking-wider">
                   Opção 2
                 </span>
-                <h4 className="text-base font-black text-slate-100">
+                <h4 className="text-base font-black text-slate-800 dark:text-slate-100">
                   Relatório de Produção Geral da Obra
                 </h4>
-                <p className="text-xs text-slate-300 mt-0.5">
+                <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5">
                   Quadro completo de todas as marcas com avanço por etapa
                 </p>
               </div>
-              <div className="p-2.5 rounded-xl bg-blue-500/20 text-blue-400">
+              <div className="p-2.5 rounded-xl bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-400">
                 <FileText className="h-6 w-6" />
               </div>
             </div>
@@ -1049,7 +1049,7 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
               type="button"
               disabled={gerandoPDF}
               onClick={gerarRelatorioGeralObraPDF}
-              className="w-full h-12 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded-xl gap-2 active:scale-95"
+              className="w-full h-12 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded-xl gap-2 active:scale-95 shadow-sm"
             >
               <Download className="h-4 w-4" />
               <span>Gerar e Baixar PDF Geral</span>
@@ -1066,7 +1066,7 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
           smartAudio.playClick();
           onVoltarHub();
         }}
-        className="w-full h-13 bg-slate-800 border-slate-700 text-slate-200 text-sm font-bold rounded-2xl mt-2 active:scale-98"
+        className="w-full h-13 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold rounded-2xl mt-2 active:scale-98 shadow-sm"
       >
         ⬅️ Voltar ao Menu Principal
       </Button>

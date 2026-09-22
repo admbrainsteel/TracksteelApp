@@ -228,28 +228,28 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
     return (
       <div className="flex flex-col flex-1 p-4 max-w-xl mx-auto w-full">
         {/* Resumo da Peça */}
-        <div className="p-4 rounded-2xl bg-slate-800/90 border border-slate-700 mb-4 shadow-sm">
+        <div className="p-4 rounded-2xl bg-white dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 mb-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-2xl font-black text-amber-400">
+              <span className="text-2xl font-black text-amber-700 dark:text-amber-400">
                 {itemSelecionado.marca}
               </span>
               {itemSelecionado.tem_componentes === false && (
-                <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-950/80 text-purple-300 font-bold border border-purple-800/50">
+                <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 font-bold border border-purple-300 dark:bg-purple-950/80 dark:text-purple-300 dark:border-purple-800/50">
                   S/M
                 </span>
               )}
             </div>
-            <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase">
+            <span className="text-xs font-black px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30 uppercase">
               Montagem em Obra
             </span>
           </div>
-          <div className="text-sm font-semibold text-slate-200 mt-1">
+          <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 mt-1">
             {itemSelecionado.descricao || 'Peça Estrutural'}
           </div>
-          <div className="flex items-center justify-between text-xs text-slate-400 mt-2 pt-2 border-t border-slate-700/80">
+          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mt-2 pt-2 border-t border-slate-100 dark:border-slate-700/80">
             <span>Recebidas no Canteiro: {itemSelecionado.quantidade_expedida} un</span>
-            <span className="text-emerald-400 font-bold">
+            <span className="text-emerald-700 dark:text-emerald-400 font-bold">
               Disponíveis p/ Montar: {saldo} un
             </span>
           </div>
@@ -257,12 +257,12 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
 
         {/* Display da Quantidade */}
         <div className="my-auto py-3 text-center">
-          <span className="text-xs font-black uppercase text-slate-400 tracking-wider">
+          <span className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
             Quantidade Montada Agora
           </span>
           <div className="flex items-center justify-center gap-4 mt-2">
-            <div className="min-w-[120px] h-20 px-6 rounded-3xl bg-slate-900 border-2 border-emerald-500 flex items-center justify-center shadow-inner">
-              <span className="text-4xl sm:text-5xl font-black text-emerald-400 tracking-tight">
+            <div className="min-w-[120px] h-20 px-6 rounded-3xl bg-slate-50 dark:bg-slate-900 border-2 border-emerald-500 flex items-center justify-center shadow-inner">
+              <span className="text-4xl sm:text-5xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
                 {qtdApontar}
               </span>
             </div>
@@ -272,7 +272,7 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
                 smartAudio.playClick();
                 setQtdApontar(1);
               }}
-              className="h-14 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 active:bg-slate-650 border border-slate-700 text-slate-300 text-xs font-bold flex items-center gap-1.5 active:scale-95"
+              className="h-14 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 active:bg-slate-650 border border-slate-200 dark:border-slate-700 dark:text-slate-300 text-xs font-bold flex items-center gap-1.5 active:scale-95 shadow-sm"
             >
               <RotateCcw className="h-4 w-4" />
               <span>Zerar</span>
@@ -288,7 +288,7 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
               smartAudio.playClick();
               setQtdApontar((p) => Math.min(saldo, p + 1));
             }}
-            className="h-16 rounded-2xl bg-slate-800 hover:bg-slate-750 active:bg-slate-700 border-2 border-slate-700 text-white text-xl font-black active:scale-95 shadow-sm"
+            className="h-16 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 border-2 border-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 active:bg-slate-700 dark:border-slate-700 dark:text-white text-xl font-black active:scale-95 shadow-sm"
           >
             +1
           </button>
@@ -298,7 +298,7 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
               smartAudio.playClick();
               setQtdApontar((p) => Math.min(saldo, p + 2));
             }}
-            className="h-16 rounded-2xl bg-slate-800 hover:bg-slate-750 active:bg-slate-700 border-2 border-slate-700 text-white text-xl font-black active:scale-95 shadow-sm"
+            className="h-16 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 border-2 border-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 active:bg-slate-700 dark:border-slate-700 dark:text-white text-xl font-black active:scale-95 shadow-sm"
           >
             +2
           </button>
@@ -308,7 +308,7 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
               smartAudio.playClick();
               setQtdApontar((p) => Math.min(saldo, p + 5));
             }}
-            className="h-16 rounded-2xl bg-slate-800 hover:bg-slate-750 active:bg-slate-700 border-2 border-slate-700 text-white text-xl font-black active:scale-95 shadow-sm"
+            className="h-16 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 border-2 border-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 active:bg-slate-700 dark:border-slate-700 dark:text-white text-xl font-black active:scale-95 shadow-sm"
           >
             +5
           </button>
@@ -318,7 +318,7 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
               smartAudio.playClick();
               setQtdApontar(saldo > 0 ? saldo : 1);
             }}
-            className="h-16 rounded-2xl bg-emerald-500/20 hover:bg-emerald-500/30 border-2 border-emerald-500/60 text-emerald-400 text-sm font-black active:scale-95 flex flex-col items-center justify-center leading-tight"
+            className="h-16 rounded-2xl bg-emerald-100 hover:bg-emerald-200 border-2 border-emerald-300 text-emerald-800 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 dark:border-emerald-500/60 dark:text-emerald-400 text-sm font-black active:scale-95 flex flex-col items-center justify-center leading-tight shadow-sm"
           >
             <span>TODAS</span>
             <span className="text-[11px] opacity-80">({saldo})</span>
@@ -331,7 +331,7 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
             type="button"
             disabled={salvando || qtdApontar <= 0}
             onClick={handleConfirmarMontagem}
-            className="w-full h-16 bg-emerald-600 hover:bg-emerald-500 text-white text-base font-black rounded-2xl shadow-lg uppercase tracking-wide active:scale-98 gap-2"
+            className="w-full h-16 bg-emerald-600 hover:bg-emerald-500 text-white text-base font-black rounded-2xl shadow-md uppercase tracking-wide active:scale-98 gap-2"
           >
             {salvando ? (
               <>
@@ -353,7 +353,7 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
               smartAudio.playClick();
               setItemSelecionado(null);
             }}
-            className="w-full h-13 bg-slate-800 border-slate-700 text-slate-300 text-sm font-bold rounded-2xl active:scale-98"
+            className="w-full h-13 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 text-sm font-bold rounded-2xl active:scale-98 shadow-sm"
           >
             Cancelar
           </Button>
@@ -368,28 +368,28 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
   return (
     <div className="flex flex-col flex-1 p-4 max-w-xl mx-auto w-full">
       <div className="mb-4 text-center">
-        <span className="text-xs font-black uppercase text-emerald-400 tracking-wider">
+        <span className="text-xs font-black uppercase text-emerald-700 dark:text-emerald-400 tracking-wider">
           ETAPA 3 — CANTEIRO DE OBRAS
         </span>
-        <h2 className="text-xl font-black text-slate-100 uppercase mt-0.5">
+        <h2 className="text-xl font-black text-slate-800 dark:text-slate-100 uppercase mt-0.5">
           Apontar Peças Montadas
         </h2>
-        <p className="text-xs text-slate-400">
+        <p className="text-xs text-slate-500 dark:text-slate-400">
           Peças entregues no canteiro aguardando fixação/montagem
         </p>
       </div>
 
       <div className="flex-1 overflow-y-auto space-y-3 pb-4">
         {loading ? (
-          <div className="py-12 flex flex-col items-center justify-center text-slate-400 gap-2">
+          <div className="py-12 flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 gap-2">
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
             <span>Consultando entregas no canteiro...</span>
           </div>
         ) : itens.length === 0 ? (
-          <div className="p-8 text-center bg-slate-800/40 rounded-2xl border border-slate-800">
-            <AlertCircle className="h-10 w-10 text-slate-500 mx-auto mb-2" />
-            <h3 className="text-base font-bold text-slate-200">Nenhuma peça recebida na obra</h3>
-            <p className="text-xs text-slate-400 mt-1">
+          <div className="p-8 text-center bg-white dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <AlertCircle className="h-10 w-10 text-slate-400 dark:text-slate-500 mx-auto mb-2" />
+            <h3 className="text-base font-bold text-slate-800 dark:text-slate-200">Nenhuma peça recebida na obra</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
               É necessário gerar e enviar romaneios de fábrica antes de apontar montagem
             </p>
           </div>
@@ -401,37 +401,37 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
                 key={item.marca}
                 className={`p-4 rounded-2xl border-2 transition-all shadow-sm ${
                   concluida
-                    ? 'bg-slate-900/60 border-slate-800 opacity-75'
-                    : 'bg-slate-800/95 border-slate-700/90 hover:border-emerald-500/80'
+                    ? 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 opacity-75'
+                    : 'bg-white dark:bg-slate-800/95 border-slate-200 dark:border-slate-700/90 hover:border-emerald-500/80'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xl font-black text-amber-400 tracking-wider">
+                      <span className="text-xl font-black text-amber-700 dark:text-amber-400 tracking-wider">
                         {item.marca}
                       </span>
                       {item.tem_componentes === false && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-950/80 text-purple-300 font-bold border border-purple-800/50">
+                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 font-bold border border-purple-300 dark:bg-purple-950/80 dark:text-purple-300 dark:border-purple-800/50">
                           S/M
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-slate-300 mt-0.5 line-clamp-1">
+                    <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 line-clamp-1">
                       {item.descricao || 'Peça Estrutural'}
                     </div>
                   </div>
 
                   <div className="text-right shrink-0">
-                    <div className="text-xs font-semibold text-slate-400">
+                    <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                       Entregues: {item.quantidade_expedida}
                     </div>
                     {concluida ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-400 px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-700">
+                      <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-800 bg-emerald-100 border border-emerald-300 dark:text-emerald-400 px-2 py-0.5 rounded-full dark:bg-emerald-950/80 dark:border-emerald-700">
                         <Check className="h-3 w-3" /> 100% Montada
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-300 px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-700">
+                      <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-800 bg-emerald-100 border border-emerald-300 dark:text-emerald-300 px-2 py-0.5 rounded-full dark:bg-emerald-950/80 dark:border-emerald-700">
                         Saldo: {item.saldo_disponivel}
                       </span>
                     )}
@@ -449,8 +449,8 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
                     }}
                     className={`w-full h-13 text-sm font-black rounded-xl uppercase tracking-wider transition-all active:scale-[0.98] ${
                       concluida
-                        ? 'bg-slate-800 text-slate-500 border border-slate-700'
-                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-950/30'
+                        ? 'bg-slate-100 text-slate-400 border border-slate-200 dark:bg-slate-800 dark:text-slate-500 dark:border-slate-700'
+                        : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-950/20'
                     }`}
                   >
                     {concluida ? 'Totalmente Montada' : `APONTAR MONTAGEM (${item.saldo_disponivel} PENDENTES)`}
@@ -469,7 +469,7 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
           smartAudio.playClick();
           onVoltarHub();
         }}
-        className="w-full h-14 bg-slate-800 border-slate-700 text-slate-200 text-sm font-bold rounded-2xl mt-2 active:scale-98"
+        className="w-full h-14 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold rounded-2xl mt-2 active:scale-98 shadow-sm"
       >
         ⬅️ Voltar ao Menu Principal
       </Button>
