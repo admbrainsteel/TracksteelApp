@@ -26,18 +26,37 @@ export const RelatorioPecasProcessoModal: React.FC<RelatorioPecasProcessoModalPr
   const { dashboardData } = useDashboardProducaoOtimizado(selectedOF);
 
   // Filtrar peças por fase selecionada
-  const pecasFiltradas = selectedFase === 'todas' 
-    ? pecasComStatus 
-    : pecasComStatus.filter(peca => peca.etapa_fase === selectedFase);
+  const pecasFiltradas = useMemo(() => {
+    return selectedFase === 'todas' 
+      ? pecasComStatus 
+      : pecasComStatus.filter(peca => peca.etapa_fase === selectedFase);
+  }, [selectedFase, pecasComStatus]);
 
-  // Recalcular estatísticas para as peças filtradas
-  const estatisticasFiltradas = {
-    totalPecas: pecasFiltradas.length,
-    pesoTotalCorte: pecasFiltradas.filter(p => p.processos.corte).reduce((sum, p) => sum + p.peso_total, 0),
-    pesoTotalSolda: pecasFiltradas.filter(p => p.processos.solda).reduce((sum, p) => sum + p.peso_total, 0),
-    pesoTotalPintura: pecasFiltradas.filter(p => p.processos.pintura).reduce((sum, p) => sum + p.peso_total, 0),
-    pesoTotalExpedicao: pecasFiltradas.filter(p => p.processos.expedicao).reduce((sum, p) => sum + p.peso_total, 0)
-  };
+  // Recalcular estatísticas para as peças filtradas com o peso real apontado
+  const estatisticasFiltradas = useMemo(() => {
+    if (selectedFase === 'todas' && dashboardData?.processos && dashboardData.processos.length > 0) {
+      const pCorte = dashboardData.processos.find(p => p.nome.toLowerCase().includes('corte'));
+      const pSolda = dashboardData.processos.find(p => p.nome.toLowerCase().includes('solda'));
+      const pPintura = dashboardData.processos.find(p => p.nome.toLowerCase().includes('pint') || p.nome.toLowerCase().includes('galv'));
+      const pExp = dashboardData.processos.find(p => p.nome.toLowerCase().includes('exped'));
+
+      return {
+        totalPecas: pecasFiltradas.length,
+        pesoTotalCorte: pCorte?.pesoFabricado ?? pecasFiltradas.reduce((sum, p) => sum + (p.pesoApontado?.corte || 0), 0),
+        pesoTotalSolda: pSolda?.pesoFabricado ?? pecasFiltradas.reduce((sum, p) => sum + (p.pesoApontado?.solda || 0), 0),
+        pesoTotalPintura: pPintura?.pesoFabricado ?? pecasFiltradas.reduce((sum, p) => sum + (p.pesoApontado?.pintura || 0), 0),
+        pesoTotalExpedicao: pExp?.pesoFabricado ?? pecasFiltradas.reduce((sum, p) => sum + (p.pesoApontado?.expedicao || 0), 0)
+      };
+    }
+
+    return {
+      totalPecas: pecasFiltradas.length,
+      pesoTotalCorte: pecasFiltradas.reduce((sum, p) => sum + (p.pesoApontado?.corte || 0), 0),
+      pesoTotalSolda: pecasFiltradas.reduce((sum, p) => sum + (p.pesoApontado?.solda || 0), 0),
+      pesoTotalPintura: pecasFiltradas.reduce((sum, p) => sum + (p.pesoApontado?.pintura || 0), 0),
+      pesoTotalExpedicao: pecasFiltradas.reduce((sum, p) => sum + (p.pesoApontado?.expedicao || 0), 0)
+    };
+  }, [selectedFase, dashboardData, pecasFiltradas]);
 
   // Calcular percentual de progresso conforme índices da tela de Dashboard de Produção
   const percentuais = useMemo(() => {

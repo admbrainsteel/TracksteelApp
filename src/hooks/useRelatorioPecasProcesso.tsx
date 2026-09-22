@@ -24,6 +24,12 @@ export interface PecaComStatus {
     pintura?: string | null;
     expedicao?: string | null;
   };
+  pesoApontado?: {
+    corte: number;
+    solda: number;
+    pintura: number;
+    expedicao: number;
+  };
 }
 
 export interface ResumoProcesso {
@@ -154,9 +160,12 @@ export const useRelatorioPecasProcesso = (ofNumber: string) => {
 
         console.log('Apontamentos encontrados:', apontamentosData.length);
 
-        // Mapear status dos processos por peça e guardar a ÚLTIMA data apontada de cada processo
+        // Mapear status dos processos por peça, guardar a ÚLTIMA data apontada e o PESO APONTADO REAL de cada processo
         const statusPorPeca = new Map<string, Set<string>>();
         const datasPorPeca = new Map<string, { corte: string; solda: string; pintura: string; expedicao: string }>();
+        const pesosPorPeca = new Map<string, { corte: number; solda: number; pintura: number; expedicao: number }>();
+
+        const mapaPecas = new Map(pecasData.map(p => [p.id, p]));
         
         apontamentosData.forEach(apt => {
           if (!statusPorPeca.has(apt.peca_id)) {
@@ -168,20 +177,33 @@ export const useRelatorioPecasProcesso = (ofNumber: string) => {
           if (!datasPorPeca.has(apt.peca_id)) {
             datasPorPeca.set(apt.peca_id, { corte: '', solda: '', pintura: '', expedicao: '' });
           }
+          if (!pesosPorPeca.has(apt.peca_id)) {
+            pesosPorPeca.set(apt.peca_id, { corte: 0, solda: 0, pintura: 0, expedicao: 0 });
+          }
+
           const datas = datasPorPeca.get(apt.peca_id)!;
+          const pesos = pesosPorPeca.get(apt.peca_id)!;
+
+          const pecaInfo = mapaPecas.get(apt.peca_id);
+          const pesoUnitario = Number(pecaInfo?.peso_unitario || 0);
+          const qtdApontada = Number(apt.quantidade_produzida || 0);
+          const pesoCalculado = pesoUnitario * qtdApontada;
+
           const dataApt = apt.data_apontamento || apt.created_at || '';
           const nomeLower = nomeProc.toLowerCase();
 
-          if (dataApt) {
-            if (nomeLower.includes('corte')) {
-              if (!datas.corte || dataApt > datas.corte) datas.corte = dataApt;
-            } else if (nomeLower.includes('solda')) {
-              if (!datas.solda || dataApt > datas.solda) datas.solda = dataApt;
-            } else if (nomeLower.includes('pint') || nomeLower.includes('galv')) {
-              if (!datas.pintura || dataApt > datas.pintura) datas.pintura = dataApt;
-            } else if (nomeLower.includes('exped')) {
-              if (!datas.expedicao || dataApt > datas.expedicao) datas.expedicao = dataApt;
-            }
+          if (nomeLower.includes('corte')) {
+            pesos.corte += pesoCalculado;
+            if (dataApt && (!datas.corte || dataApt > datas.corte)) datas.corte = dataApt;
+          } else if (nomeLower.includes('solda')) {
+            pesos.solda += pesoCalculado;
+            if (dataApt && (!datas.solda || dataApt > datas.solda)) datas.solda = dataApt;
+          } else if (nomeLower.includes('pint') || nomeLower.includes('galv')) {
+            pesos.pintura += pesoCalculado;
+            if (dataApt && (!datas.pintura || dataApt > datas.pintura)) datas.pintura = dataApt;
+          } else if (nomeLower.includes('exped')) {
+            pesos.expedicao += pesoCalculado;
+            if (dataApt && (!datas.expedicao || dataApt > datas.expedicao)) datas.expedicao = dataApt;
           }
         });
 
@@ -197,7 +219,16 @@ export const useRelatorioPecasProcesso = (ofNumber: string) => {
             if (!datasPorPeca.has(pecaAlvo.id)) {
               datasPorPeca.set(pecaAlvo.id, { corte: '', solda: '', pintura: '', expedicao: '' });
             }
+            if (!pesosPorPeca.has(pecaAlvo.id)) {
+              pesosPorPeca.set(pecaAlvo.id, { corte: 0, solda: 0, pintura: 0, expedicao: 0 });
+            }
+
             const datas = datasPorPeca.get(pecaAlvo.id)!;
+            const pesos = pesosPorPeca.get(pecaAlvo.id)!;
+            const pesoUnitario = Number(pecaAlvo.peso_unitario || 0);
+            const qtdExp = Number(item.quantidade_expedida || 0);
+            pesos.expedicao += pesoUnitario * qtdExp;
+
             const dataExp = item.romaneios_expedicao?.data_saida ||
                             item.romaneios_expedicao?.data_emissao ||
                             item.romaneios_expedicao?.created_at ||
@@ -208,10 +239,11 @@ export const useRelatorioPecasProcesso = (ofNumber: string) => {
           }
         });
 
-        // Construir array de peças com status e última data apontada
+        // Construir array de peças com status, última data apontada e peso apontado
         const pecasComStatusFormatadas: PecaComStatus[] = pecasData.map(peca => {
           const processosRealizados = statusPorPeca.get(peca.id) || new Set();
           const datas = datasPorPeca.get(peca.id) || { corte: '', solda: '', pintura: '', expedicao: '' };
+          const pesos = pesosPorPeca.get(peca.id) || { corte: 0, solda: 0, pintura: 0, expedicao: 0 };
           
           return {
             id: peca.id,
@@ -235,6 +267,12 @@ export const useRelatorioPecasProcesso = (ofNumber: string) => {
               solda: formatarDiaMes(datas.solda),
               pintura: formatarDiaMes(datas.pintura),
               expedicao: formatarDiaMes(datas.expedicao)
+            },
+            pesoApontado: {
+              corte: Number(pesos.corte.toFixed(2)),
+              solda: Number(pesos.solda.toFixed(2)),
+              pintura: Number(pesos.pintura.toFixed(2)),
+              expedicao: Number(pesos.expedicao.toFixed(2))
             }
           };
         });
