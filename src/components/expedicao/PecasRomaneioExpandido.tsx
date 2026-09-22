@@ -22,6 +22,7 @@ interface ItemRomaneioPeca {
   quantidade_expedida: number;
   peso_unitario: number;
   peso_total: number;
+  comprimento?: number | null;
   marca: string;
   descricao: string;
   fase: string;
@@ -44,7 +45,7 @@ export const PecasRomaneioExpandido: React.FC<PecasRomaneioExpandidoProps> = ({
     try {
       const { data, error } = await supabase
         .from('itens_romaneio_pecas')
-        .select('*')
+        .select('*, pecas(comprimento)')
         .eq('romaneio_id', romaneio.id)
         .order('marca');
 
@@ -57,6 +58,7 @@ export const PecasRomaneioExpandido: React.FC<PecasRomaneioExpandidoProps> = ({
           quantidade_expedida: item.quantidade_expedida,
           peso_unitario: item.peso_unitario,
           peso_total: item.peso_total,
+          comprimento: item.pecas?.comprimento || item.comprimento || null,
           marca: item.marca,
           descricao: item.descricao || '',
           fase: item.fase || '',
@@ -170,11 +172,12 @@ export const PecasRomaneioExpandido: React.FC<PecasRomaneioExpandidoProps> = ({
                 {/* Cabeçalho da tabela - Desktop/Tablet */}
                 {!isMobile && (
                   <div className={`grid gap-3 font-medium text-gray-400 bg-slate-800 p-3 rounded-t-md sticky top-0 z-10 ${
-                    isTablet ? 'grid-cols-8 text-xs' : 'grid-cols-10 text-xs'
+                    isTablet ? 'grid-cols-9 text-xs' : 'grid-cols-11 text-xs'
                   }`}>
                     <div>Marca</div>
                     <div>Fase</div>
                     <div className={isTablet ? 'col-span-1' : 'col-span-2'}>Descrição</div>
+                    <div className="text-right">Comp. (mm)</div>
                     <div className="text-center">Qtd</div>
                     <div className="text-right">Peso Unit.</div>
                     <div className="text-right">Peso Total</div>
@@ -184,16 +187,29 @@ export const PecasRomaneioExpandido: React.FC<PecasRomaneioExpandidoProps> = ({
                 )}
 
                 {/* Linhas de dados */}
-                {itensPeca.map((item, index) => (
+                {itensPeca.map((item, index) => {
+                  const limite = romaneio.comprimento_maximo_veiculo || 12000;
+                  const naoCabe = Boolean(item.comprimento && item.comprimento > limite);
+
+                  return (
                   <div key={item.id}>
                     {isMobile ? (
                       // Layout mobile - card style
-                      <div className={`p-3 border border-slate-700 rounded-md mb-2 ${
+                      <div className={`p-3 border rounded-md mb-2 ${
+                        naoCabe ? 'border-red-500/50 bg-red-950/20' : 'border-slate-700'
+                      } ${
                         index % 2 === 0 ? 'bg-slate-800/20' : 'bg-slate-800/40'
                       }`}>
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex-1">
-                            <div className="font-medium text-white text-sm">{item.marca}</div>
+                            <div className="font-medium text-white text-sm flex items-center gap-1.5">
+                              {item.marca}
+                              {naoCabe && (
+                                <span className="text-[10px] bg-red-600 text-white font-bold px-1.5 py-0.5 rounded">
+                                  Excede Veículo
+                                </span>
+                              )}
+                            </div>
                             <div className="text-gray-300 text-xs">{item.fase}</div>
                           </div>
                           <div className="flex gap-1">
@@ -218,7 +234,13 @@ export const PecasRomaneioExpandido: React.FC<PecasRomaneioExpandidoProps> = ({
                         <div className="text-gray-300 text-xs mb-2 line-clamp-2">
                           {item.descricao}
                         </div>
-                        <div className="grid grid-cols-3 gap-2 text-xs">
+                        <div className="grid grid-cols-4 gap-2 text-xs">
+                          <div>
+                            <div className="text-gray-400">Comp:</div>
+                            <div className={`font-mono font-medium ${naoCabe ? 'text-red-400 font-bold' : 'text-gray-300'}`}>
+                              {item.comprimento ? `${item.comprimento}mm` : '-'}
+                            </div>
+                          </div>
                           <div>
                             <div className="text-gray-400">Qtd:</div>
                             <div className="font-bold text-blue-400">{item.quantidade_expedida}</div>
@@ -237,11 +259,17 @@ export const PecasRomaneioExpandido: React.FC<PecasRomaneioExpandidoProps> = ({
                       // Layout desktop/tablet - table style
                       <div className={`grid gap-3 text-sm p-3 border-b border-slate-700 hover:bg-slate-800/50 transition-colors ${
                         index % 2 === 0 ? 'bg-slate-800/20' : ''
-                      } ${isTablet ? 'grid-cols-8' : 'grid-cols-10'}`}>
-                        <div className="font-medium text-white truncate">{item.marca}</div>
+                      } ${isTablet ? 'grid-cols-9' : 'grid-cols-11'} ${naoCabe ? 'bg-red-950/20' : ''}`}>
+                        <div className="font-medium text-white truncate flex items-center gap-1">
+                          {item.marca}
+                          {naoCabe && <span title="Não cabe no veículo" className="text-red-400 text-xs">⚠️</span>}
+                        </div>
                         <div className="text-gray-300 truncate">{item.fase}</div>
                         <div className={`text-gray-300 truncate ${isTablet ? 'col-span-1' : 'col-span-2'}`}>
                           {item.descricao}
+                        </div>
+                        <div className={`text-right font-mono text-xs ${naoCabe ? 'text-red-400 font-bold' : 'text-gray-300'}`}>
+                          {item.comprimento ? `${item.comprimento}` : '-'}
                         </div>
                         <div className="text-center font-bold text-blue-400">
                           {item.quantidade_expedida}
@@ -280,7 +308,8 @@ export const PecasRomaneioExpandido: React.FC<PecasRomaneioExpandidoProps> = ({
                       </div>
                     )}
                   </div>
-                ))}
+                );
+              })}
               </div>
             </ScrollArea>
           )}

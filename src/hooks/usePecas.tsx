@@ -13,6 +13,7 @@ export interface Peca {
   quantidade: number;
   peso_unitario: number;
   peso_total: number;
+  comprimento?: number | null;
   tratamento_superficial: string;
   material: string;
   perfil_principal: string;
@@ -430,6 +431,7 @@ export function usePecas() {
           quantidade: Number(item.quantidade) || 0,
           peso_unitario: Number(item.peso_unitario) || 0,
           peso_total: Number(item.peso_total) || 0,
+          comprimento: item.comprimento ? Number(item.comprimento) : (item.comprimento_ref ? Number(item.comprimento_ref) : null),
           tratamento_superficial: item.tratamento_superficial || '',
           material: item.material || '',
           perfil_principal: item.perfil_principal || '',
@@ -470,6 +472,7 @@ export function usePecas() {
             descricao: item.descricao_componente || item.descricao || '',
             perfil: item.perfil_componente || item.perfil_principal || '',
             peso_unitario: Number(item.peso_unitario_componente) || 0,
+            comprimento: item.comprimento_componente ? Number(item.comprimento_componente) : null,
             quantidade_por_peca: Math.max(1, Math.round(Number(item.quantidade_por_peca) || 1)),
             user_id: user.id
           };
@@ -527,6 +530,7 @@ export function usePecas() {
               quantidade: peca.quantidade,
               peso_unitario: peca.peso_unitario,
               peso_total: peca.peso_total,
+              comprimento: peca.comprimento,
               tratamento_superficial: peca.tratamento_superficial,
               material: peca.material,
               perfil_principal: peca.perfil_principal,

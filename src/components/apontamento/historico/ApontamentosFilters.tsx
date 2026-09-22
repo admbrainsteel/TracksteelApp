@@ -59,11 +59,11 @@ export const ApontamentosFilters: React.FC<ApontamentosFiltersProps> = ({
         {/* Primeira linha de filtros - mais compacta */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2">
           <div className="space-y-1">
-            <label className="text-xs font-medium">Buscar</label>
+            <label className="text-xs font-medium">Buscar Marca</label>
             <div className="relative">
               <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-3 w-3 text-muted-foreground" />
               <Input
-                placeholder="OF, Marca..."
+                placeholder="Marca da peça..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-7 h-8 text-xs"

@@ -445,6 +445,7 @@ export type Database = {
       }
       componentes_peca: {
         Row: {
+          comprimento: number | null
           created_at: string
           descricao: string | null
           id: string
@@ -457,6 +458,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          comprimento?: number | null
           created_at?: string
           descricao?: string | null
           id?: string
@@ -469,6 +471,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          comprimento?: number | null
           created_at?: string
           descricao?: string | null
           id?: string
@@ -2095,6 +2098,7 @@ export type Database = {
       }
       pecas: {
         Row: {
+          comprimento: number | null
           created_at: string
           descricao: string | null
           etapa_fase: string | null
@@ -2114,6 +2118,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          comprimento?: number | null
           created_at?: string
           descricao?: string | null
           etapa_fase?: string | null
@@ -2133,6 +2138,7 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          comprimento?: number | null
           created_at?: string
           descricao?: string | null
           etapa_fase?: string | null
@@ -2737,6 +2743,7 @@ export type Database = {
       }
       romaneios_expedicao: {
         Row: {
+          comprimento_maximo_veiculo: number | null
           created_at: string
           created_by: string | null
           data_criacao: string | null
@@ -2759,6 +2766,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          comprimento_maximo_veiculo?: number | null
           created_at?: string
           created_by?: string | null
           data_criacao?: string | null
@@ -2781,6 +2789,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          comprimento_maximo_veiculo?: number | null
           created_at?: string
           created_by?: string | null
           data_criacao?: string | null

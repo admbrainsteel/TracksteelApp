@@ -55,6 +55,7 @@ export function PecaForm({
     quantidade: 1,
     peso_unitario: 0,
     peso_total: 0,
+    comprimento: 0,
     tratamento_superficial: '',
     material: '',
     perfil_principal: '',
@@ -71,6 +72,7 @@ export function PecaForm({
         quantidade: editingPeca.quantidade,
         peso_unitario: editingPeca.peso_unitario,
         peso_total: editingPeca.peso_total,
+        comprimento: editingPeca.comprimento || 0,
         tratamento_superficial: editingPeca.tratamento_superficial || '',
         material: editingPeca.material || '',
         perfil_principal: editingPeca.perfil_principal || '',
@@ -85,6 +87,7 @@ export function PecaForm({
         quantidade: 1,
         peso_unitario: 0,
         peso_total: 0,
+        comprimento: 0,
         tratamento_superficial: '',
         material: '',
         perfil_principal: '',
@@ -148,6 +151,7 @@ export function PecaForm({
         quantidade: 1,
         peso_unitario: 0,
         peso_total: 0,
+        comprimento: 0,
         tratamento_superficial: '',
         material: '',
         perfil_principal: '',
@@ -243,6 +247,19 @@ export function PecaForm({
               value={formData.peso_total.toFixed(2)}
               readOnly
               className="bg-muted"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="comprimento">Comprimento (mm)</Label>
+            <Input
+              id="comprimento"
+              type="number"
+              step="1"
+              min="0"
+              value={formData.comprimento || ''}
+              onChange={(e) => handleInputChange('comprimento', parseFloat(e.target.value) || 0)}
+              placeholder="Ex: 12000"
             />
           </div>
 

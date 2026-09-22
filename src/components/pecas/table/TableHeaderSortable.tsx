@@ -88,6 +88,10 @@ export function TableHeaderSortable({
         <SortButton field="peso_total">Peso Total</SortButton>
       </TableHead>
       
+      <TableHead className="w-20 px-2 text-right">
+        <SortButton field="comprimento">Comp. (mm)</SortButton>
+      </TableHead>
+      
       <TableHead className="w-16 px-2">
         <span className="text-xs font-medium">Material</span>
       </TableHead>

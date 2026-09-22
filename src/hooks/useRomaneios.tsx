@@ -19,6 +19,7 @@ export interface RomaneioExpedicao {
   peso_total_romaneio: number;
   previsao_kg?: number;
   maior_dimensao?: string;
+  comprimento_maximo_veiculo?: number;
   tipo_transporte?: string;
   frete_tipo?: string;
   nome_motorista?: string;
@@ -62,6 +63,7 @@ export interface PecaPintura {
   marca: string;
   etapa_fase?: string;
   descricao?: string;
+  comprimento?: number | null;
   peso_unitario: number;
   quantidade_produzida_pintura: number;
   quantidade_ja_expedida: number;
@@ -133,6 +135,7 @@ export const usePecasPintura = (ofNumber?: string) => {
             etapa_fase,
             descricao,
             peso_unitario,
+            comprimento,
             of_number
           ),
           processos_fabricacao (
@@ -171,6 +174,7 @@ export const usePecasPintura = (ofNumber?: string) => {
             etapa_fase: peca.etapa_fase,
             descricao: peca.descricao,
             peso_unitario: peca.peso_unitario,
+            comprimento: peca.comprimento,
             quantidade_produzida_pintura: apontamento.quantidade_produzida,
             of_number: peca.of_number
           });

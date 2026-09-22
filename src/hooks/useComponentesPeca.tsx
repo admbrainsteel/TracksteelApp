@@ -11,6 +11,7 @@ export interface ComponentePeca {
   descricao: string | null;
   perfil: string | null;
   peso_unitario: number;
+  comprimento?: number | null;
   quantidade_por_peca: number;
   created_at: string;
   updated_at: string;
@@ -21,6 +22,7 @@ export interface ComponenteFormData {
   descricao: string;
   perfil: string;
   peso_unitario: number;
+  comprimento?: number | null;
   quantidade_por_peca: number;
 }
 

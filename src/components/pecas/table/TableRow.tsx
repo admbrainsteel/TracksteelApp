@@ -144,6 +144,10 @@ export function TableRow({
           {(peca.peso_total || (peca.quantidade * peca.peso_unitario)).toFixed(2)} kg
         </TableCell>
         
+        <TableCell className="w-20 px-2 text-right font-mono font-medium text-foreground text-xs">
+          {peca.comprimento != null && Number(peca.comprimento) > 0 ? `${Number(peca.comprimento).toLocaleString('pt-BR')} mm` : '-'}
+        </TableCell>
+        
         <TableCell className="w-16 px-2 text-muted-foreground text-xs">
           {peca.material || '-'}
         </TableCell>
@@ -246,6 +250,7 @@ export function TableRow({
                       <tr>
                         <th className="p-2 pl-3">Marca {labels.componenteLabel}</th>
                         <th className="p-2">Descrição / Perfil</th>
+                        <th className="p-2 text-right">Comp. (mm)</th>
                         <th className="p-2 text-center">Qtd / {labels.pecaLabel}</th>
                         <th className="p-2 text-center font-bold">Qtd Total no Lote</th>
                         <th className="p-2 text-right">Peso Unit. (kg)</th>
@@ -268,6 +273,9 @@ export function TableRow({
                             </td>
                             <td className="p-2 text-slate-700 dark:text-slate-300 font-medium">
                               {comp.perfil || comp.descricao || '-'}
+                            </td>
+                            <td className="p-2 text-right font-mono text-slate-700 dark:text-slate-300">
+                              {comp.comprimento != null && Number(comp.comprimento) > 0 ? `${Number(comp.comprimento).toLocaleString('pt-BR')} mm` : '-'}
                             </td>
                             <td className="p-2 text-center font-mono text-slate-600 dark:text-slate-400">
                               {qtdPorPeca} un

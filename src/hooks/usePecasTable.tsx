@@ -4,7 +4,7 @@ import { Peca } from './usePecas';
 import { supabase } from '@/integrations/supabase/client';
 import { applyMarcaFilter } from '@/utils/rangeFilter';
 
-export type SortField = 'of_number' | 'etapa_fase' | 'marca' | 'descricao' | 'prioridade' | 'quantidade' | 'peso_unitario' | 'peso_total' | 'perfil_principal' | 'tem_componentes';
+export type SortField = 'of_number' | 'etapa_fase' | 'marca' | 'descricao' | 'prioridade' | 'quantidade' | 'peso_unitario' | 'peso_total' | 'comprimento' | 'perfil_principal' | 'tem_componentes';
 export type SortOrder = 'asc' | 'desc';
 
 export const usePecasTable = (pecas: Peca[]) => {

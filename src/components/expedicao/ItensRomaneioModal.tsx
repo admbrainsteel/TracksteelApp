@@ -10,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Package, Plus, Wrench, Expand } from 'lucide-react';
+import { Package, Plus, Wrench, Expand, AlertTriangle } from 'lucide-react';
 import { RomaneioExpedicao } from '@/hooks/useRomaneios';
 import { useProcessosFabricacao } from '@/hooks/useProcessosFabricacao';
 import { usePecas } from '@/hooks/usePecas';
@@ -31,6 +31,7 @@ interface PecaDisponivel {
   etapa_fase: string;
   quantidade_disponivel: number;
   peso_unitario: number;
+  comprimento?: number | null;
   prioridade: string;
 }
 
@@ -40,6 +41,7 @@ interface ItemRomaneioPeca {
   quantidade: number;
   peso_unitario: number;
   peso_total: number;
+  comprimento?: number | null;
   marca: string;
   descricao: string;
   etapa_fase: string;
@@ -111,6 +113,7 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
             descricao,
             etapa_fase,
             peso_unitario,
+            comprimento,
             prioridade,
             of_number
           )
@@ -165,6 +168,7 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
             etapa_fase: apontamento.peca.etapa_fase || '',
             quantidade_disponivel: quantidade, // Bruto temporário
             peso_unitario: apontamento.peca.peso_unitario || 0,
+            comprimento: apontamento.peca.comprimento || null,
             prioridade: apontamento.peca.prioridade || 'P4'
           });
         }
@@ -210,7 +214,7 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
         .from('itens_romaneio_pecas')
         .select(`
           *,
-          pecas!inner(marca, descricao, etapa_fase, peso_unitario, prioridade)
+          pecas!inner(marca, descricao, etapa_fase, peso_unitario, comprimento, prioridade)
         `)
         .eq('romaneio_id', romaneio.id);
 
@@ -224,6 +228,7 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
           quantidade: item.quantidade_expedida,
           peso_unitario: item.peso_unitario,
           peso_total: item.peso_total,
+          comprimento: item.pecas?.comprimento || item.comprimento || null,
           marca: item.marca,
           descricao: item.descricao || '',
           etapa_fase: item.fase || '',
@@ -308,7 +313,26 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
   }, [pecasDisponiveis, faseFilter, marcaFilter]);
 
   const handleAdicionarPeca = async () => {
+    const limiteVeiculo = romaneio.comprimento_maximo_veiculo || 12000;
+
     if (adicionarTodas) {
+      // Verificar se há peças que excedem a capacidade do veículo
+      const pecasExcedentes = pecasFiltradas.filter(p => p.comprimento && p.comprimento > limiteVeiculo);
+      if (pecasExcedentes.length > 0) {
+        const listaMarcas = pecasExcedentes.map(p => `${p.marca} (${p.comprimento}mm)`).join(', ');
+        const confirmar = window.confirm(
+          `⚠️ ALERTA DE CAPACIDADE DO VEÍCULO:\n\n` +
+          `Atenção: ${pecasExcedentes.length} peça(s) excedem o limite de ${limiteVeiculo} mm (${(limiteVeiculo / 1000).toFixed(1)}m) do veículo:\n` +
+          `${listaMarcas}\n\n` +
+          `Essas peças são maiores que o espaço de carga do veículo selecionado.\n\n` +
+          `Deseja realmente incluí-las no romaneio?`
+        );
+        if (!confirmar) {
+          toast.warning('Operação cancelada para evitar carregar peças que não cabem no caminhão.');
+          return;
+        }
+      }
+
       // Adicionar todas as peças filtradas com suas quantidades disponíveis
       for (const peca of pecasFiltradas) {
         try {
@@ -343,6 +367,21 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
       if (!pecaSelecionada) {
         toast.error('Peça não encontrada');
         return;
+      }
+
+      // Validação de comprimento do veículo
+      if (pecaSelecionada.comprimento && pecaSelecionada.comprimento > limiteVeiculo) {
+        const confirmar = window.confirm(
+          `⚠️ ALERTA DE CAPACIDADE DO VEÍCULO:\n\n` +
+          `A peça "${pecaSelecionada.marca}" tem comprimento de ${pecaSelecionada.comprimento} mm (${(pecaSelecionada.comprimento / 1000).toFixed(1)}m), ` +
+          `que ULTRAPASSA o comprimento máximo suportado pelo veículo (${limiteVeiculo} mm / ${(limiteVeiculo / 1000).toFixed(1)}m)!\n\n` +
+          `Essa peça NÃO caberá na carroceria do transporte selecionado.\n\n` +
+          `Deseja realmente adicionar esta peça mesmo com essa advertência?`
+        );
+        if (!confirmar) {
+          toast.warning(`Inclusão da peça ${pecaSelecionada.marca} (${pecaSelecionada.comprimento}mm) cancelada por restrição dimensional.`);
+          return;
+        }
       }
 
       try {
@@ -594,56 +633,89 @@ export const ItensRomaneioModal: React.FC<ItensRomaneioModalProps> = ({
                                 <SelectTrigger className={isMobile ? 'h-10' : 'h-11'}>
                                   <SelectValue placeholder="Selecionar peça" />
                                 </SelectTrigger>
-                                <SelectContent>
-                                  {loading ? (
-                                    <SelectItem value="loading" disabled>Carregando...</SelectItem>
-                                  ) : (
-                                    <>
-                                      {pecasFiltradas.length === 0 ? (
-                                        <SelectItem value="empty" disabled>
-                                          Nenhuma peça disponível para este processo
-                                        </SelectItem>
-                                      ) : (
-                                        pecasFiltradas.map((peca) => (
+                              <SelectContent>
+                                {loading ? (
+                                  <SelectItem value="loading" disabled>Carregando...</SelectItem>
+                                ) : (
+                                  <>
+                                    {pecasFiltradas.length === 0 ? (
+                                      <SelectItem value="empty" disabled>
+                                        Nenhuma peça disponível para este processo
+                                      </SelectItem>
+                                    ) : (
+                                      pecasFiltradas.map((peca) => {
+                                        const limite = romaneio.comprimento_maximo_veiculo || 12000;
+                                        const naoCabe = Boolean(peca.comprimento && peca.comprimento > limite);
+                                        return (
                                           <SelectItem key={peca.id} value={peca.id}>
-                                            <span className="truncate">
-                                              {peca.marca} - {peca.descricao} (Qtd: {peca.quantidade_disponivel})
-                                            </span>
+                                            <div className="flex items-center justify-between gap-2 w-full">
+                                              <span className="truncate">
+                                                {peca.marca} - {peca.descricao} (Qtd: {peca.quantidade_disponivel})
+                                              </span>
+                                              {peca.comprimento && (
+                                                <span className={`text-[11px] font-mono shrink-0 ml-2 px-1.5 py-0.5 rounded ${
+                                                  naoCabe ? 'bg-destructive/20 text-destructive font-bold' : 'text-muted-foreground bg-muted'
+                                                }`}>
+                                                  {peca.comprimento}mm {naoCabe ? '⚠️ NÃO CABE' : ''}
+                                                </span>
+                                              )}
+                                            </div>
                                           </SelectItem>
-                                        ))
-                                      )}
-                                    </>
-                                  )}
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            <div>
-                              <Label className={`font-medium mb-2 block ${isMobile ? 'text-sm' : 'text-sm'}`}>
-                                Quantidade
-                              </Label>
-                              <Input
-                                type="number"
-                                min="1"
-                                max={pecasDisponiveis.find(p => p.id === pecaDisponivel)?.quantidade_disponivel || 1}
-                                value={quantidadePeca}
-                                onChange={(e) => setQuantidadePeca(e.target.value)}
-                                placeholder="Quantidade"
-                                className={isMobile ? 'h-10' : 'h-11'}
-                              />
-                            </div>
+                                        );
+                                      })
+                                    )}
+                                  </>
+                                )}
+                              </SelectContent>
+                            </Select>
                           </div>
-                        </>
-                      )}
 
-                      <Button 
-                        onClick={handleAdicionarPeca}
-                        disabled={(!pecaDisponivel && !adicionarTodas) || loading}
-                        className={`w-full ${isMobile ? 'h-10 text-sm' : 'h-11'}`}
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        {adicionarTodas ? 'Adicionar Todas as Peças' : 'Adicionar Peça'}
-                      </Button>
+                          <div>
+                            <Label className={`font-medium mb-2 block ${isMobile ? 'text-sm' : 'text-sm'}`}>
+                              Quantidade
+                            </Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              max={pecasDisponiveis.find(p => p.id === pecaDisponivel)?.quantidade_disponivel || 1}
+                              value={quantidadePeca}
+                              onChange={(e) => setQuantidadePeca(e.target.value)}
+                              placeholder="Quantidade"
+                              className={isMobile ? 'h-10' : 'h-11'}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Alerta de dimensão se a peça exceder a capacidade do veículo */}
+                        {(() => {
+                          const pSel = pecasDisponiveis.find(p => p.id === pecaDisponivel);
+                          const limite = romaneio.comprimento_maximo_veiculo || 12000;
+                          if (pSel?.comprimento && pSel.comprimento > limite) {
+                            return (
+                              <div className="p-2.5 mb-3 rounded-md bg-destructive/15 border border-destructive/40 text-destructive text-xs space-y-1">
+                                <div className="flex items-center gap-1.5 font-bold text-xs text-destructive">
+                                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                                  ALERTA DE DIMENSÃO: Peça não cabe no veículo ({limite}mm)
+                                </div>
+                                <p>
+                                  A peça <strong>{pSel.marca}</strong> possui <strong>{pSel.comprimento} mm ({(pSel.comprimento / 1000).toFixed(1)}m)</strong> e ULTRAPASSA o comprimento máximo de carregamento deste veículo ({(limite / 1000).toFixed(1)}m).
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </>
+                    )}
+
+                    <Button 
+                      onClick={handleAdicionarPeca}
+                      disabled={(!pecaDisponivel && !adicionarTodas) || loading}
+                      className={`w-full ${isMobile ? 'h-10 text-sm' : 'h-11'}`}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      {adicionarTodas ? 'Adicionar Todas as Peças' : 'Adicionar Peça'}
+                    </Button>
                     </CardContent>
                   </Card>
 

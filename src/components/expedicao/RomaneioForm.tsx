@@ -52,6 +52,7 @@ export function RomaneioForm({ romaneio, ofNumbers, selectedOF, onSave, onCancel
     peso_total_romaneio: romaneio?.peso_total_romaneio || 0,
     previsao_kg: romaneio?.previsao_kg || 0,
     maior_dimensao: romaneio?.maior_dimensao || '',
+    comprimento_maximo_veiculo: romaneio?.comprimento_maximo_veiculo || 12000,
     tipo_transporte: romaneio?.tipo_transporte || 'carro' as 'carro' | 'utilitario' | 'caminho_pequeno' | 'caminhao_trucado' | 'caminhao_munck' | 'carreta_12m' | 'carreta_15m' | 'especial',
     frete_tipo: (romaneio?.frete_tipo as 'terceiros' | 'proprio') || 'terceiros',
     nome_motorista: romaneio?.nome_motorista || ''
@@ -74,6 +75,7 @@ export function RomaneioForm({ romaneio, ofNumbers, selectedOF, onSave, onCancel
           peso_total_romaneio: romaneio.peso_total_romaneio || 0,
           previsao_kg: romaneio.previsao_kg || 0,
           maior_dimensao: romaneio.maior_dimensao || '',
+          comprimento_maximo_veiculo: romaneio.comprimento_maximo_veiculo || 12000,
           tipo_transporte: romaneio.tipo_transporte || 'carro',
           frete_tipo: (romaneio.frete_tipo as 'terceiros' | 'proprio') || 'terceiros',
           nome_motorista: romaneio.nome_motorista || ''
@@ -92,6 +94,7 @@ export function RomaneioForm({ romaneio, ofNumbers, selectedOF, onSave, onCancel
           peso_total_romaneio: 0,
           previsao_kg: 0,
           maior_dimensao: '',
+          comprimento_maximo_veiculo: 12000,
           tipo_transporte: 'carro',
           frete_tipo: 'terceiros',
           nome_motorista: ''
@@ -374,7 +377,23 @@ export function RomaneioForm({ romaneio, ofNumbers, selectedOF, onSave, onCancel
                     <Label htmlFor="tipo_transporte">Tipo de Transporte</Label>
                     <Select 
                       value={formData.tipo_transporte} 
-                      onValueChange={(value: any) => setFormData(prev => ({ ...prev, tipo_transporte: value }))}
+                      onValueChange={(value: any) => {
+                        const compPadrao = {
+                          carro: 1500,
+                          utilitario: 2500,
+                          caminho_pequeno: 6000,
+                          caminhao_trucado: 8000,
+                          caminhao_munck: 7000,
+                          carreta_12m: 12000,
+                          carreta_15m: 15000,
+                          especial: 18000
+                        }[value] || 12000;
+                        setFormData(prev => ({
+                          ...prev,
+                          tipo_transporte: value,
+                          comprimento_maximo_veiculo: compPadrao
+                        }));
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -387,6 +406,29 @@ export function RomaneioForm({ romaneio, ofNumbers, selectedOF, onSave, onCancel
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="comprimento_maximo_veiculo">Capacidade Máx. Peça (mm) *</Label>
+                      {formData.comprimento_maximo_veiculo > 0 && (
+                        <span className="text-xs font-semibold text-primary">
+                          {(formData.comprimento_maximo_veiculo / 1000).toFixed(1)}m
+                        </span>
+                      )}
+                    </div>
+                    <Input
+                      id="comprimento_maximo_veiculo"
+                      type="number"
+                      min="0"
+                      step="100"
+                      value={formData.comprimento_maximo_veiculo || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, comprimento_maximo_veiculo: parseFloat(e.target.value) || 0 }))}
+                      placeholder="Ex: 10000 (10 metros)"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Limite de comprimento para carregar peças neste veículo.
+                    </p>
                   </div>
 
                   <div className="space-y-2">

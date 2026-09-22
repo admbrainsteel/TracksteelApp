@@ -143,18 +143,17 @@ export const useApontamentosFilters = (apontamentos: ApontamentoProducao[]) => {
     
     let resultado = [...apontamentos]; // Começar com TODOS os apontamentos
     
-    // Aplicar filtro de busca textual APENAS se preenchido
+    // Aplicar filtro de busca por MARCA DA PEÇA apenas se preenchido
     if (searchTerm && searchTerm.trim() !== '') {
-      const searchLower = searchTerm.toLowerCase();
+      const searchLower = searchTerm.toLowerCase().trim();
       const beforeSearch = resultado.length;
       
       resultado = resultado.filter(apt => 
-        (apt.of_number && apt.of_number.toLowerCase().includes(searchLower)) ||
         (apt.peca?.marca && apt.peca.marca.toLowerCase().includes(searchLower)) ||
         (apt.componente?.marca_componente && apt.componente.marca_componente.toLowerCase().includes(searchLower))
       );
       
-      console.log(`🔎 Filtro texto "${searchTerm}": ${beforeSearch} → ${resultado.length} registros`);
+      console.log(`🔎 Filtro marca "${searchTerm}": ${beforeSearch} → ${resultado.length} registros`);
     }
     
     // Aplicar filtro por OF APENAS se selecionado

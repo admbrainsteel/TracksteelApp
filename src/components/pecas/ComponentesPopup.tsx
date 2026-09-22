@@ -30,7 +30,7 @@ interface ComponentesPopupProps {
   peca: Peca;
 }
 
-type SortField = 'marca_componente' | 'descricao' | 'perfil' | 'peso_unitario' | 'quantidade_por_peca';
+type SortField = 'marca_componente' | 'descricao' | 'perfil' | 'comprimento' | 'peso_unitario' | 'quantidade_por_peca';
 type SortOrder = 'asc' | 'desc';
 
 export function ComponentesPopup({ isOpen, onClose, peca }: ComponentesPopupProps) {
@@ -46,6 +46,7 @@ export function ComponentesPopup({ isOpen, onClose, peca }: ComponentesPopupProp
     marca_componente: '',
     descricao: '',
     perfil: '',
+    comprimento: 0,
     peso_unitario: 0,
     quantidade_por_peca: 1
   });
@@ -55,6 +56,7 @@ export function ComponentesPopup({ isOpen, onClose, peca }: ComponentesPopupProp
       marca_componente: '',
       descricao: '',
       perfil: '',
+      comprimento: 0,
       peso_unitario: 0,
       quantidade_por_peca: 1
     });
@@ -119,6 +121,7 @@ export function ComponentesPopup({ isOpen, onClose, peca }: ComponentesPopupProp
       marca_componente: componente.marca_componente,
       descricao: componente.descricao || '',
       perfil: componente.perfil || '',
+      comprimento: componente.comprimento || 0,
       peso_unitario: componente.peso_unitario,
       quantidade_por_peca: componente.quantidade_por_peca
     });
@@ -173,7 +176,7 @@ export function ComponentesPopup({ isOpen, onClose, peca }: ComponentesPopupProp
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
                   <div className="space-y-1">
                     <Label htmlFor="marca_componente" className="text-sm">Componente *</Label>
                     <Input
@@ -204,6 +207,20 @@ export function ComponentesPopup({ isOpen, onClose, peca }: ComponentesPopupProp
                       value={formData.perfil}
                       onChange={(e) => setFormData(prev => ({ ...prev, perfil: e.target.value }))}
                       placeholder="Perfil do componente"
+                      className="h-8"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="comprimento" className="text-sm">Comp. (mm)</Label>
+                    <Input
+                      id="comprimento"
+                      type="number"
+                      step="1"
+                      min="0"
+                      value={formData.comprimento || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, comprimento: parseFloat(e.target.value) || 0 }))}
+                      placeholder="Ex: 500"
                       className="h-8"
                     />
                   </div>
@@ -332,6 +349,15 @@ export function ComponentesPopup({ isOpen, onClose, peca }: ComponentesPopupProp
                           </div>
                         </TableHead>
                         <TableHead 
+                          className="cursor-pointer hover:bg-muted/50 select-none text-right px-2 py-1"
+                          onClick={() => handleSort('comprimento')}
+                        >
+                          <div className="flex items-center justify-end gap-1 text-xs font-medium">
+                            Comp. (mm)
+                            {getSortIcon('comprimento')}
+                          </div>
+                        </TableHead>
+                        <TableHead 
                           className="cursor-pointer hover:bg-muted/50 select-none text-center px-2 py-1"
                           onClick={() => handleSort('quantidade_por_peca')}
                         >
@@ -366,6 +392,7 @@ export function ComponentesPopup({ isOpen, onClose, peca }: ComponentesPopupProp
                           <TableCell className="font-medium px-2 py-1 text-sm">{componente.marca_componente}</TableCell>
                           <TableCell className="px-2 py-1 text-sm">{componente.descricao || '-'}</TableCell>
                           <TableCell className="px-2 py-1 text-sm">{componente.perfil || '-'}</TableCell>
+                          <TableCell className="text-right px-2 py-1 text-sm font-mono">{componente.comprimento ? `${componente.comprimento}` : '-'}</TableCell>
                           <TableCell className="text-center px-2 py-1 text-sm">{componente.quantidade_por_peca}</TableCell>
                           <TableCell className="text-center font-medium px-2 py-1 text-sm">
                             {calculateTotalQuantity(componente.quantidade_por_peca)}
