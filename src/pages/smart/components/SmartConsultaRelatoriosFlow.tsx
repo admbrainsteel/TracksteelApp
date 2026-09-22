@@ -531,60 +531,313 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
   };
 
   // 2. Relatório Geral da Obra
-  const gerarRelatorioGeralObraPDF = () => {
+  const gerarRelatorioGeralObraPDF = (acao: 'download' | 'whatsapp' | 'email' = 'download') => {
     try {
       setGerandoPDF(true);
       const doc = new jsPDF();
-      const dataFormatada = new Date().toLocaleDateString('pt-BR');
+      const agora = new Date();
+      const dataFormatada = agora.toLocaleDateString('pt-BR');
+      const horaFormatada = agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
-      // Topo limpo sem blocos pretos
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(16);
-      doc.setTextColor(15, 43, 92); // Azul Marinho
-      doc.text(`RELATÓRIO GERAL DE FABRICAÇÃO`, 14, 16);
+      // Agrupar peças por fase
+      const fasesMap = new Map<string, PecaStatus[]>();
+      pecasStatus.forEach((p) => {
+        const faseKey = (p.etapa_fase && p.etapa_fase.trim()) ? p.etapa_fase.trim() : '1';
+        if (!fasesMap.has(faseKey)) {
+          fasesMap.set(faseKey, []);
+        }
+        fasesMap.get(faseKey)!.push(p);
+      });
 
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(5, 150, 105); // Verde
-      doc.text(`OF: ${obra.of_number}`, 165, 16);
+      // Ordenar as fases de forma natural (1, 2, 3...)
+      const fasesOrdenadas = Array.from(fasesMap.keys()).sort((a, b) =>
+        a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+      );
 
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9.5);
-      doc.setTextColor(31, 41, 55); // Preto
-      doc.text(`Cliente: ${obra.cliente || 'Industrial'}   |   Emissão: ${dataFormatada}`, 14, 23);
+      // Totais gerais consolidados da OF
+      let grandTotalQtd = 0;
+      let grandTotalDet = 0;
+      let grandTotalCorte = 0;
+      let grandTotalSolda = 0;
+      let grandTotalPint = 0;
+      let grandTotalExp = 0;
+      let grandTotalObra = 0;
+      let grandTotalPeso = 0;
 
-      // Linha divisória fina: Azul Marinho + Verde
-      doc.setDrawColor(30, 58, 138);
-      doc.setLineWidth(1.2);
-      doc.line(14, 28, 165, 28);
-      doc.setDrawColor(5, 150, 105);
-      doc.setLineWidth(1.2);
-      doc.line(165, 28, 196, 28);
+      const tableBody: any[] = [];
 
-      const tableRows = pecasStatus.map((p) => [
-        p.marca,
-        p.perfil_principal || p.descricao,
-        p.etapa_fase || '1',
-        p.quantidade.toString(),
-        p.detalhamento.toString(),
-        p.corte.toString(),
-        p.solda.toString(),
-        p.pintura.toString(),
-        p.expedido.toString(),
-        p.montado_obra.toString(),
+      fasesOrdenadas.forEach((faseKey) => {
+        const pecasFase = fasesMap.get(faseKey)!;
+
+        // Ordenar as marcas dentro de cada fase por ordem natural alfanumérica (1, 2, 3... 10... ou P1, P2...)
+        pecasFase.sort((a, b) =>
+          a.marca.localeCompare(b.marca, undefined, { numeric: true, sensitivity: 'base' })
+        );
+
+        let faseQtd = 0;
+        let faseDet = 0;
+        let faseCorte = 0;
+        let faseSolda = 0;
+        let fasePint = 0;
+        let faseExp = 0;
+        let faseObra = 0;
+        let fasePeso = 0;
+
+        pecasFase.forEach((p) => {
+          faseQtd += p.quantidade;
+          faseDet += p.detalhamento;
+          faseCorte += p.corte;
+          faseSolda += p.solda;
+          fasePint += p.pintura;
+          faseExp += p.expedido;
+          faseObra += p.montado_obra;
+          fasePeso += (p.peso_unitario || 0) * (p.quantidade || 0);
+        });
+
+        grandTotalQtd += faseQtd;
+        grandTotalDet += faseDet;
+        grandTotalCorte += faseCorte;
+        grandTotalSolda += faseSolda;
+        grandTotalPint += fasePint;
+        grandTotalExp += faseExp;
+        grandTotalObra += faseObra;
+        grandTotalPeso += fasePeso;
+
+        // Formatação refinada do título da fase
+        const faseNum = faseKey.toLowerCase().replace(/^fase\s*/i, '').trim();
+        const nomeFaseExibicao = `FASE ${faseNum || faseKey}`;
+
+        // 1. Linha de subdivisão da Fase (cabeçalho de seção interna ocupando as 9 colunas)
+        const infoFase = `${nomeFaseExibicao}   •   ${pecasFase.length} ${pecasFase.length === 1 ? 'marca' : 'marcas'}   |   Total: ${faseQtd} un${fasePeso > 0 ? `   |   ${fasePeso.toFixed(1)} kg` : ''}`;
+
+        tableBody.push([
+          {
+            content: infoFase,
+            colSpan: 9,
+            styles: {
+              fillColor: [15, 43, 92],      // Azul Marinho Corporativo
+              textColor: [255, 255, 255],   // Branco Puro
+              fontStyle: 'bold',
+              fontSize: 8,
+              cellPadding: { top: 3.2, bottom: 3.2, left: 4, right: 4 },
+              halign: 'left',
+            },
+          },
+        ]);
+
+        // 2. Linhas das marcas ordenadas pertencentes a esta fase
+        pecasFase.forEach((p) => {
+          tableBody.push([
+            p.marca,
+            p.perfil_principal || p.descricao || '-',
+            p.quantidade.toString(),
+            p.detalhamento.toString(),
+            p.corte.toString(),
+            p.solda.toString(),
+            p.pintura.toString(),
+            p.expedido.toString(),
+            p.montado_obra.toString(),
+          ]);
+        });
+
+        // 3. Linha de Subtotal da Fase
+        tableBody.push([
+          {
+            content: `Subtotal ${nomeFaseExibicao}:`,
+            colSpan: 2,
+            styles: {
+              fontStyle: 'bold',
+              halign: 'right',
+              fillColor: [241, 245, 249],
+              textColor: [15, 43, 92],
+              fontSize: 7.5,
+              cellPadding: 2,
+            },
+          },
+          {
+            content: faseQtd.toString(),
+            styles: { fontStyle: 'bold', halign: 'center', fillColor: [241, 245, 249], textColor: [15, 43, 92], fontSize: 7.5, cellPadding: 2 },
+          },
+          {
+            content: faseDet.toString(),
+            styles: { fontStyle: 'bold', halign: 'center', fillColor: [241, 245, 249], textColor: [71, 85, 105], fontSize: 7.5, cellPadding: 2 },
+          },
+          {
+            content: faseCorte.toString(),
+            styles: { fontStyle: 'bold', halign: 'center', fillColor: [241, 245, 249], textColor: [71, 85, 105], fontSize: 7.5, cellPadding: 2 },
+          },
+          {
+            content: faseSolda.toString(),
+            styles: { fontStyle: 'bold', halign: 'center', fillColor: [241, 245, 249], textColor: [71, 85, 105], fontSize: 7.5, cellPadding: 2 },
+          },
+          {
+            content: fasePint.toString(),
+            styles: { fontStyle: 'bold', halign: 'center', fillColor: [241, 245, 249], textColor: [71, 85, 105], fontSize: 7.5, cellPadding: 2 },
+          },
+          {
+            content: faseExp.toString(),
+            styles: { fontStyle: 'bold', halign: 'center', fillColor: [241, 245, 249], textColor: [71, 85, 105], fontSize: 7.5, cellPadding: 2 },
+          },
+          {
+            content: faseObra.toString(),
+            styles: { fontStyle: 'bold', halign: 'center', fillColor: [241, 245, 249], textColor: [22, 101, 52], fontSize: 7.5, cellPadding: 2 },
+          },
+        ]);
+      });
+
+      // 4. Linha de Total Geral Consolidado da Obra (OF)
+      tableBody.push([
+        {
+          content: 'TOTAL GERAL DA OBRA (OF):',
+          colSpan: 2,
+          styles: {
+            fontStyle: 'bold',
+            halign: 'right',
+            fillColor: [30, 58, 138],
+            textColor: [255, 255, 255],
+            fontSize: 8,
+            cellPadding: 3,
+          },
+        },
+        {
+          content: grandTotalQtd.toString(),
+          styles: { fontStyle: 'bold', halign: 'center', fillColor: [30, 58, 138], textColor: [255, 255, 255], fontSize: 8, cellPadding: 3 },
+        },
+        {
+          content: grandTotalDet.toString(),
+          styles: { fontStyle: 'bold', halign: 'center', fillColor: [30, 58, 138], textColor: [255, 255, 255], fontSize: 8, cellPadding: 3 },
+        },
+        {
+          content: grandTotalCorte.toString(),
+          styles: { fontStyle: 'bold', halign: 'center', fillColor: [30, 58, 138], textColor: [255, 255, 255], fontSize: 8, cellPadding: 3 },
+        },
+        {
+          content: grandTotalSolda.toString(),
+          styles: { fontStyle: 'bold', halign: 'center', fillColor: [30, 58, 138], textColor: [255, 255, 255], fontSize: 8, cellPadding: 3 },
+        },
+        {
+          content: grandTotalPint.toString(),
+          styles: { fontStyle: 'bold', halign: 'center', fillColor: [30, 58, 138], textColor: [255, 255, 255], fontSize: 8, cellPadding: 3 },
+        },
+        {
+          content: grandTotalExp.toString(),
+          styles: { fontStyle: 'bold', halign: 'center', fillColor: [30, 58, 138], textColor: [255, 255, 255], fontSize: 8, cellPadding: 3 },
+        },
+        {
+          content: grandTotalObra.toString(),
+          styles: { fontStyle: 'bold', halign: 'center', fillColor: [30, 58, 138], textColor: [134, 239, 172], fontSize: 8, cellPadding: 3 },
+        },
       ]);
 
+      // --- CABEÇALHO MODERNO E EXECUTIVO NA PÁGINA 1 ---
+      // Acento visual azul marinho
+      doc.setFillColor(15, 43, 92);
+      doc.roundedRect(14, 11, 4, 13, 1, 1, 'F');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(15);
+      doc.setTextColor(15, 43, 92);
+      doc.text('RELATÓRIO GERAL DE FABRICAÇÃO', 21, 17);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Acompanhamento Físico de Produção e Avanço por Fases', 21, 22.5);
+
+      // Badge elegante da OF no canto superior direito
+      doc.setFillColor(236, 253, 245);
+      doc.roundedRect(144, 10, 52, 14, 2, 2, 'F');
+      doc.setDrawColor(5, 150, 105);
+      doc.setLineWidth(0.5);
+      doc.roundedRect(144, 10, 52, 14, 2, 2, 'S');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10.5);
+      doc.setTextColor(5, 150, 105);
+      doc.text(`OF: ${obra.of_number}`, 170, 16.5, { align: 'center' });
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.5);
+      doc.setTextColor(4, 120, 87);
+      doc.text('TRACKSTEEL INDUSTRIAL', 170, 21.5, { align: 'center' });
+
+      // Box de Metadados / Resumo Executivo da Obra
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(14, 26, 182, 12, 1.5, 1.5, 'F');
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(14, 26, 182, 12, 1.5, 1.5, 'S');
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text('Cliente:', 18, 31);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text(`${obra.cliente || 'Industrial'}`, 30, 31);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+      doc.text('Emissão:', 18, 35.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 23, 42);
+      doc.text(`${dataFormatada} às ${horaFormatada}`, 31, 35.5);
+
+      // Métricas consolidadas à direita no box
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+      doc.text('Fases:', 110, 31);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 43, 92);
+      doc.text(`${fasesOrdenadas.length}`, 121, 31);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+      doc.text('Marcas:', 135, 31);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(15, 43, 92);
+      doc.text(`${pecasStatus.length}`, 148, 31);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+      doc.text('Peças Totais:', 162, 31);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(5, 150, 105);
+      doc.text(`${grandTotalQtd} un`, 181, 31);
+
+      if (grandTotalPeso > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(71, 85, 105);
+        doc.text('Peso Total:', 110, 35.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(15, 43, 92);
+        doc.text(`${grandTotalPeso.toFixed(1)} kg`, 128, 35.5);
+      }
+
+      // Linha divisória fina com acento Azul e Verde
+      doc.setDrawColor(30, 58, 138);
+      doc.setLineWidth(1.2);
+      doc.line(14, 40, 155, 40);
+      doc.setDrawColor(5, 150, 105);
+      doc.setLineWidth(1.2);
+      doc.line(155, 40, 196, 40);
+
+      // --- EXECUÇÃO DO AUTOTABLE ---
       autoTable(doc, {
-        startY: 33,
-        head: [['Marca', 'Perfil / Peça', 'Fase', 'Total', 'Det.', 'Corte', 'Solda', 'Pint.', 'Exp.', 'Obra']],
-        body: tableRows,
+        startY: 43,
+        head: [['Marca', 'Perfil / Peça', 'Total', 'Det.', 'Corte', 'Solda', 'Pint.', 'Exp.', 'Obra']],
+        body: tableBody,
         theme: 'plain',
+        margin: { top: 16, bottom: 16, left: 14, right: 14 },
         headStyles: {
-          fillColor: [248, 250, 252],
+          fillColor: [241, 245, 249],
           textColor: [15, 43, 92],
           fontStyle: 'bold',
-          lineWidth: 0.4,
+          fontSize: 8,
+          lineWidth: { top: 0.4, bottom: 0.8, left: 0.1, right: 0.1 },
           lineColor: [30, 58, 138],
+          halign: 'center',
+          cellPadding: 2.5,
         },
         styles: {
           fontSize: 7.5,
@@ -593,27 +846,109 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
           lineWidth: 0.1,
           lineColor: [226, 232, 240],
         },
+        alternateRowStyles: {
+          fillColor: [249, 250, 252],
+        },
         columnStyles: {
-          0: { fontStyle: 'bold', textColor: [15, 43, 92] },
-          1: { cellWidth: 38 },
-          2: { halign: 'center' },
-          3: { halign: 'center', fontStyle: 'bold' },
-          4: { halign: 'center' },
-          5: { halign: 'center' },
-          6: { halign: 'center' },
-          7: { halign: 'center' },
-          8: { halign: 'center' },
-          9: { halign: 'center' },
-          10: { halign: 'center', textColor: [22, 101, 52] },
+          0: { cellWidth: 22, fontStyle: 'bold', textColor: [15, 43, 92], halign: 'center' },
+          1: { cellWidth: 44, halign: 'left' },
+          2: { cellWidth: 16, halign: 'center', fontStyle: 'bold' },
+          3: { cellWidth: 16, halign: 'center' },
+          4: { cellWidth: 16, halign: 'center' },
+          5: { cellWidth: 16, halign: 'center' },
+          6: { cellWidth: 16, halign: 'center' },
+          7: { cellWidth: 18, halign: 'center' },
+          8: { cellWidth: 18, halign: 'center', textColor: [22, 101, 52], fontStyle: 'bold' },
+        },
+        didDrawPage: (data) => {
+          // Cabeçalho simplificado apenas nas páginas seguintes à primeira
+          if (data.pageNumber > 1) {
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(8);
+            doc.setTextColor(15, 43, 92);
+            doc.text(`TRACKSTEEL • RELATÓRIO GERAL DE FABRICAÇÃO  —  OF: ${obra.of_number}`, 14, 10);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7.5);
+            doc.setTextColor(100, 116, 139);
+            doc.text(`Cliente: ${obra.cliente || 'Industrial'}  |  Emissão: ${dataFormatada}`, 196, 10, { align: 'right' });
+            doc.setDrawColor(226, 232, 240);
+            doc.setLineWidth(0.4);
+            doc.line(14, 12, 196, 12);
+          }
         },
       });
 
-      doc.save(`Progresso_Geral_OF_${obra.of_number}.pdf`);
-      smartAudio.playSuccess();
-      toast.success('Relatório Geral da Obra gerado!');
+      // --- RODAPÉ EM TODAS AS PÁGINAS ---
+      const totalPages = (doc as any).internal.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.3);
+        doc.line(14, 287, 196, 287);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(148, 163, 184);
+        doc.text('TrackSteel Industrial • Modo Smart', 14, 291);
+        doc.text(`OF ${obra.of_number} — ${obra.cliente || 'Industrial'}`, 105, 291, { align: 'center' });
+        doc.text(`Página ${i} de ${totalPages}`, 196, 291, { align: 'right' });
+      }
+
+      const nomeArquivo = `Progresso_Geral_OF_${obra.of_number}.pdf`;
+
+      if (acao === 'download') {
+        doc.save(nomeArquivo);
+        smartAudio.playSuccess();
+        toast.success('Relatório Geral da Obra baixado com sucesso!');
+      } else if (acao === 'whatsapp') {
+        smartAudio.playClick();
+        const pctCorte = grandTotalQtd > 0 ? Math.round((grandTotalCorte / grandTotalQtd) * 100) : 0;
+        const pctSolda = grandTotalQtd > 0 ? Math.round((grandTotalSolda / grandTotalQtd) * 100) : 0;
+        const pctPint = grandTotalQtd > 0 ? Math.round((grandTotalPint / grandTotalQtd) * 100) : 0;
+        const pctExp = grandTotalQtd > 0 ? Math.round((grandTotalExp / grandTotalQtd) * 100) : 0;
+        const pctObra = grandTotalQtd > 0 ? Math.round((grandTotalObra / grandTotalQtd) * 100) : 0;
+
+        const textoMsg = encodeURIComponent(
+          `*TRACKSTEEL - RELATÓRIO GERAL DE FABRICAÇÃO*\n` +
+          `*Obra:* OF ${obra.of_number} - ${obra.cliente || ''}\n` +
+          `*Data:* ${dataFormatada}\n` +
+          `*Escopo:* ${grandTotalQtd} peças (${fasesOrdenadas.length} fases / ${pecasStatus.length} marcas)\n\n` +
+          `*Avanço Consolidado:*\n` +
+          `• Detalhamento: ${grandTotalDet}/${grandTotalQtd}\n` +
+          `• Corte: ${grandTotalCorte}/${grandTotalQtd} (${pctCorte}%)\n` +
+          `• Solda: ${grandTotalSolda}/${grandTotalQtd} (${pctSolda}%)\n` +
+          `• Pintura: ${grandTotalPint}/${grandTotalQtd} (${pctPint}%)\n` +
+          `• Expedido: ${grandTotalExp}/${grandTotalQtd} (${pctExp}%)\n` +
+          `• Montado Obra: ${grandTotalObra}/${grandTotalQtd} (${pctObra}%)\n\n` +
+          `_Gerado via Modo Smart TrackSteel._`
+        );
+        window.open(`https://wa.me/?text=${textoMsg}`, '_blank');
+      } else if (acao === 'email') {
+        smartAudio.playClick();
+        const assunto = encodeURIComponent(`Relatório Geral de Produção - OF ${obra.of_number}`);
+        const corpo = encodeURIComponent(
+          `Segue o resumo geral de fabricação da obra:\n\n` +
+          `Obra: OF ${obra.of_number}\n` +
+          `Cliente: ${obra.cliente || 'Industrial'}\n` +
+          `Data de Emissão: ${dataFormatada}\n` +
+          `Total de Fases: ${fasesOrdenadas.length}\n` +
+          `Total de Peças: ${grandTotalQtd} un\n` +
+          `${grandTotalPeso > 0 ? `Peso Total: ${grandTotalPeso.toFixed(1)} kg\n` : ''}\n` +
+          `Avanço por Processo:\n` +
+          `- Detalhamento: ${grandTotalDet} un\n` +
+          `- Corte: ${grandTotalCorte} un\n` +
+          `- Solda: ${grandTotalSolda} un\n` +
+          `- Pintura: ${grandTotalPint} un\n` +
+          `- Expedido: ${grandTotalExp} un\n` +
+          `- Montado na Obra: ${grandTotalObra} un\n\n` +
+          `Gerado automaticamente pelo TrackSteel Modo Smart.`
+        );
+        window.open(`mailto:?subject=${assunto}&body=${corpo}`, '_blank');
+      }
     } catch (e: any) {
       smartAudio.playAlert();
-      toast.error('Erro ao gerar relatório: ' + e?.message);
+      console.error('Erro ao gerar relatório geral:', e);
+      toast.error('Erro ao gerar relatório: ' + (e?.message || ''));
     } finally {
       setGerandoPDF(false);
     }
@@ -788,7 +1123,7 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
               {[
                 { id: 'fabricando', label: 'Em Fabricação' },
                 { id: 'pronto', label: 'Pronto Pátio' },
-                { id: 'embarcado', label: 'Embarcado' },
+                { id: 'embarcado', label: 'Expedido' },
                 { id: 'montado', label: 'Montado' },
               ].map((f) => (
                 <button
@@ -916,7 +1251,7 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
                       { nome: 'Corte', valor: peca.corte, isPula: false },
                       { nome: 'Solda', valor: peca.solda, isPula: peca.tem_componentes === false },
                       { nome: 'Pint.', valor: peca.pintura, isPula: false },
-                      { nome: 'Emb.', valor: peca.expedido, isPula: false },
+                      { nome: 'Exp.', valor: peca.expedido, isPula: false },
                       { nome: 'Obra', valor: peca.montado_obra, isPula: false },
                     ].map((etapa, idx) => {
                       if (etapa.isPula) {
@@ -1043,15 +1378,38 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
               </div>
             </div>
 
-            <Button
-              type="button"
-              disabled={gerandoPDF}
-              onClick={gerarRelatorioGeralObraPDF}
-              className="w-full h-12 bg-blue-600 hover:bg-blue-500 text-white font-black text-xs rounded-xl gap-2 active:scale-95 shadow-sm"
-            >
-              <Download className="h-4 w-4" />
-              <span>Gerar e Baixar PDF Geral</span>
-            </Button>
+            {/* 3 Botões de Ação para o Relatório Geral: Baixar, WhatsApp e E-mail */}
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                type="button"
+                disabled={gerandoPDF}
+                onClick={() => gerarRelatorioGeralObraPDF('download')}
+                className="h-11 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl gap-1.5 active:scale-95 shadow-sm"
+              >
+                <Download className="h-4 w-4" />
+                <span>Baixar PDF</span>
+              </Button>
+
+              <Button
+                type="button"
+                disabled={gerandoPDF}
+                onClick={() => gerarRelatorioGeralObraPDF('whatsapp')}
+                className="h-11 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl gap-1.5 active:scale-95 shadow-sm"
+              >
+                <MessageCircle className="h-4 w-4" />
+                <span>WhatsApp</span>
+              </Button>
+
+              <Button
+                type="button"
+                disabled={gerandoPDF}
+                onClick={() => gerarRelatorioGeralObraPDF('email')}
+                className="h-11 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl gap-1.5 active:scale-95 shadow-sm"
+              >
+                <Mail className="h-4 w-4" />
+                <span>E-mail</span>
+              </Button>
+            </div>
           </div>
         </div>
       )}
