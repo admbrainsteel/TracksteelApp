@@ -60,12 +60,18 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
   const [hoveredPiece, setHoveredPiece] = useState<PieceInfo | null>(null);
   const [hoverPosition, setHoverPosition] = useState<{ x: number; y: number } | null>(null);
 
-  // Seleção Permanente Magenta (Single Click e Double Click)
-  const [selectedPiecesMap, setSelectedPiecesMap] = useState<Map<string, { mesh: THREE.Mesh; piece: PieceInfo }>>(new Map());
-  const selectedPiecesMapRef = useRef(selectedPiecesMap);
+  // Seleção Permanente Magenta indexada por Peça Física Real (expressID / montagem única)
+  interface SelectedElement {
+    expressID: number;
+    piece: PieceInfo;
+    meshes: THREE.Mesh[];
+  }
+
+  const [selectedElementsMap, setSelectedElementsMap] = useState<Map<number, SelectedElement>>(new Map());
+  const selectedElementsMapRef = useRef(selectedElementsMap);
   useEffect(() => {
-    selectedPiecesMapRef.current = selectedPiecesMap;
-  }, [selectedPiecesMap]);
+    selectedElementsMapRef.current = selectedElementsMap;
+  }, [selectedElementsMap]);
 
   const [isSelectionModalOpen, setIsSelectionModalOpen] = useState<boolean>(false);
   const pointerDownInfoRef = useRef<{ x: number; y: number; time: number }>({ x: 0, y: 0, time: 0 });
@@ -547,8 +553,9 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
           }
         }
 
-        // Se a peça estiver marcada na seleção permanente, preserva a cor magenta
-        if (selectedPiecesMapRef.current.has(mesh.uuid)) {
+        // Se a peça física pertencer à seleção permanente, preserva a cor magenta
+        const ifcId = mesh.userData.ifcId;
+        if (ifcId !== undefined && selectedElementsMapRef.current.has(ifcId)) {
           mesh.userData.originalMaterial = mesh.material;
           mesh.material = magentaMaterialRef.current;
         } else {
@@ -782,25 +789,39 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
       }
 
       if (hitMesh && hitMesh.visible) {
-        const nextMap = new Map(selectedPiecesMapRef.current);
+        const targetIfcId = hitMesh.userData.ifcId;
+        if (targetIfcId === undefined) return;
 
-        if (nextMap.has(hitMesh.uuid)) {
-          // Desmarcar peça (restaura material original)
-          if (hitMesh.userData.originalMaterial) {
-            hitMesh.material = hitMesh.userData.originalMaterial;
-          }
-          hitMesh.userData.isMagentaSelected = false;
-          nextMap.delete(hitMesh.uuid);
+        const nextMap = new Map(selectedElementsMapRef.current);
+
+        if (nextMap.has(targetIfcId)) {
+          // Desmarcar peça física inteira: restaura todas as suas sub-malhas geométricas
+          const element = nextMap.get(targetIfcId)!;
+          element.meshes.forEach((m) => {
+            if (m.userData.originalMaterial) {
+              m.material = m.userData.originalMaterial;
+            }
+            m.userData.isMagentaSelected = false;
+          });
+          nextMap.delete(targetIfcId);
         } else {
-          // Marcar peça em magenta permanente
-          hitMesh.userData.originalMaterial = hitMesh.material;
-          hitMesh.userData.isMagentaSelected = true;
-          hitMesh.material = magentaMaterialRef.current;
+          // Marcar peça física inteira: localiza e pinta todas as sub-malhas do mesmo ifcId
+          const relatedMeshes: THREE.Mesh[] = [];
+          if (modelGroupRef.current) {
+            modelGroupRef.current.traverse((child) => {
+              if ((child as THREE.Mesh).isMesh && child.userData.ifcId === targetIfcId) {
+                const m = child as THREE.Mesh;
+                m.userData.originalMaterial = m.material;
+                m.userData.isMagentaSelected = true;
+                m.material = magentaMaterialRef.current;
+                relatedMeshes.push(m);
+              }
+            });
+          }
 
-          const expressID = hitMesh.userData.ifcId;
           const pmark = hitMesh.userData.pieceMark;
-          const piece: PieceInfo = (modelData && expressID !== undefined && modelData.pieceByExpressID.get(expressID)) || {
-            expressID: expressID || 0,
+          const piece: PieceInfo = (modelData && modelData.pieceByExpressID.get(targetIfcId)) || {
+            expressID: targetIfcId,
             guid: '',
             name: hitMesh.userData.section || 'Peça',
             type: 'PIECE',
@@ -809,16 +830,20 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
             phase: hitMesh.userData.phase,
           };
 
-          nextMap.set(hitMesh.uuid, { mesh: hitMesh, piece });
+          nextMap.set(targetIfcId, {
+            expressID: targetIfcId,
+            piece,
+            meshes: relatedMeshes,
+          });
           onSelectPiece?.(piece);
         }
 
-        setSelectedPiecesMap(nextMap);
+        setSelectedElementsMap(nextMap);
       }
     }
   };
 
-  // 2 Cliques (Duplo Clique): Seleciona TODAS as peças idênticas no modelo (mesma marca/tag da mesma fase)
+  // 2 Cliques (Duplo Clique): Seleciona TODAS as peças físicas idênticas no modelo (mesma marca e mesma fase)
   const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current || !activeCameraRef.current || !modelGroupRef.current || !controlsRef.current) return;
 
@@ -844,7 +869,10 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
         const targetPhase = hitMesh.userData.phase ? String(hitMesh.userData.phase).trim() : '';
 
         if (targetPieceMark) {
-          const nextMap = new Map(selectedPiecesMapRef.current);
+          const nextMap = new Map(selectedElementsMapRef.current);
+
+          // Agrupa todas as sub-malhas por elemento físico (ifcId único)
+          const meshesByIfcId = new Map<number, { meshes: THREE.Mesh[]; sampleMesh: THREE.Mesh }>();
 
           modelGroupRef.current.traverse((child) => {
             if ((child as THREE.Mesh).isMesh && child.visible) {
@@ -852,33 +880,48 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
               const pmark = String(mesh.userData.pieceMark || '').trim().toUpperCase();
               const phase = mesh.userData.phase ? String(mesh.userData.phase).trim() : '';
 
-              // Mesma marca e mesma fase (se aplicável)
+              // Mesma marca e mesma fase
               const isMatch = pmark === targetPieceMark && (!targetPhase || !phase || phase === targetPhase);
-
               if (isMatch) {
-                if (!nextMap.has(mesh.uuid)) {
-                  mesh.userData.originalMaterial = mesh.material;
+                const ifcId = mesh.userData.ifcId;
+                if (ifcId !== undefined) {
+                  if (!meshesByIfcId.has(ifcId)) {
+                    meshesByIfcId.set(ifcId, { meshes: [], sampleMesh: mesh });
+                  }
+                  meshesByIfcId.get(ifcId)!.meshes.push(mesh);
                 }
-                mesh.userData.isMagentaSelected = true;
-                mesh.material = magentaMaterialRef.current;
-
-                const expressID = mesh.userData.ifcId;
-                const piece: PieceInfo = (modelData && expressID !== undefined && modelData.pieceByExpressID.get(expressID)) || {
-                  expressID: expressID || 0,
-                  guid: '',
-                  name: mesh.userData.section || 'Peça',
-                  type: 'PIECE',
-                  pieceMark: pmark,
-                  section: mesh.userData.section,
-                  phase: phase || targetPhase,
-                };
-
-                nextMap.set(mesh.uuid, { mesh, piece });
               }
             }
           });
 
-          setSelectedPiecesMap(nextMap);
+          // Pinta e adiciona cada peça física real como 1 unidade
+          meshesByIfcId.forEach(({ meshes, sampleMesh }, ifcId) => {
+            meshes.forEach((m) => {
+              if (!m.userData.isMagentaSelected) {
+                m.userData.originalMaterial = m.material;
+              }
+              m.userData.isMagentaSelected = true;
+              m.material = magentaMaterialRef.current;
+            });
+
+            const piece: PieceInfo = (modelData && modelData.pieceByExpressID.get(ifcId)) || {
+              expressID: ifcId,
+              guid: '',
+              name: sampleMesh.userData.section || 'Peça',
+              type: 'PIECE',
+              pieceMark: sampleMesh.userData.pieceMark,
+              section: sampleMesh.userData.section,
+              phase: sampleMesh.userData.phase || targetPhase,
+            };
+
+            nextMap.set(ifcId, {
+              expressID: ifcId,
+              piece,
+              meshes,
+            });
+          });
+
+          setSelectedElementsMap(nextMap);
         }
 
         // Foca suavemente o alvo dos controles na peça clicada
@@ -890,27 +933,30 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
 
   // Limpar Seleção Completa
   const handleClearSelection = useCallback(() => {
-    selectedPiecesMapRef.current.forEach(({ mesh }) => {
-      if (mesh.userData.originalMaterial) {
-        mesh.material = mesh.userData.originalMaterial;
-      }
-      mesh.userData.isMagentaSelected = false;
+    selectedElementsMapRef.current.forEach(({ meshes }) => {
+      meshes.forEach((m) => {
+        if (m.userData.originalMaterial) {
+          m.material = m.userData.originalMaterial;
+        }
+        m.userData.isMagentaSelected = false;
+      });
     });
-    setSelectedPiecesMap(new Map());
+    setSelectedElementsMap(new Map());
   }, []);
 
-  const selectedCount = selectedPiecesMap.size;
+  // Quantidade real de peças físicas selecionadas na obra
+  const selectedCount = selectedElementsMap.size;
 
-  // Lista consolidada para o modal de seleção
-  const selectedPiecesList: SelectedPieceItem[] = Array.from(selectedPiecesMap.values()).map(
-    ({ mesh, piece }) => {
-      const pmark = piece.pieceMark || mesh.userData.pieceMark || 'Sem Marca';
+  // Lista consolidada de peças físicas para o modal de seleção
+  const selectedPiecesList: SelectedPieceItem[] = Array.from(selectedElementsMap.values()).map(
+    ({ expressID, piece }) => {
+      const pmark = piece.pieceMark || 'Sem Marca';
       const prod = productionData?.get(pmark);
       return {
-        id: mesh.uuid,
+        id: String(expressID),
         pieceMark: pmark,
-        phase: piece.phase || mesh.userData.phase,
-        section: piece.section || mesh.userData.section,
+        phase: piece.phase,
+        section: piece.section,
         name: piece.name,
         pointedQty: prod?.pointedQtd,
         totalQty: prod?.totalQtd,
