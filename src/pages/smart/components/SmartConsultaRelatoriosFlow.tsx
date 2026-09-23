@@ -96,15 +96,17 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
           .select('peca_id, processo_id, quantidade_produzida')
           .eq('of_number', obra.of_number),
 
-        // 4. Expedição em Romaneios
+        // 4. Expedição em Romaneios (APENAS ROMANEIOS ENTREGUES E MAPEANDO POR PECA_ID PARA EVITAR CONFLITO DE FASE)
         supabase
           .from('itens_romaneio_pecas')
           .select(`
+            peca_id,
             marca,
             quantidade_expedida,
-            romaneios_expedicao!inner(of_number)
+            romaneios_expedicao!inner(of_number, status)
           `)
-          .eq('romaneios_expedicao.of_number', obra.of_number),
+          .eq('romaneios_expedicao.of_number', obra.of_number)
+          .eq('romaneios_expedicao.status', 'Entregue'),
 
         // 5. Montagem em Obra (RDO)
         supabase
@@ -157,11 +159,13 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
         mapaProcPeca.set(pecaId, atual);
       });
 
-      // Mapear expedição por marca
+      // Mapear expedição por peca_id (para respeitar a fase corretamente)
       const mapaExp = new Map<string, number>();
       (resExpedidos.data || []).forEach((item: any) => {
-        const marca = item.marca;
-        mapaExp.set(marca, (mapaExp.get(marca) || 0) + Number(item.quantidade_expedida || 0));
+        const id = item.peca_id;
+        if (id) {
+          mapaExp.set(id, (mapaExp.get(id) || 0) + Number(item.quantidade_expedida || 0));
+        }
       });
 
       // Mapear montagem por marca
@@ -195,16 +199,18 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
           montagem: procs.montagem,
           solda: procs.solda,
           pintura: procs.pintura,
-          expedido: mapaExp.get(p.marca) || 0,
+          expedido: mapaExp.get(p.id) || 0,
           montado_obra: mapaMont.get(p.marca) || 0,
           tem_componentes: p.tem_componentes,
         };
       });
 
-      // ORDENAÇÃO NATURAL: 1, 2, 3... 10... ou P1, P2, P10, V1, V101
-      lista.sort((a, b) =>
-        a.marca.localeCompare(b.marca, undefined, { numeric: true, sensitivity: 'base' })
-      );
+      // ORDENAÇÃO NATURAL: Primeiro por Fase, depois por Marca
+      lista.sort((a, b) => {
+        const cmpFase = (a.etapa_fase || '1').localeCompare(b.etapa_fase || '1', undefined, { numeric: true, sensitivity: 'base' });
+        if (cmpFase !== 0) return cmpFase;
+        return a.marca.localeCompare(b.marca, undefined, { numeric: true, sensitivity: 'base' });
+      });
 
       setPecasStatus(lista);
     } catch (e) {
@@ -1194,13 +1200,26 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
                 </Button>
               </div>
             ) : (
-              pecasFiltradas.map((peca) => (
-                <div
-                  key={peca.id}
-                  className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 shadow-sm"
-                >
-                  {/* Linha Superior: Marca, Perfil, Fase e Quantidade */}
-                  <div className="flex items-start justify-between gap-2">
+              pecasFiltradas.map((peca, index) => {
+                // Lógica do Divisor de Fase
+                const mostrarDivisor = index === 0 || pecasFiltradas[index - 1].etapa_fase !== peca.etapa_fase;
+                
+                return (
+                  <React.Fragment key={peca.id}>
+                    {mostrarDivisor && (
+                      <div className="flex items-center gap-3 mt-4 mb-2">
+                        <div className="h-px flex-1 bg-slate-300 dark:bg-slate-700"></div>
+                        <span className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-300 dark:border-slate-700 shadow-sm">
+                          FASE {peca.etapa_fase || '1'}
+                        </span>
+                        <div className="h-px flex-1 bg-slate-300 dark:bg-slate-700"></div>
+                      </div>
+                    )}
+                    <div
+                      className="p-3.5 rounded-2xl bg-white dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 shadow-sm"
+                    >
+                      {/* Linha Superior: Marca, Perfil, Fase e Quantidade */}
+                      <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xl font-black text-amber-700 dark:text-amber-400 tracking-wider">
@@ -1287,7 +1306,8 @@ export const SmartConsultaRelatoriosFlow: React.FC<SmartConsultaRelatoriosFlowPr
                     })}
                   </div>
                 </div>
-              ))
+              </React.Fragment>
+              )})
             )}
           </div>
         </div>
