@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Volume2, VolumeX, LogOut, ArrowLeft, Sun, Moon } from 'lucide-react';
+import { Building2, Volume2, VolumeX, LogOut, ArrowLeft, Sun, Moon, Bell } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { smartAudio } from '@/utils/smartAudio';
 import { Button } from '@/components/ui/button';
+import { SmartNotificationsModal, useSmartNotificationsAlert } from './SmartNotificationsModal';
 
 interface SmartHeaderProps {
   titulo?: string;
@@ -23,6 +24,8 @@ export const SmartHeader: React.FC<SmartHeaderProps> = ({
   const { user, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
   const [soundOn, setSoundOn] = useState<boolean>(() => smartAudio.isSoundEnabled());
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
+  const { unreadCount, hasNewAlert, clearAlert } = useSmartNotificationsAlert();
 
   // Detecta se está efetivamente em modo escuro
   const isDark =
@@ -128,6 +131,35 @@ export const SmartHeader: React.FC<SmartHeaderProps> = ({
             {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </button>
 
+          {/* Notificações de Apontamentos de Produção */}
+          <button
+            type="button"
+            onClick={() => {
+              smartAudio.playClick();
+              clearAlert();
+              setIsNotificationsOpen(true);
+            }}
+            className={`relative h-10 w-8 sm:w-9 rounded-xl flex items-center justify-center border transition-all active:scale-90 ${
+              hasNewAlert
+                ? 'bg-amber-100 border-amber-300 text-amber-700 dark:bg-amber-950/70 dark:border-amber-600/50 dark:text-amber-400'
+                : 'bg-slate-100 border-slate-200 text-slate-600 dark:bg-slate-800/80 dark:border-slate-700 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+            title="Notificações de Apontamentos de Produção"
+          >
+            <Bell className={`h-4 w-4 ${hasNewAlert ? 'animate-bounce text-amber-600 dark:text-amber-400' : ''}`} />
+            {hasNewAlert && (
+              <span className="absolute top-1.5 right-1.5 flex h-2 w-2 pointer-events-none">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+              </span>
+            )}
+            {unreadCount > 0 && !hasNewAlert && (
+              <span className="absolute -top-1 -right-1 px-1 min-w-[15px] h-3.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[8px] font-mono font-bold flex items-center justify-center border border-slate-300 dark:border-slate-600 pointer-events-none">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
+
           {/* Controle de Som / Áudio */}
           <button
             type="button"
@@ -165,6 +197,12 @@ export const SmartHeader: React.FC<SmartHeaderProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Modal de Notificações de Apontamentos */}
+      <SmartNotificationsModal
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+      />
     </header>
   );
 };

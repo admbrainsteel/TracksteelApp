@@ -4,6 +4,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { LoadedIFCResult, PieceInfo } from '@/lib/ifc/ifcLoaderService';
 import { ViewCube } from './ViewCube';
 import { SelectionListModal, SelectedPieceItem } from './SelectionListModal';
+import { SmartNotificationsModal, useSmartNotificationsAlert } from '@/pages/smart/components/SmartNotificationsModal';
 import { useTheme } from '@/hooks/useTheme';
 import { smartAudio } from '@/utils/smartAudio';
 import { 
@@ -19,7 +20,9 @@ import {
   Check,
   Sun,
   Moon,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Grid as GridIcon,
+  Bell
 } from 'lucide-react';
 
 export interface ProductionPieceStatus {
@@ -68,13 +71,24 @@ export const SmartModelViewer3D: React.FC<SmartModelViewer3DProps> = ({
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
-  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const perspCameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const orthoCameraRef = useRef<THREE.OrthographicCamera | null>(null);
+  const activeCameraRef = useRef<THREE.Camera | null>(null);
+  const cameraRef = useRef<THREE.Camera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const modelGroupRef = useRef<THREE.Group | null>(null);
   const raycasterRef = useRef<THREE.Raycaster>(new THREE.Raycaster());
 
   const { theme, setTheme } = useTheme();
   const isDark = theme === 'dark';
+
+  // Controles de Visualização: Grid e Câmera Ortogonal/Perspectiva
+  const [showGrid, setShowGrid] = useState<boolean>(true);
+  const [isOrthographic, setIsOrthographic] = useState<boolean>(false);
+
+  // Alerta e Modal de Notificações de Apontamentos
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
+  const { unreadCount, hasNewAlert, clearAlert } = useSmartNotificationsAlert(selectedOF);
 
   // Filtros principais solicitados: Fase e Processo
   const [selectedPhase, setSelectedPhase] = useState<string>('all');
@@ -116,13 +130,45 @@ export const SmartModelViewer3D: React.FC<SmartModelViewer3DProps> = ({
 
   const gridRef = useRef<THREE.GridHelper | null>(null);
 
-  // Função para atualizar cores do piso de acordo com o tema claro / escuro
-  const updateGridTheme = useCallback((gridHelper: THREE.GridHelper) => {
+  // 1. Alternar Visibilidade da Grade de Piso (Grid)
+  const handleToggleGrid = useCallback(() => {
+    smartAudio.playClick();
+    setShowGrid((prev) => {
+      const next = !prev;
+      if (gridRef.current) {
+        gridRef.current.visible = next;
+      }
+      return next;
+    });
+  }, []);
+
+  // 2. Alternar Câmera Ortogonal / Perspectiva
+  const handleToggleCamera = useCallback(() => {
+    if (!perspCameraRef.current || !orthoCameraRef.current || !controlsRef.current) return;
+    smartAudio.playClick();
+
+    const nextOrtho = !isOrthographic;
+    setIsOrthographic(nextOrtho);
+
+    const prevCamera = activeCameraRef.current || perspCameraRef.current;
+    const nextCamera = nextOrtho ? orthoCameraRef.current : perspCameraRef.current;
+
+    nextCamera.position.copy(prevCamera.position);
+    nextCamera.quaternion.copy(prevCamera.quaternion);
+
+    activeCameraRef.current = nextCamera;
+    controlsRef.current.object = nextCamera;
+    controlsRef.current.update();
+  }, [isOrthographic]);
+
+  // 3. Atualizar cores do piso quando o tema claro/escuro mudar (SEM recriar a cena Three.js!)
+  useEffect(() => {
+    if (!gridRef.current) return;
     const isDarkMode = document.documentElement.classList.contains('dark') || theme === 'dark';
     const centerColor = isDarkMode ? new THREE.Color(0x475569) : new THREE.Color(0x94a3b8);
     const gridColor = isDarkMode ? new THREE.Color(0x1e293b) : new THREE.Color(0xe2e8f0);
 
-    const colors = gridHelper.geometry.attributes.color as THREE.BufferAttribute;
+    const colors = gridRef.current.geometry.attributes.color as THREE.BufferAttribute;
     if (colors) {
       const colorArray = colors.array as Float32Array;
       for (let i = 0; i < colorArray.length; i += 6) {
@@ -138,38 +184,48 @@ export const SmartModelViewer3D: React.FC<SmartModelViewer3DProps> = ({
       colors.needsUpdate = true;
     }
 
-    if (gridHelper.material && (gridHelper.material as THREE.Material)) {
-      (gridHelper.material as THREE.Material).transparent = true;
-      (gridHelper.material as THREE.Material).opacity = isDarkMode ? 0.35 : 0.45;
+    if (gridRef.current.material && (gridRef.current.material as THREE.Material)) {
+      (gridRef.current.material as THREE.Material).transparent = true;
+      (gridRef.current.material as THREE.Material).opacity = isDarkMode ? 0.35 : 0.45;
     }
   }, [theme]);
-
-  // Atualiza cores do grid quando o tema mudar
-  useEffect(() => {
-    if (gridRef.current) {
-      updateGridTheme(gridRef.current);
-    }
-  }, [theme, updateGridTheme]);
 
   // Rastreamento para diferenciar gesto touch/drag de toque simples (Tap)
   const pointerDownRef = useRef<{ x: number; y: number; time: number }>({ x: 0, y: 0, time: 0 });
 
-  // 1. Inicialização do Three.js e OrbitControls Touch-First
+  // 4. Inicialização ÚNICA do Three.js e OrbitControls Touch-First (independente de tema!)
   useEffect(() => {
     if (!containerRef.current || !canvasContainerRef.current) return;
 
-    const width = containerRef.current.clientWidth;
-    const height = containerRef.current.clientHeight;
+    const width = containerRef.current.clientWidth || 800;
+    const height = containerRef.current.clientHeight || 600;
 
-    // Cena
+    // Cena única persistente
     const scene = new THREE.Scene();
-    scene.background = null; // Fundo transparente controlado por Tailwind (modo claro / escuro)
+    scene.background = null; // Fundo controlado por CSS do container (slate-50 / slate-950)
     sceneRef.current = scene;
 
-    // Câmera Perspectiva otimizada para campo de visão amplo em telas touch
-    const camera = new THREE.PerspectiveCamera(48, width / height, 0.1, 10000);
-    camera.position.set(25, 20, 30);
-    cameraRef.current = camera;
+    // Câmera Perspectiva
+    const perspCamera = new THREE.PerspectiveCamera(48, width / height, 0.1, 10000);
+    perspCamera.position.set(25, 20, 30);
+    perspCameraRef.current = perspCamera;
+
+    // Câmera Ortográfica
+    const frustumSize = 40;
+    const aspect = width / height;
+    const orthoCamera = new THREE.OrthographicCamera(
+      (frustumSize * aspect) / -2,
+      (frustumSize * aspect) / 2,
+      frustumSize / 2,
+      frustumSize / -2,
+      0.1,
+      10000
+    );
+    orthoCamera.position.copy(perspCamera.position);
+    orthoCameraRef.current = orthoCamera;
+
+    // Câmera Ativa
+    activeCameraRef.current = perspCamera;
 
     // Renderer WebGL com antialias e color space SRGB
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -182,7 +238,7 @@ export const SmartModelViewer3D: React.FC<SmartModelViewer3DProps> = ({
     canvasContainerRef.current.appendChild(renderer.domElement);
 
     // OrbitControls otimizado para toque (Touch-First)
-    const controls = new OrbitControls(camera, renderer.domElement);
+    const controls = new OrbitControls(perspCamera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.08;
     controls.rotateSpeed = 0.8;
@@ -194,7 +250,7 @@ export const SmartModelViewer3D: React.FC<SmartModelViewer3DProps> = ({
     };
     controlsRef.current = controls;
 
-    // Iluminação balanceada para aço industrial
+    // Iluminação industrial
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.95);
     scene.add(ambientLight);
 
@@ -206,10 +262,25 @@ export const SmartModelViewer3D: React.FC<SmartModelViewer3DProps> = ({
     dirLight2.position.set(-40, -20, -40);
     scene.add(dirLight2);
 
-    // Grid suave de chão sincronizado com o tema claro/escuro
+    // Grid de chão
     const grid = new THREE.GridHelper(60, 60, 0x06b6d4, 0x94a3b8);
     grid.position.y = -0.05;
-    updateGridTheme(grid);
+    const isDarkInit = document.documentElement.classList.contains('dark');
+    const centerColor = isDarkInit ? new THREE.Color(0x475569) : new THREE.Color(0x94a3b8);
+    const gridColor = isDarkInit ? new THREE.Color(0x1e293b) : new THREE.Color(0xe2e8f0);
+    const colors = grid.geometry.attributes.color as THREE.BufferAttribute;
+    if (colors) {
+      const arr = colors.array as Float32Array;
+      for (let i = 0; i < arr.length; i += 6) {
+        const isCenter = i === Math.floor(arr.length / 2);
+        const c = isCenter ? centerColor : gridColor;
+        arr[i] = c.r; arr[i + 1] = c.g; arr[i + 2] = c.b;
+        arr[i + 3] = c.r; arr[i + 4] = c.g; arr[i + 5] = c.b;
+      }
+      colors.needsUpdate = true;
+    }
+    (grid.material as THREE.Material).transparent = true;
+    (grid.material as THREE.Material).opacity = isDarkInit ? 0.35 : 0.45;
     scene.add(grid);
     gridRef.current = grid;
 
@@ -223,17 +294,32 @@ export const SmartModelViewer3D: React.FC<SmartModelViewer3DProps> = ({
     const animate = () => {
       animId = requestAnimationFrame(animate);
       controls.update();
-      renderer.render(scene, camera);
+      const curCam = activeCameraRef.current || perspCamera;
+      cameraRef.current = curCam;
+      renderer.render(scene, curCam);
     };
     animate();
 
     // Redimensionamento responsivo
     const handleResize = () => {
-      if (!containerRef.current || !rendererRef.current || !cameraRef.current) return;
+      if (!containerRef.current || !rendererRef.current) return;
       const w = containerRef.current.clientWidth;
       const h = containerRef.current.clientHeight;
-      cameraRef.current.aspect = w / h;
-      cameraRef.current.updateProjectionMatrix();
+      const currentAspect = w / h;
+
+      if (perspCameraRef.current) {
+        perspCameraRef.current.aspect = currentAspect;
+        perspCameraRef.current.updateProjectionMatrix();
+      }
+
+      if (orthoCameraRef.current) {
+        orthoCameraRef.current.left = (frustumSize * currentAspect) / -2;
+        orthoCameraRef.current.right = (frustumSize * currentAspect) / 2;
+        orthoCameraRef.current.top = frustumSize / 2;
+        orthoCameraRef.current.bottom = frustumSize / -2;
+        orthoCameraRef.current.updateProjectionMatrix();
+      }
+
       rendererRef.current.setSize(w, h);
     };
     window.addEventListener('resize', handleResize);
@@ -243,11 +329,11 @@ export const SmartModelViewer3D: React.FC<SmartModelViewer3DProps> = ({
       window.removeEventListener('resize', handleResize);
       renderer.dispose();
     };
-  }, [updateGridTheme]);
+  }, []); // Executa apenas UMA VEZ na montagem! NUNCA reinicia ao alternar tema!
 
-  // 2. Centralizar Modelo na Visão (Fit View)
+  // 5. Centralizar Modelo na Visão (Fit View)
   const fitModelToView = useCallback(() => {
-    if (!modelGroupRef.current || !cameraRef.current || !controlsRef.current) return;
+    if (!modelGroupRef.current || !controlsRef.current) return;
 
     const box = new THREE.Box3().setFromObject(modelGroupRef.current);
     if (box.isEmpty()) return;
@@ -258,13 +344,29 @@ export const SmartModelViewer3D: React.FC<SmartModelViewer3DProps> = ({
     box.getCenter(center);
 
     const maxDim = Math.max(size.x, size.y, size.z);
-    const fov = cameraRef.current.fov * (Math.PI / 180);
-    let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 1.5;
-    cameraZ = Math.max(cameraZ, 5);
 
-    cameraRef.current.position.set(center.x + cameraZ * 0.7, center.y + cameraZ * 0.5, center.z + cameraZ * 0.9);
-    cameraRef.current.lookAt(center);
-    cameraRef.current.updateProjectionMatrix();
+    if (perspCameraRef.current) {
+      const fov = perspCameraRef.current.fov * (Math.PI / 180);
+      let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 1.5;
+      cameraZ = Math.max(cameraZ, 5);
+      perspCameraRef.current.position.set(center.x + cameraZ * 0.7, center.y + cameraZ * 0.5, center.z + cameraZ * 0.9);
+      perspCameraRef.current.lookAt(center);
+      perspCameraRef.current.updateProjectionMatrix();
+    }
+
+    if (orthoCameraRef.current && containerRef.current) {
+      const w = containerRef.current.clientWidth || 800;
+      const h = containerRef.current.clientHeight || 600;
+      const currentAspect = w / h;
+      const frustum = maxDim * 1.5;
+      orthoCameraRef.current.left = (frustum * currentAspect) / -2;
+      orthoCameraRef.current.right = (frustum * currentAspect) / 2;
+      orthoCameraRef.current.top = frustum / 2;
+      orthoCameraRef.current.bottom = frustum / -2;
+      orthoCameraRef.current.position.set(center.x + maxDim, center.y + maxDim * 0.8, center.z + maxDim);
+      orthoCameraRef.current.lookAt(center);
+      orthoCameraRef.current.updateProjectionMatrix();
+    }
 
     controlsRef.current.target.copy(center);
     controlsRef.current.update();
@@ -773,6 +875,59 @@ export const SmartModelViewer3D: React.FC<SmartModelViewer3DProps> = ({
             <Activity className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 absolute left-2.5 top-3.5 pointer-events-none" />
           </div>
 
+          {/* Botão Ligar/Desligar Grid (apenas ícone, sem texto) */}
+          <button
+            type="button"
+            onClick={handleToggleGrid}
+            className={`h-10 w-10 rounded-xl border shadow-md backdrop-blur-md flex items-center justify-center transition-all active:scale-95 cursor-pointer ${
+              showGrid 
+                ? 'bg-cyan-50 dark:bg-cyan-950/70 text-cyan-600 dark:text-cyan-400 border-cyan-300 dark:border-cyan-700/80 ring-1 ring-cyan-400/30' 
+                : 'bg-white/90 dark:bg-slate-900/90 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+            title={showGrid ? "Desativar Grade de Piso (Grid)" : "Ativar Grade de Piso (Grid)"}
+          >
+            <GridIcon className="w-4 h-4" />
+          </button>
+
+          {/* Botão Vista Ortogonal / Perspectiva (apenas ícone, sem texto) */}
+          <button
+            type="button"
+            onClick={handleToggleCamera}
+            className={`h-10 w-10 rounded-xl border shadow-md backdrop-blur-md flex items-center justify-center transition-all active:scale-95 cursor-pointer ${
+              isOrthographic
+                ? 'bg-fuchsia-50 dark:bg-fuchsia-950/70 text-fuchsia-600 dark:text-fuchsia-400 border-fuchsia-300 dark:border-fuchsia-700/80 ring-1 ring-fuchsia-400/30'
+                : 'bg-white/90 dark:bg-slate-900/90 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
+            title={isOrthographic ? "Alternar para Câmera Perspectiva" : "Alternar para Câmera Ortogonal (Paralela)"}
+          >
+            <Box className="w-4 h-4" />
+          </button>
+
+          {/* Botão Sininho de Notificações de Apontamento de Produção */}
+          <button
+            type="button"
+            onClick={() => {
+              smartAudio.playClick();
+              clearAlert();
+              setIsNotificationsOpen(true);
+            }}
+            className="relative h-10 w-10 rounded-xl bg-white/90 dark:bg-slate-900/90 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700/80 shadow-md backdrop-blur-md flex items-center justify-center transition-all active:scale-95 cursor-pointer"
+            title="Notificações de Apontamentos de Produção"
+          >
+            <Bell className={`w-4 h-4 ${hasNewAlert ? 'text-amber-500 animate-bounce' : 'text-slate-600 dark:text-slate-300'}`} />
+            {hasNewAlert && (
+              <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5 pointer-events-none">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500 border border-white dark:border-slate-900"></span>
+              </span>
+            )}
+            {unreadCount > 0 && !hasNewAlert && (
+              <span className="absolute -top-1 -right-1 px-1 min-w-[16px] h-4 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[9px] font-mono font-bold flex items-center justify-center border border-slate-300 dark:border-slate-700 pointer-events-none">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
+
           {/* Botão Enquadrar (Fit View) */}
           <button
             type="button"
@@ -915,6 +1070,14 @@ export const SmartModelViewer3D: React.FC<SmartModelViewer3DProps> = ({
         selectedOF={selectedOF}
         onClearSelection={handleClearSelection}
       />
+
+      {/* Modal de Notificações de Apontamentos da Produção */}
+      <SmartNotificationsModal
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        ofFiltrar={selectedOF}
+      />
     </div>
   );
 };
+
