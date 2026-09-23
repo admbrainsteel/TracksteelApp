@@ -7,7 +7,8 @@ import {
   ArrowLeftRight, 
   FileText, 
   TrendingUp, 
-  Sparkles 
+  Sparkles,
+  Box
 } from 'lucide-react';
 import { OFAtiva } from '@/hooks/useOFsAtivas';
 import { smartAudio } from '@/utils/smartAudio';
@@ -16,7 +17,7 @@ import { Button } from '@/components/ui/button';
 interface SmartHubProps {
   obra: OFAtiva;
   onTrocarObra: () => void;
-  onNavigate: (destino: 'producao' | 'embarque' | 'montagem' | 'consulta') => void;
+  onNavigate: (destino: 'producao' | 'embarque' | 'montagem' | 'consulta' | 'modelo3d') => void;
   producaoHoje: { totalPecas: number; totalKg: number };
   onGerarRelatorioTurno: () => void;
 }
@@ -28,7 +29,7 @@ export const SmartHub: React.FC<SmartHubProps> = ({
   producaoHoje,
   onGerarRelatorioTurno,
 }) => {
-  const handleAcao = (destino: 'producao' | 'embarque' | 'montagem' | 'consulta') => {
+  const handleAcao = (destino: 'producao' | 'embarque' | 'montagem' | 'consulta' | 'modelo3d') => {
     smartAudio.playClick();
     onNavigate(destino);
   };
@@ -45,18 +46,31 @@ export const SmartHub: React.FC<SmartHubProps> = ({
             OF {obra.of_number} — {obra.cliente || 'Obra Industrial'}
           </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            smartAudio.playClick();
-            onTrocarObra();
-          }}
-          className="h-10 px-3 border-slate-300 dark:border-slate-600 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/60 dark:hover:bg-slate-650 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold shrink-0 active:scale-95 gap-1.5 transition-colors"
-        >
-          <ArrowLeftRight className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-          <span>Trocar</span>
-        </Button>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleAcao('modelo3d')}
+            className="h-10 px-3 border-cyan-400 dark:border-cyan-500/50 bg-cyan-50 hover:bg-cyan-100 dark:bg-cyan-950/40 dark:hover:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 rounded-xl text-xs font-black shrink-0 active:scale-95 gap-1.5 shadow-sm transition-all"
+            title="Abrir Visualizador 3D do modelo IFC desta obra"
+          >
+            <Box className="h-4 w-4 text-cyan-600 dark:text-cyan-400 stroke-[2.2]" />
+            <span>Modelo 3D</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              smartAudio.playClick();
+              onTrocarObra();
+            }}
+            className="h-10 px-3 border-slate-300 dark:border-slate-600 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700/60 dark:hover:bg-slate-650 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold shrink-0 active:scale-95 gap-1.5 transition-colors"
+          >
+            <ArrowLeftRight className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            <span>Trocar</span>
+          </Button>
+        </div>
       </div>
 
       {/* Grade dos 4 Botões Principais Gigantes */}

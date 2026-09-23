@@ -5,9 +5,16 @@ import { RotateCcw } from 'lucide-react';
 interface ViewCubeProps {
   onSelectView: (view: 'top' | 'bottom' | 'front' | 'back' | 'left' | 'right' | 'iso') => void;
   mainCameraRef?: React.MutableRefObject<THREE.Camera | null>;
+  size?: number;
+  compact?: boolean;
 }
 
-export const ViewCube: React.FC<ViewCubeProps> = ({ onSelectView, mainCameraRef }) => {
+export const ViewCube: React.FC<ViewCubeProps> = ({ 
+  onSelectView, 
+  mainCameraRef,
+  size = 84,
+  compact = false,
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -20,8 +27,8 @@ export const ViewCube: React.FC<ViewCubeProps> = ({ onSelectView, mainCameraRef 
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const width = 84;
-    const height = 84;
+    const width = size;
+    const height = size;
 
     // 1. Scene & Camera
     const scene = new THREE.Scene();
@@ -202,13 +209,20 @@ export const ViewCube: React.FC<ViewCubeProps> = ({ onSelectView, mainCameraRef 
 
   return (
     <div className="relative select-none flex flex-col items-center">
-      {/* Container Reduzido (~70%) Harmonizado para Modo Claro e Escuro */}
-      <div className="relative w-24 h-24 p-1 rounded-2xl bg-white/90 dark:bg-slate-950/85 backdrop-blur-xl border border-slate-200 dark:border-cyan-500/40 shadow-lg dark:shadow-xl dark:shadow-cyan-950/60 flex items-center justify-center cursor-pointer group transition-all">
+      {/* Container Reduzido Harmonizado para Modo Claro e Escuro */}
+      <div 
+        className={`relative p-1 rounded-2xl bg-white/90 dark:bg-slate-950/85 backdrop-blur-xl border border-slate-200 dark:border-cyan-500/40 shadow-lg dark:shadow-xl dark:shadow-cyan-950/60 flex items-center justify-center cursor-pointer group transition-all`}
+        style={{ width: `${size + 12}px`, height: `${size + 12}px` }}
+      >
         {/* Glow sutil harmonizado */}
         <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/5 dark:from-cyan-500/10 via-transparent to-blue-500/5 dark:to-blue-500/10 rounded-2xl pointer-events-none" />
 
         {/* Canvas WebGL 3D do Cubo Sincronizado */}
-        <div ref={containerRef} className="w-[84px] h-[84px] flex items-center justify-center" />
+        <div 
+          ref={containerRef} 
+          style={{ width: `${size}px`, height: `${size}px` }} 
+          className="flex items-center justify-center" 
+        />
 
         {/* Botão ISO no canto inferior harmonizado com o tema */}
         <button
@@ -216,18 +230,20 @@ export const ViewCube: React.FC<ViewCubeProps> = ({ onSelectView, mainCameraRef 
             e.stopPropagation();
             onSelectView('iso');
           }}
-          className="absolute bottom-1 right-1 px-1 py-0.5 rounded bg-slate-100 hover:bg-cyan-600 text-slate-700 hover:text-white border border-slate-300 hover:border-cyan-500 dark:bg-slate-900/90 dark:text-cyan-300 dark:border-cyan-500/30 transition-all text-[9px] font-mono font-bold flex items-center gap-0.5 shadow-sm cursor-pointer"
+          className="absolute bottom-0.5 right-0.5 px-1 py-0.5 rounded bg-slate-100 hover:bg-cyan-600 text-slate-700 hover:text-white border border-slate-300 hover:border-cyan-500 dark:bg-slate-900/90 dark:text-cyan-300 dark:border-cyan-500/30 transition-all text-[8px] font-mono font-bold flex items-center gap-0.5 shadow-sm cursor-pointer"
           title="Restaurar Vista Isométrica 3D"
         >
-          <RotateCcw className="w-2.5 h-2.5" />
+          <RotateCcw className="w-2 h-2" />
           <span>ISO</span>
         </button>
       </div>
 
-      {/* Rótulo inferior */}
-      <span className="text-[8px] font-mono font-bold tracking-widest uppercase text-cyan-800 dark:text-cyan-400 mt-0.5">
-        Cubo 3D
-      </span>
+      {/* Rótulo inferior opcional */}
+      {!compact && (
+        <span className="text-[8px] font-mono font-bold tracking-widest uppercase text-cyan-800 dark:text-cyan-400 mt-0.5">
+          Cubo 3D
+        </span>
+      )}
     </div>
   );
 };

@@ -6,6 +6,7 @@ import { SmartProducaoFlow } from './smart/components/SmartProducaoFlow';
 import { SmartEmbarqueFlow } from './smart/components/SmartEmbarqueFlow';
 import { SmartMontagemFlow } from './smart/components/SmartMontagemFlow';
 import { SmartConsultaRelatoriosFlow } from './smart/components/SmartConsultaRelatoriosFlow';
+import { SmartViewer3DFlow } from './smart/components/SmartViewer3DFlow';
 import { OFAtiva } from '@/hooks/useOFsAtivas';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,9 +24,9 @@ export const ModoSmart: React.FC = () => {
     }
   });
 
-  // Tela ativa: 'hub' | 'producao' | 'embarque' | 'montagem' | 'consulta' | 'turno_pdf'
+  // Tela ativa: 'hub' | 'producao' | 'embarque' | 'montagem' | 'consulta' | 'turno_pdf' | 'modelo3d'
   const [telaAtiva, setTelaAtiva] = useState<
-    'hub' | 'producao' | 'embarque' | 'montagem' | 'consulta' | 'turno_pdf'
+    'hub' | 'producao' | 'embarque' | 'montagem' | 'consulta' | 'turno_pdf' | 'modelo3d'
   >('hub');
 
   // Produção do operador hoje
@@ -113,6 +114,7 @@ export const ModoSmart: React.FC = () => {
       montagem: '3. Apontar Montagem',
       consulta: '4. Consultar Peças',
       turno_pdf: 'Relatório do Turno',
+      modelo3d: 'Modelo 3D da Obra',
     };
 
     return {
@@ -126,13 +128,15 @@ export const ModoSmart: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-100/90 text-slate-800 dark:bg-slate-950 dark:text-slate-100 flex flex-col font-sans select-none antialiased transition-colors duration-200">
-      {/* Cabeçalho Fixo do Modo Smart */}
-      <SmartHeader
-        titulo={headerInfo.titulo}
-        subtitulo={headerInfo.subtitulo}
-        mostrarVoltar={headerInfo.mostrarVoltar}
-        onVoltar={() => setTelaAtiva('hub')}
-      />
+      {/* Cabeçalho Fixo do Modo Smart (oculto quando em tela cheia do modelo 3D) */}
+      {telaAtiva !== 'modelo3d' && (
+        <SmartHeader
+          titulo={headerInfo.titulo}
+          subtitulo={headerInfo.subtitulo}
+          mostrarVoltar={headerInfo.mostrarVoltar}
+          onVoltar={() => setTelaAtiva('hub')}
+        />
+      )}
 
       {/* Conteúdo Principal Touch-First */}
       <main className="flex-1 flex flex-col overflow-y-auto">
@@ -172,6 +176,11 @@ export const ModoSmart: React.FC = () => {
             obra={obraAtiva}
             onVoltarHub={() => setTelaAtiva('hub')}
             abrirDiretoTurno={true}
+          />
+        ) : telaAtiva === 'modelo3d' ? (
+          <SmartViewer3DFlow
+            obra={obraAtiva}
+            onVoltarHub={() => setTelaAtiva('hub')}
           />
         ) : null}
       </main>
