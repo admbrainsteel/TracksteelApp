@@ -5,6 +5,8 @@ import { PieceInfo, LoadedIFCResult, getColorForMaterialName } from '@/lib/ifc/i
 import { ViewCube } from './ViewCube';
 import { Viewer3DSidebar } from './Viewer3DSidebar';
 import { PieceHoverTooltip } from './PieceHoverTooltip';
+import { SelectionListModal, SelectedPieceItem } from './SelectionListModal';
+import { Trash2, FileSpreadsheet, RotateCcw } from 'lucide-react';
 
 interface ProductionPieceStatus {
   marca: string;
@@ -53,10 +55,32 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
   const [colorMode, setColorMode] = useState<'description' | 'production'>('production');
   const [selectedProcess, setSelectedProcess] = useState<string>('all');
 
-  // Hover Tooltip States (1.5 seconds)
+  // Hover Tooltip States (1.0 second delay)
   const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [hoveredPiece, setHoveredPiece] = useState<PieceInfo | null>(null);
   const [hoverPosition, setHoverPosition] = useState<{ x: number; y: number } | null>(null);
+
+  // Seleção Permanente Magenta (Single Click e Double Click)
+  const [selectedPiecesMap, setSelectedPiecesMap] = useState<Map<string, { mesh: THREE.Mesh; piece: PieceInfo }>>(new Map());
+  const selectedPiecesMapRef = useRef(selectedPiecesMap);
+  useEffect(() => {
+    selectedPiecesMapRef.current = selectedPiecesMap;
+  }, [selectedPiecesMap]);
+
+  const [isSelectionModalOpen, setIsSelectionModalOpen] = useState<boolean>(false);
+  const pointerDownInfoRef = useRef<{ x: number; y: number; time: number }>({ x: 0, y: 0, time: 0 });
+
+  // Material Magenta Permanente (#FF00FF)
+  const magentaMaterialRef = useRef<THREE.MeshStandardMaterial>(
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color('#FF00FF'),
+      emissive: new THREE.Color('#C000C0'),
+      emissiveIntensity: 0.4,
+      metalness: 0.25,
+      roughness: 0.35,
+      side: THREE.DoubleSide,
+    })
+  );
 
   // Highlight Material (Light Green #4ade80)
   const highlightMaterialRef = useRef<THREE.MeshStandardMaterial>(
@@ -522,6 +546,14 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
             }
           }
         }
+
+        // Se a peça estiver marcada na seleção permanente, preserva a cor magenta
+        if (selectedPiecesMapRef.current.has(mesh.uuid)) {
+          mesh.userData.originalMaterial = mesh.material;
+          mesh.material = magentaMaterialRef.current;
+        } else {
+          mesh.userData.originalMaterial = mesh.material;
+        }
       }
     });
 
@@ -700,7 +732,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
           }
         }
       }
-    }, 1500); // 1.5 seconds exact requirement
+    }, 1000); // Exato 1.0 segundo de tempo de pouso do mouse
   };
 
   const handlePointerLeave = () => {
@@ -712,30 +744,189 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     setHoverPosition(null);
   };
 
-  // Double Click to focus camera target
+  // Pointer Down para diferenciar clique simples de arraste de câmera dos OrbitControls
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    pointerDownInfoRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      time: Date.now(),
+    };
+  };
+
+  // 1 Clique: Marcação e Desmarcação Permanente em Magenta (#FF00FF)
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!containerRef.current || !activeCameraRef.current || !modelGroupRef.current) return;
+
+    const dx = e.clientX - pointerDownInfoRef.current.x;
+    const dy = e.clientY - pointerDownInfoRef.current.y;
+    const dt = Date.now() - pointerDownInfoRef.current.time;
+
+    // Se houve arraste de rotação/pan (mais de 6px ou clique longo > 400ms), ignora
+    if (Math.hypot(dx, dy) > 6 || dt > 400) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    const mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+    const raycaster = raycasterRef.current;
+    raycaster.setFromCamera(new THREE.Vector2(mouseX, mouseY), activeCameraRef.current);
+    const intersects = raycaster.intersectObjects(modelGroupRef.current.children, true);
+
+    if (intersects.length > 0) {
+      const hitObj = intersects[0].object;
+      let hitMesh: THREE.Mesh | null = null;
+      if ((hitObj as THREE.Mesh).isMesh) {
+        hitMesh = hitObj as THREE.Mesh;
+      } else if (hitObj.parent && (hitObj.parent as THREE.Mesh).isMesh) {
+        hitMesh = hitObj.parent as THREE.Mesh;
+      }
+
+      if (hitMesh && hitMesh.visible) {
+        const nextMap = new Map(selectedPiecesMapRef.current);
+
+        if (nextMap.has(hitMesh.uuid)) {
+          // Desmarcar peça (restaura material original)
+          if (hitMesh.userData.originalMaterial) {
+            hitMesh.material = hitMesh.userData.originalMaterial;
+          }
+          hitMesh.userData.isMagentaSelected = false;
+          nextMap.delete(hitMesh.uuid);
+        } else {
+          // Marcar peça em magenta permanente
+          hitMesh.userData.originalMaterial = hitMesh.material;
+          hitMesh.userData.isMagentaSelected = true;
+          hitMesh.material = magentaMaterialRef.current;
+
+          const expressID = hitMesh.userData.ifcId;
+          const pmark = hitMesh.userData.pieceMark;
+          const piece: PieceInfo = (modelData && expressID !== undefined && modelData.pieceByExpressID.get(expressID)) || {
+            expressID: expressID || 0,
+            guid: '',
+            name: hitMesh.userData.section || 'Peça',
+            type: 'PIECE',
+            pieceMark: pmark,
+            section: hitMesh.userData.section,
+            phase: hitMesh.userData.phase,
+          };
+
+          nextMap.set(hitMesh.uuid, { mesh: hitMesh, piece });
+          onSelectPiece?.(piece);
+        }
+
+        setSelectedPiecesMap(nextMap);
+      }
+    }
+  };
+
+  // 2 Cliques (Duplo Clique): Seleciona TODAS as peças idênticas no modelo (mesma marca/tag da mesma fase)
   const handleDoubleClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current || !activeCameraRef.current || !modelGroupRef.current || !controlsRef.current) return;
 
     const rect = containerRef.current.getBoundingClientRect();
     const mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     const mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-    
-    const v = new THREE.Vector2(mouseX, mouseY);
-    raycasterRef.current.setFromCamera(v, activeCameraRef.current);
+
+    raycasterRef.current.setFromCamera(new THREE.Vector2(mouseX, mouseY), activeCameraRef.current);
     const intersects = raycasterRef.current.intersectObjects(modelGroupRef.current.children, true);
 
     if (intersects.length > 0) {
       const hitPoint = intersects[0].point;
-      controlsRef.current.target.copy(hitPoint);
-      controlsRef.current.update();
+      const hitObj = intersects[0].object;
+      let hitMesh: THREE.Mesh | null = null;
+      if ((hitObj as THREE.Mesh).isMesh) {
+        hitMesh = hitObj as THREE.Mesh;
+      } else if (hitObj.parent && (hitObj.parent as THREE.Mesh).isMesh) {
+        hitMesh = hitObj.parent as THREE.Mesh;
+      }
+
+      if (hitMesh) {
+        const targetPieceMark = String(hitMesh.userData.pieceMark || '').trim().toUpperCase();
+        const targetPhase = hitMesh.userData.phase ? String(hitMesh.userData.phase).trim() : '';
+
+        if (targetPieceMark) {
+          const nextMap = new Map(selectedPiecesMapRef.current);
+
+          modelGroupRef.current.traverse((child) => {
+            if ((child as THREE.Mesh).isMesh && child.visible) {
+              const mesh = child as THREE.Mesh;
+              const pmark = String(mesh.userData.pieceMark || '').trim().toUpperCase();
+              const phase = mesh.userData.phase ? String(mesh.userData.phase).trim() : '';
+
+              // Mesma marca e mesma fase (se aplicável)
+              const isMatch = pmark === targetPieceMark && (!targetPhase || !phase || phase === targetPhase);
+
+              if (isMatch) {
+                if (!nextMap.has(mesh.uuid)) {
+                  mesh.userData.originalMaterial = mesh.material;
+                }
+                mesh.userData.isMagentaSelected = true;
+                mesh.material = magentaMaterialRef.current;
+
+                const expressID = mesh.userData.ifcId;
+                const piece: PieceInfo = (modelData && expressID !== undefined && modelData.pieceByExpressID.get(expressID)) || {
+                  expressID: expressID || 0,
+                  guid: '',
+                  name: mesh.userData.section || 'Peça',
+                  type: 'PIECE',
+                  pieceMark: pmark,
+                  section: mesh.userData.section,
+                  phase: phase || targetPhase,
+                };
+
+                nextMap.set(mesh.uuid, { mesh, piece });
+              }
+            }
+          });
+
+          setSelectedPiecesMap(nextMap);
+        }
+
+        // Foca suavemente o alvo dos controles na peça clicada
+        controlsRef.current.target.copy(hitPoint);
+        controlsRef.current.update();
+      }
     }
   };
+
+  // Limpar Seleção Completa
+  const handleClearSelection = useCallback(() => {
+    selectedPiecesMapRef.current.forEach(({ mesh }) => {
+      if (mesh.userData.originalMaterial) {
+        mesh.material = mesh.userData.originalMaterial;
+      }
+      mesh.userData.isMagentaSelected = false;
+    });
+    setSelectedPiecesMap(new Map());
+  }, []);
+
+  const selectedCount = selectedPiecesMap.size;
+
+  // Lista consolidada para o modal de seleção
+  const selectedPiecesList: SelectedPieceItem[] = Array.from(selectedPiecesMap.values()).map(
+    ({ mesh, piece }) => {
+      const pmark = piece.pieceMark || mesh.userData.pieceMark || 'Sem Marca';
+      const prod = productionData?.get(pmark);
+      return {
+        id: mesh.uuid,
+        pieceMark: pmark,
+        phase: piece.phase || mesh.userData.phase,
+        section: piece.section || mesh.userData.section,
+        name: piece.name,
+        pointedQty: prod?.pointedQtd,
+        totalQty: prod?.totalQtd,
+        currentStage: prod?.currentProcessName,
+        stageColor: prod?.processColor,
+      };
+    }
+  );
 
   return (
     <div
       ref={containerRef}
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
       onDoubleClick={handleDoubleClick}
       className="relative w-full h-full bg-slate-50 dark:bg-slate-950 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xl dark:shadow-2xl select-none"
     >
@@ -761,12 +952,66 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
         onToggleFullscreen={handleToggleFullscreen}
       />
 
-      {/* Top Right: Interactive ViewCube WebGL sincronizado */}
-      <div className="absolute top-4 right-4 z-20">
+      {/* Top Right: ViewCube + Painel de Ações de Seleção de Peças */}
+      <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2.5 pointer-events-auto">
         <ViewCube onSelectView={handleViewCubeSelect} mainCameraRef={activeCameraRef} />
+
+        {/* Card de Controle de Seleção Flutuante Abaixo do Cubo */}
+        <div
+          className={`flex flex-col items-stretch gap-1.5 p-2 rounded-2xl backdrop-blur-xl border transition-all duration-300 shadow-xl ${
+            selectedCount > 0
+              ? 'bg-slate-900/95 border-fuchsia-500/50 shadow-fuchsia-950/50 ring-1 ring-fuchsia-500/30'
+              : 'bg-white/80 dark:bg-slate-900/70 border-slate-200/80 dark:border-slate-800/80 opacity-75 hover:opacity-100'
+          }`}
+          style={{ minWidth: '130px' }}
+        >
+          {/* Badge Indicador de Seleção Ativa */}
+          {selectedCount > 0 && (
+            <div className="flex items-center justify-center gap-1.5 px-2 py-0.5 mb-0.5 rounded-full bg-fuchsia-500/20 border border-fuchsia-500/30 text-fuchsia-300 text-[10px] font-mono font-bold animate-in fade-in zoom-in-95 duration-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-500 animate-pulse shadow-sm shadow-fuchsia-500" />
+              <span>
+                {selectedCount} {selectedCount === 1 ? 'peça' : 'peças'}
+              </span>
+            </div>
+          )}
+
+          {/* Botão Gerar Lista da Seleção ("Acende" e Habilita quando há peças selecionadas) */}
+          <button
+            onClick={() => setIsSelectionModalOpen(true)}
+            disabled={selectedCount === 0}
+            className={`flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all duration-200 cursor-pointer ${
+              selectedCount > 0
+                ? 'bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-500 hover:to-pink-500 text-white shadow-lg shadow-fuchsia-950/60 scale-[1.02] active:scale-[0.98]'
+                : 'bg-slate-100 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700/50 cursor-not-allowed opacity-50'
+            }`}
+            title={
+              selectedCount > 0
+                ? 'Abrir lista detalhada e exportar planilha das peças selecionadas'
+                : 'Selecione peças no 3D para gerar a lista'
+            }
+          >
+            <FileSpreadsheet className={`w-3.5 h-3.5 ${selectedCount > 0 ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} />
+            <span className="whitespace-nowrap">Gerar lista</span>
+          </button>
+
+          {/* Botão Limpar Seleção */}
+          <button
+            onClick={handleClearSelection}
+            disabled={selectedCount === 0}
+            className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-semibold transition-all duration-200 cursor-pointer ${
+              selectedCount > 0
+                ? 'text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/20 active:scale-[0.98]'
+                : 'text-slate-400 dark:text-slate-600 border border-transparent cursor-not-allowed opacity-40'
+            }`}
+            title="Desmarcar todas as peças"
+          >
+            <Trash2 className="w-3 h-3" />
+            <span className="whitespace-nowrap">Limpar Seleção</span>
+          </button>
+        </div>
       </div>
 
-      {/* Hover Tooltip (1.5s delay trigger) */}
+      {/* Hover Tooltip (1.0s delay trigger) */}
       <PieceHoverTooltip
         piece={hoveredPiece}
         position={hoverPosition}
@@ -780,6 +1025,15 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
               }
             : undefined
         }
+      />
+
+      {/* Modal de Lista e Exportação da Seleção 3D */}
+      <SelectionListModal
+        isOpen={isSelectionModalOpen}
+        onClose={() => setIsSelectionModalOpen(false)}
+        selectedPieces={selectedPiecesList}
+        selectedOF={selectedOF}
+        onClearSelection={handleClearSelection}
       />
     </div>
   );
