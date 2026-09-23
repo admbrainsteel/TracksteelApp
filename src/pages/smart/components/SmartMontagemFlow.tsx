@@ -6,7 +6,8 @@ import {
   RotateCcw, 
   Layers, 
   ChevronRight, 
-  AlertCircle 
+  AlertCircle,
+  Pencil
 } from 'lucide-react';
 import { OFAtiva } from '@/hooks/useOFsAtivas';
 import { useAuth } from '@/hooks/useAuth';
@@ -45,6 +46,7 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
   const [itemSelecionado, setItemSelecionado] = useState<ItemMontagem | null>(null);
   const [qtdApontar, setQtdApontar] = useState<number>(1);
   const [salvando, setSalvando] = useState<boolean>(false);
+  const [modoEdicao, setModoEdicao] = useState<boolean>(false);
 
   // Carregar saldo de peças expedidas vs já montadas
   const carregarDadosMontagem = React.useCallback(async () => {
@@ -191,24 +193,42 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
       setSalvando(true);
       const rdoId = await obterOuCriarRDO();
 
+      let delta = qtdApontar;
+      if (modoEdicao) {
+        delta = qtdApontar - itemSelecionado.quantidade_ja_apontada;
+      }
+
+      if (delta === 0) {
+        smartAudio.playClick();
+        toast.info('Nenhuma alteração na quantidade foi feita.');
+        setItemSelecionado(null);
+        setModoEdicao(false);
+        setSalvando(false);
+        return;
+      }
+
       const { error } = await supabase.from('apontamentos_peca_obra').insert({
         rdo_id: rdoId,
         marca_peca: itemSelecionado.marca,
-        quantidade: qtdApontar,
+        quantidade: delta,
         periodo: 'Normal',
         status: 'Montado',
       });
 
       if (error) throw error;
 
-      smartAudio.playSuccess();
-      toast.success(`🏗️ Montagem registrada: ${qtdApontar}x ${itemSelecionado.marca}!`);
+      if (modoEdicao) {
+        toast.success(`✏️ Ajuste registrado: ${itemSelecionado.marca} ajustado para ${qtdApontar}!`);
+      } else {
+        toast.success(`🏗️ Montagem registrada: ${qtdApontar}x ${itemSelecionado.marca}!`);
+      }
 
       if (onApontamentoMontagem) {
         onApontamentoMontagem();
       }
 
       setItemSelecionado(null);
+      setModoEdicao(false);
       carregarDadosMontagem();
     } catch (e: any) {
       smartAudio.playAlert();
@@ -224,6 +244,7 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
   // ─────────────────────────────────────────────────────────────
   if (itemSelecionado) {
     const saldo = itemSelecionado.saldo_disponivel;
+    const maxPermitido = modoEdicao ? itemSelecionado.quantidade_ja_apontada + saldo : saldo;
 
     return (
       <div className="flex flex-col flex-1 p-4 max-w-xl mx-auto w-full">
@@ -258,7 +279,7 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
         {/* Display da Quantidade */}
         <div className="my-auto py-3 text-center">
           <span className="text-xs font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
-            Quantidade Montada Agora
+            {modoEdicao ? 'Ajustar a Quantidade Total Montada' : 'Quantidade Montada Agora'}
           </span>
           <div className="flex items-center justify-center gap-4 mt-2">
             <div className="min-w-[120px] h-20 px-6 rounded-3xl bg-slate-50 dark:bg-slate-900 border-2 border-emerald-500 flex items-center justify-center shadow-inner">
@@ -286,7 +307,7 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
             type="button"
             onClick={() => {
               smartAudio.playClick();
-              setQtdApontar((p) => Math.min(saldo, p + 1));
+              setQtdApontar((p) => Math.min(maxPermitido, p + 1));
             }}
             className="h-16 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 border-2 border-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 active:bg-slate-700 dark:border-slate-700 dark:text-white text-xl font-black active:scale-95 shadow-sm"
           >
@@ -296,7 +317,7 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
             type="button"
             onClick={() => {
               smartAudio.playClick();
-              setQtdApontar((p) => Math.min(saldo, p + 2));
+              setQtdApontar((p) => Math.min(maxPermitido, p + 2));
             }}
             className="h-16 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 border-2 border-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 active:bg-slate-700 dark:border-slate-700 dark:text-white text-xl font-black active:scale-95 shadow-sm"
           >
@@ -306,7 +327,7 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
             type="button"
             onClick={() => {
               smartAudio.playClick();
-              setQtdApontar((p) => Math.min(saldo, p + 5));
+              setQtdApontar((p) => Math.min(maxPermitido, p + 5));
             }}
             className="h-16 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-800 border-2 border-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 active:bg-slate-700 dark:border-slate-700 dark:text-white text-xl font-black active:scale-95 shadow-sm"
           >
@@ -316,12 +337,12 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
             type="button"
             onClick={() => {
               smartAudio.playClick();
-              setQtdApontar(saldo > 0 ? saldo : 1);
+              setQtdApontar(maxPermitido > 0 ? maxPermitido : 1);
             }}
             className="h-16 rounded-2xl bg-emerald-100 hover:bg-emerald-200 border-2 border-emerald-300 text-emerald-800 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 dark:border-emerald-500/60 dark:text-emerald-400 text-sm font-black active:scale-95 flex flex-col items-center justify-center leading-tight shadow-sm"
           >
             <span>TODAS</span>
-            <span className="text-[11px] opacity-80">({saldo})</span>
+            <span className="text-[11px] opacity-80">({maxPermitido})</span>
           </button>
         </div>
 
@@ -338,6 +359,11 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
                 <div className="h-6 w-6 animate-spin rounded-full border-3 border-white border-t-transparent" />
                 <span>Registrando...</span>
               </>
+            ) : modoEdicao ? (
+              <>
+                <Check className="h-6 w-6" />
+                <span>SALVAR EDIÇÃO ({qtdApontar})</span>
+              </>
             ) : (
               <>
                 <Check className="h-6 w-6" />
@@ -352,6 +378,7 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
             onClick={() => {
               smartAudio.playClick();
               setItemSelecionado(null);
+              setModoEdicao(false);
             }}
             className="w-full h-13 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 text-sm font-bold rounded-2xl active:scale-98 shadow-sm"
           >
@@ -423,15 +450,36 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
                   </div>
 
                   <div className="text-right shrink-0">
-                    <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                      Entregues: {item.quantidade_expedida}
+                    <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex flex-col items-end gap-1">
+                      <span>Entregues: {item.quantidade_expedida}</span>
+                      {item.quantidade_ja_apontada > 0 && (
+                        <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-md mt-0.5 shadow-sm">
+                          <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                            Montada: {item.quantidade_ja_apontada}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              smartAudio.playClick();
+                              setItemSelecionado(item);
+                              setQtdApontar(item.quantidade_ja_apontada);
+                              setModoEdicao(true);
+                            }}
+                            className="text-emerald-600 hover:text-emerald-800 dark:text-emerald-500 dark:hover:text-emerald-300 transition-colors p-1 rounded-md hover:bg-emerald-50 dark:hover:bg-emerald-500/10"
+                            title="Editar quantidade montada"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                     {concluida ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-800 bg-emerald-100 border border-emerald-300 dark:text-emerald-400 px-2 py-0.5 rounded-full dark:bg-emerald-950/80 dark:border-emerald-700">
+                      <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-800 bg-emerald-100 border border-emerald-300 dark:text-emerald-400 px-2 py-0.5 rounded-full dark:bg-emerald-950/80 dark:border-emerald-700 mt-2">
                         <Check className="h-3 w-3" /> 100% Montada
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-800 bg-emerald-100 border border-emerald-300 dark:text-emerald-300 px-2 py-0.5 rounded-full dark:bg-emerald-950/80 dark:border-emerald-700">
+                      <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-800 bg-emerald-100 border border-emerald-300 dark:text-emerald-300 px-2 py-0.5 rounded-full dark:bg-emerald-950/80 dark:border-emerald-700 mt-2">
                         Saldo: {item.saldo_disponivel}
                       </span>
                     )}
@@ -446,6 +494,7 @@ export const SmartMontagemFlow: React.FC<SmartMontagemFlowProps> = ({
                       smartAudio.playClick();
                       setItemSelecionado(item);
                       setQtdApontar(item.saldo_disponivel > 0 ? 1 : 1);
+                      setModoEdicao(false);
                     }}
                     className={`w-full h-13 text-sm font-black rounded-xl uppercase tracking-wider transition-all active:scale-[0.98] ${
                       concluida

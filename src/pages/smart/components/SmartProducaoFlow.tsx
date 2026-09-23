@@ -14,7 +14,8 @@ import {
   AlertTriangle, 
   ChevronRight,
   Filter,
-  Delete
+  Delete,
+  Pencil
 } from 'lucide-react';
 import { OFAtiva } from '@/hooks/useOFsAtivas';
 import { useProcessosFabricacao, ProcessoFabricacao } from '@/hooks/useProcessosFabricacao';
@@ -47,6 +48,8 @@ interface CalculoSaldoPeca {
   qtdDisponivelParaEntrar: number;
   ehSemMontagem: boolean;
   motivoBloqueio: string | null;
+  minPermitido: number;
+  procSeguinteNome: string | null;
 }
 
 // Função auxiliar pura para cálculo sequencial de saldo por processo e regra S/M
@@ -102,6 +105,29 @@ export const calcularSaldoProcessoPeca = (
     }
   }
 
+  // REGRA 3: Encontrar processo subsequente válido para limitar a edição (minPermitido)
+  let minPermitido = 0;
+  let procSeguinteNome: string | null = null;
+  if (indexAtual >= 0 && indexAtual < procsOrdenados.length - 1) {
+    let procSeguinteValido: ProcessoFabricacao | null = null;
+    for (let i = indexAtual + 1; i < procsOrdenados.length; i++) {
+      const proc = procsOrdenados[i];
+      const nomeP = proc.nome.toLowerCase();
+      // Se a peça for S/M, pula solda na busca do subsequente
+      if (ehSemMontagem && nomeP.includes('solda')) {
+        continue;
+      }
+      procSeguinteValido = proc;
+      break;
+    }
+
+    if (procSeguinteValido) {
+      const keySeg = `${peca.id}_${procSeguinteValido.id}`;
+      minPermitido = mapaProd.get(keySeg) || 0;
+      procSeguinteNome = procSeguinteValido.nome;
+    }
+  }
+
   const saldo = Math.max(0, qtdDisponivelParaEntrar - jaProduzidoAtual);
 
   return {
@@ -110,6 +136,8 @@ export const calcularSaldoProcessoPeca = (
     qtdDisponivelParaEntrar,
     ehSemMontagem,
     motivoBloqueio,
+    minPermitido,
+    procSeguinteNome
   };
 };
 
@@ -136,6 +164,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
   // Quantidade selecionada no teclado rápido
   const [qtdApontar, setQtdApontar] = useState<number>(1);
   const [salvando, setSalvando] = useState<boolean>(false);
+  const [modoEdicao, setModoEdicao] = useState<boolean>(false);
 
   // Dados carregados da OF
   const [pecas, setPecas] = useState<PecaData[]>([]);
@@ -252,6 +281,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
     smartAudio.playClick();
     setPecaSelecionada(peca);
     setQtdApontar(saldo > 0 ? (saldo >= 1 ? 1 : saldo) : 1);
+    setModoEdicao(false);
     setEtapaAtual('quantidade');
   };
 
@@ -259,9 +289,22 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
   const handleConfirmarApontamento = async () => {
     if (!pecaSelecionada || !processoSelecionado || !user) return;
 
-    if (qtdApontar <= 0) {
+    if (qtdApontar < 0) {
       smartAudio.playAlert();
-      toast.error('Informe uma quantidade maior que zero');
+      toast.error('A quantidade não pode ser negativa');
+      return;
+    }
+
+    if (!modoEdicao && qtdApontar <= 0) {
+      smartAudio.playAlert();
+      toast.error('Informe uma quantidade maior que zero para um novo apontamento');
+      return;
+    }
+
+    const info = calcularSaldoProcessoPeca(pecaSelecionada, processoSelecionado, processos, mapaProducao);
+    if (modoEdicao && qtdApontar < info.minPermitido) {
+      smartAudio.playAlert();
+      toast.error(`Não é possível reduzir para ${qtdApontar}. O processo seguinte (${info.procSeguinteNome}) já consumiu ${info.minPermitido} peças. Ajuste o processo seguinte primeiro.`);
       return;
     }
 
@@ -269,15 +312,30 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
       setSalvando(true);
       const hoje = new Date().toISOString().split('T')[0];
 
+      let delta = qtdApontar;
+      if (modoEdicao) {
+        delta = qtdApontar - info.jaProduzido;
+      }
+
+      if (delta === 0) {
+        smartAudio.playClick();
+        toast.info('Nenhuma alteração na quantidade foi feita.');
+        setEtapaAtual('pecas');
+        setPecaSelecionada(null);
+        setModoEdicao(false);
+        setSalvando(false);
+        return;
+      }
+
       const payload = {
         of_number: obra.of_number,
         peca_id: pecaSelecionada.id,
         tipo_apontamento: 'peca' as const,
         processo_id: processoSelecionado.id,
-        quantidade_produzida: qtdApontar,
+        quantidade_produzida: delta,
         data_apontamento: hoje,
         created_by: user.id,
-        observacoes: 'Apontado via Modo Smart',
+        observacoes: modoEdicao ? 'Ajuste de quantidade via Modo Smart' : 'Apontado via Modo Smart',
       };
 
       const { error } = await supabase.from('apontamentos_producao').insert(payload);
@@ -288,10 +346,14 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
 
       // BIP sonoro de sucesso e vibração háptica!
       smartAudio.playSuccess();
-      toast.success(`✅ Apontado: ${qtdApontar}x ${pecaSelecionada.marca} (${processoSelecionado.nome})`);
+      if (modoEdicao) {
+        toast.success(`✏️ Ajuste realizado: ${pecaSelecionada.marca} (${processoSelecionado.nome}) para ${qtdApontar} un`);
+      } else {
+        toast.success(`✅ Apontado: ${qtdApontar}x ${pecaSelecionada.marca} (${processoSelecionado.nome})`);
+      }
 
       // Notificar estatísticas do operador
-      const pesoTotalKg = qtdApontar * (pecaSelecionada.peso_unitario || 0);
+      const pesoTotalKg = delta * (pecaSelecionada.peso_unitario || 0);
       onApontamentoRealizado(qtdApontar, pesoTotalKg);
 
       // FAST LOOP / STICKY CONTEXT:
@@ -301,13 +363,14 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
         {
           peca_id: pecaSelecionada.id,
           processo_id: processoSelecionado.id,
-          quantidade_produzida: qtdApontar,
+          quantidade_produzida: delta,
         },
       ]);
 
       // Permanece na mesma fase para apontar a próxima peça sem voltar tudo!
       setEtapaAtual('pecas');
       setPecaSelecionada(null);
+      setModoEdicao(false);
     } catch (e: any) {
       smartAudio.playAlert();
       console.error('Erro ao salvar apontamento:', e);
@@ -584,17 +647,41 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
                     </div>
 
                     <div className="text-right shrink-0">
-                      <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Total: {item.quantidade}</div>
+                      <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex flex-col items-end gap-1">
+                        <span>Total: {item.quantidade}</span>
+                        {item.jaProduzido > 0 && (
+                          <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-md mt-0.5 mb-0.5 shadow-sm">
+                            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                              Apontada: {item.jaProduzido}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                smartAudio.playClick();
+                                setPecaSelecionada(item);
+                                setQtdApontar(item.jaProduzido);
+                                setModoEdicao(true);
+                                setEtapaAtual('quantidade');
+                              }}
+                              className="text-amber-600 hover:text-amber-800 dark:text-amber-500 dark:hover:text-amber-300 transition-colors p-1 rounded-md hover:bg-amber-50 dark:hover:bg-amber-500/10"
+                              title="Editar quantidade apontada"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
                       {concluida ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-800 dark:text-emerald-400 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-700">
+                        <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-800 dark:text-emerald-400 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-700 mt-1">
                           <Check className="h-3 w-3" /> 100% Pronto
                         </span>
                       ) : item.saldo > 0 ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-black text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700">
+                        <span className="inline-flex items-center gap-1 text-xs font-black text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/80 border border-amber-300 dark:border-amber-700 mt-1">
                           Disponível: {item.saldo}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 mt-1">
                           Pendente ant.
                         </span>
                       )}
@@ -641,6 +728,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
                           smartAudio.playClick();
                           setPecaSelecionada(item);
                           setQtdApontar(item.saldo);
+                          setModoEdicao(false);
                           setEtapaAtual('quantidade');
                         }}
                         className="h-13 bg-amber-50 hover:bg-amber-100 active:bg-amber-200 text-amber-800 border border-amber-300 dark:bg-slate-700 dark:hover:bg-slate-650 dark:active:bg-slate-600 dark:text-amber-400 dark:border-slate-600 text-xs font-black rounded-xl uppercase active:scale-95 transition-colors"
@@ -682,6 +770,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
       mapaProducao
     );
     const saldoPendente = infoSaldoAtual.saldo;
+    const maxPermitido = modoEdicao ? infoSaldoAtual.jaProduzido + infoSaldoAtual.saldo : infoSaldoAtual.saldo;
 
     // Ajuste por incremento
     const somarQtd = (valor: number) => {
@@ -700,10 +789,10 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
         const strAtual = prev <= 0 ? '' : prev.toString();
         const novaStr = strAtual + digito.toString();
         const novoValor = parseInt(novaStr, 10) || 0;
-        if (saldoPendente > 0 && novoValor > saldoPendente) {
+        if (maxPermitido > 0 && novoValor > maxPermitido) {
           smartAudio.playAlert();
-          toast.warning(`Limite de saldo: máximo de ${saldoPendente} unidades`);
-          return saldoPendente;
+          toast.warning(`Limite de saldo: máximo de ${maxPermitido} unidades`);
+          return maxPermitido;
         }
         return novoValor;
       });
@@ -728,17 +817,17 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
     // Definir Todas
     const definirTodas = () => {
       smartAudio.playClick();
-      setQtdApontar(saldoPendente > 0 ? saldoPendente : 1);
+      setQtdApontar(maxPermitido > 0 ? maxPermitido : 1);
     };
 
     // Digitação direta no input pelo teclado físico ou celular
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const val = e.target.value.replace(/\D/g, '');
       const num = parseInt(val, 10) || 0;
-      if (saldoPendente > 0 && num > saldoPendente) {
-        setQtdApontar(saldoPendente);
+      if (maxPermitido > 0 && num > maxPermitido) {
+        setQtdApontar(maxPermitido);
         smartAudio.playAlert();
-        toast.warning(`Máximo permitido: ${saldoPendente} unidades`);
+        toast.warning(`Máximo permitido: ${maxPermitido} unidades`);
       } else {
         setQtdApontar(num);
       }
@@ -772,7 +861,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
           <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mt-2 pt-2 border-t border-slate-200 dark:border-slate-700/80">
             <span>Total da Peça: {pecaSelecionada.quantidade} un</span>
             <span className="text-amber-700 dark:text-amber-400 font-bold">
-              Saldo Pendente: {saldoPendente} un
+              {modoEdicao ? `Máximo: ${maxPermitido} un` : `Saldo Pendente: ${maxPermitido} un`}
             </span>
           </div>
         </div>
@@ -780,14 +869,14 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
         {/* Visor / Input Central da Quantidade com botões finos -1 e +1 */}
         <div className="mb-2 text-center">
           <span className="text-[11px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
-            Digite ou Escolha a Quantidade a Apontar
+            {modoEdicao ? 'Ajustar a Quantidade Total Apontada' : 'Digite ou Escolha a Quantidade a Apontar'}
           </span>
 
           <div className="flex items-center justify-center gap-2 mt-1.5">
             <button
               type="button"
               onClick={() => somarQtd(-1)}
-              disabled={qtdApontar <= 1}
+              disabled={qtdApontar <= 0}
               className="h-16 w-14 rounded-2xl bg-white hover:bg-slate-100 active:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 dark:active:bg-slate-700 border-2 border-slate-200 dark:border-slate-700 disabled:opacity-40 text-slate-800 dark:text-white flex items-center justify-center font-black active:scale-95 shadow-sm transition-colors"
               title="Diminuir 1"
             >
@@ -810,7 +899,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
             <button
               type="button"
               onClick={() => somarQtd(1)}
-              disabled={saldoPendente > 0 && qtdApontar >= saldoPendente}
+              disabled={maxPermitido > 0 && qtdApontar >= maxPermitido}
               className="h-16 w-14 rounded-2xl bg-white hover:bg-slate-100 active:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 dark:active:bg-slate-700 border-2 border-slate-200 dark:border-slate-700 disabled:opacity-40 text-slate-800 dark:text-white flex items-center justify-center font-black active:scale-95 shadow-sm transition-colors"
               title="Aumentar 1"
             >
@@ -847,7 +936,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
             onClick={definirTodas}
             className="h-11 rounded-xl bg-amber-100 hover:bg-amber-200 active:bg-amber-300 border border-amber-300 text-amber-800 dark:bg-amber-500/20 dark:hover:bg-amber-500/30 dark:border-amber-500/50 dark:text-amber-300 text-xs font-black active:scale-95 transition-colors"
           >
-            TODAS ({saldoPendente})
+            TODAS ({maxPermitido})
           </button>
         </div>
 
@@ -901,6 +990,11 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 <span>Gravando...</span>
               </>
+            ) : modoEdicao ? (
+              <>
+                <Check className="h-5 w-5" />
+                <span>SALVAR EDIÇÃO ({qtdApontar} UN)</span>
+              </>
             ) : (
               <>
                 <Check className="h-5 w-5" />
@@ -916,6 +1010,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
             onClick={() => {
               smartAudio.playClick();
               setEtapaAtual('pecas');
+              setModoEdicao(false);
             }}
             className="w-full h-11 bg-white hover:bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 text-xs font-bold rounded-xl active:scale-98 transition-colors"
           >
