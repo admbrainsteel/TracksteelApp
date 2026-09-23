@@ -78,43 +78,94 @@ export const SmartViewer3DFlow: React.FC<SmartViewer3DFlowProps> = ({
 
       if (pecasRes.data) {
         pecasRes.data.forEach((p: any) => {
-          const marca = p.marca ? String(p.marca).trim().toUpperCase() : '';
-          const fase = p.etapa_fase ? String(p.etapa_fase).trim() : '';
+          const marcaStr = String(p.marca || '').trim();
+          const fase = String(p.etapa_fase || '').trim();
           if (fase) phasesSet.add(fase);
 
-          if (marca) {
-            const existing = prodMap.get(marca);
-            if (!existing) {
-              prodMap.set(marca, {
-                marca,
-                etapa_fase: fase,
-                totalQtd: Number(p.quantidade || 1),
-                pointedQtd: 0,
-                currentProcessName: 'Pendente',
-                processColor: '#94a3b8',
-                processOrdem: 0,
-              });
-            } else {
-              existing.totalQtd += Number(p.quantidade || 0);
-            }
+          const item: ProductionPieceStatus = {
+            pecaId: p.id,
+            marca: marcaStr,
+            fase,
+            etapa_fase: fase,
+            totalQtd: Number(p.quantidade || 1),
+            pointedQtd: 0,
+            currentProcessName: 'Pendente',
+            processColor: '#64748b',
+            processOrdem: 0,
+            processesCompleted: [],
+            processPointedQtds: {},
+          };
+
+          // Indexações para amarração gráfica flexível idêntica ao modo completo
+          prodMap.set(marcaStr, item);
+          prodMap.set(marcaStr.toUpperCase(), item);
+          prodMap.set(`${fase}-${marcaStr}`, item);
+          prodMap.set(`${fase}-${marcaStr}`.toUpperCase(), item);
+          prodMap.set(`${obra.of_number}-${fase}-${marcaStr}`, item);
+          prodMap.set(`${obra.of_number}-${fase}-${marcaStr}`.toUpperCase(), item);
+          prodMap.set(`${obra.of_number}-${marcaStr}`, item);
+          prodMap.set(`${obra.of_number}-${marcaStr}`.toUpperCase(), item);
+
+          if (p.descricao) {
+            prodMap.set(`DESC:${String(p.descricao).trim().toUpperCase()}`, item);
+          }
+          if (p.perfil_principal) {
+            prodMap.set(`PERFIL:${String(p.perfil_principal).trim().toUpperCase()}`, item);
           }
         });
       }
 
       if (apontamentosRes.data) {
-        apontamentosRes.data.forEach((ap: any) => {
-          const marca = ap.peca?.marca ? String(ap.peca.marca).trim().toUpperCase() : '';
-          if (marca && prodMap.has(marca)) {
-            const item = prodMap.get(marca)!;
-            const q = Number(ap.quantidade_produzida || 0);
-            const procNome = ap.processo?.nome || 'Produção';
-            const procOrdem = Number(ap.processo?.ordem || 0);
+        const PROCESS_COLORS: Record<string, string> = {
+          'Detalhamento': '#3b82f6',
+          'Corte': '#3b82f6',
+          'Solda': '#f97316',
+          'Pintura': '#10b981',
+          'Pintura/Galv': '#10b981',
+          'Expedicao': '#06b6d4',
+          'Expedição': '#06b6d4',
+          'Montagem': '#8b5cf6',
+          'Concluido': '#22c55e',
+        };
 
-            if (q > 0 && procOrdem >= (item.processOrdem || 0)) {
-              item.pointedQtd = Math.max(item.pointedQtd, q);
-              item.currentProcessName = procNome;
-              item.processColor = ap.processo?.cor || '#10b981';
-              item.processOrdem = procOrdem;
+        const sortedApontamentos = [...apontamentosRes.data].sort(
+          (a: any, b: any) => (a.processo?.ordem || 0) - (b.processo?.ordem || 0)
+        );
+
+        sortedApontamentos.forEach((ap: any) => {
+          const marca = ap.peca?.marca ? String(ap.peca.marca).trim() : '';
+          const fase = ap.peca?.etapa_fase ? String(ap.peca.etapa_fase).trim() : '';
+          if (marca) {
+            const existing =
+              prodMap.get(`${obra.of_number}-${fase}-${marca}`) ||
+              prodMap.get(`${fase}-${marca}`) ||
+              prodMap.get(marca);
+
+            if (existing) {
+              const qty = Number(ap.quantidade_produzida || 0);
+              const procRaw = String(ap.processo?.nome || '').trim();
+              const procNorm = procRaw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+              const isDetalhamento = procNorm.includes('detalh');
+
+              if (qty > 0) {
+                if (!existing.processPointedQtds) existing.processPointedQtds = {};
+                if (!existing.processesCompleted) existing.processesCompleted = [];
+
+                existing.processPointedQtds[procNorm] = (existing.processPointedQtds[procNorm] || 0) + qty;
+                if (!existing.processesCompleted.includes(procNorm)) {
+                  existing.processesCompleted.push(procNorm);
+                }
+
+                if (!isDetalhamento) {
+                  existing.pointedQtd = Math.max(existing.pointedQtd, qty);
+                  existing.currentProcessName = procRaw || existing.currentProcessName;
+                  existing.processColor = ap.processo?.cor || PROCESS_COLORS[procRaw] || '#10b981';
+                  existing.processOrdem = Math.max(existing.processOrdem || 0, Number(ap.processo?.ordem || 0));
+                } else {
+                  existing.hasDetalhamento = true;
+                }
+              }
             }
           }
         });
