@@ -107,11 +107,11 @@ export function TableRow({
           {peca.descricao}
         </TableCell>
         
-        <TableCell className="w-16 px-2">
-          <PriorityBadge prioridade={peca.prioridade as any} />
+        <TableCell className="w-14 px-1 text-center">
+          <PriorityBadge prioridade={peca.prioridade as any} size="sm" />
         </TableCell>
         
-        <TableCell className="w-24 px-2 text-center">
+        <TableCell className="w-14 px-1 text-center">
           <div className="flex justify-center items-center">
             {!peca.tem_componentes ? (
               <div 
