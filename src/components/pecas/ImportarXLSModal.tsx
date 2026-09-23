@@ -28,6 +28,7 @@ export interface PecaXLSData {
   material: string;
   perfil_principal: string;
   tem_componentes: boolean;
+  comprimento?: number | null;
   comprimento_ref?: number | string;
   marca_componente?: string;
   descricao_componente?: string;
@@ -112,24 +113,30 @@ export function ImportarXLSModal({
         const ws = workbook.Sheets['Importacao_TrackSteel'];
         const jsonRows: any[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
         if (jsonRows && jsonRows.length > 0) {
-          const lidas: PecaXLSData[] = jsonRows.map((r) => ({
-            of_number: String(r.of_number || ofDefault || 'B134').trim().replace(/^B-(\d+)/i, 'B$1'),
-            etapa_fase: String(r.etapa_fase || '1').trim(),
-            marca: String(r.marca || '').trim(),
-            descricao: String(r.descricao || '').trim(),
-            quantidade: Math.max(1, Math.round(parseNumber(r.quantidade) || 1)),
-            peso_unitario: parseNumber(r.peso_unitario),
-            peso_total: parseNumber(r.peso_total),
-            tratamento_superficial: String(r.tratamento_superficial || 'pintura').trim(),
-            material: String(r.material || 'Aço A36').trim(),
-            perfil_principal: String(r.perfil_principal || r.descricao || '').trim(),
-            tem_componentes: Boolean(r.tem_componentes || (r.marca_componente && String(r.marca_componente).trim() !== '')),
-            marca_componente: r.marca_componente ? String(r.marca_componente).trim() : undefined,
-            descricao_componente: r.descricao_componente ? String(r.descricao_componente).trim() : undefined,
-            perfil_componente: r.perfil_componente ? String(r.perfil_componente).trim() : undefined,
-            peso_unitario_componente: r.peso_unitario_componente !== undefined ? parseNumber(r.peso_unitario_componente) : undefined,
-            quantidade_por_peca: r.quantidade_por_peca !== undefined ? parseNumber(r.quantidade_por_peca) : undefined,
-          })).filter(p => p.marca && !p.marca.toLowerCase().includes('total'));
+          const lidas: PecaXLSData[] = jsonRows.map((r) => {
+            const rawComp = r.comprimento || r.comprimento_ref || r['Comprimento'] || r['Comprimento (mm)'] || r['Comprimento Ref. (mm)'];
+            const compNum = parseNumber(rawComp);
+            return {
+              of_number: String(r.of_number || ofDefault || 'B134').trim().replace(/^B-(\d+)/i, 'B$1'),
+              etapa_fase: String(r.etapa_fase || '1').trim(),
+              marca: String(r.marca || '').trim(),
+              descricao: String(r.descricao || '').trim(),
+              quantidade: Math.max(1, Math.round(parseNumber(r.quantidade) || 1)),
+              peso_unitario: parseNumber(r.peso_unitario),
+              peso_total: parseNumber(r.peso_total),
+              comprimento: compNum > 0 ? compNum : null,
+              comprimento_ref: compNum > 0 ? compNum : undefined,
+              tratamento_superficial: String(r.tratamento_superficial || 'pintura').trim(),
+              material: String(r.material || 'Aço A36').trim(),
+              perfil_principal: String(r.perfil_principal || r.descricao || '').trim(),
+              tem_componentes: Boolean(r.tem_componentes || (r.marca_componente && String(r.marca_componente).trim() !== '')),
+              marca_componente: r.marca_componente ? String(r.marca_componente).trim() : undefined,
+              descricao_componente: r.descricao_componente ? String(r.descricao_componente).trim() : undefined,
+              perfil_componente: r.perfil_componente ? String(r.perfil_componente).trim() : undefined,
+              peso_unitario_componente: r.peso_unitario_componente !== undefined ? parseNumber(r.peso_unitario_componente) : undefined,
+              quantidade_por_peca: r.quantidade_por_peca !== undefined ? parseNumber(r.quantidade_por_peca) : undefined,
+            };
+          }).filter(p => p.marca && !p.marca.toLowerCase().includes('total'));
 
           if (lidas.length > 0) {
             setPecasProcessadas(lidas);
@@ -167,10 +174,15 @@ export function ImportarXLSModal({
 
           const key = `${ofVal}-${faseVal}-${marcaPeca}`;
           const comps = compMap.get(key) || [];
-          const temComp = comps.length > 0 || String(p['Composto por Componentes?'] || '').toLowerCase() === 'sim';
+          const temComp = comps.length > 0 || String(p['Composto por Componentes?'] || p['Composto por Componentes'] || '').toLowerCase() === 'sim';
+          
+          const rawPecaComp = p['Comprimento Ref. (mm)'] || p['Comprimento (mm)'] || p['Comprimento'] || p['comprimento'] || p['comprimento_ref'];
+          const compPeca = parseNumber(rawPecaComp);
 
           if (comps.length > 0) {
             comps.forEach((c) => {
+              const compSub = parseNumber(c['Comprimento (mm)'] || c['Comprimento'] || c['comprimento']);
+              const finalComp = compPeca > 0 ? compPeca : (compSub > 0 ? compSub : null);
               merged.push({
                 of_number: ofVal,
                 etapa_fase: faseVal,
@@ -179,6 +191,8 @@ export function ImportarXLSModal({
                 quantidade: Math.max(1, Math.round(parseNumber(p['Quantidade']) || 1)),
                 peso_unitario: parseNumber(p['Peso Unitário (kg)']),
                 peso_total: parseNumber(p['Peso Total (kg)']),
+                comprimento: finalComp,
+                comprimento_ref: finalComp || undefined,
                 tratamento_superficial: String(p['Tratamento Superficial'] || 'pintura').trim(),
                 material: String(p['Material'] || 'Aço A36').trim(),
                 perfil_principal: String(p['Perfil Principal'] || p['Descrição'] || '').trim(),
@@ -199,6 +213,8 @@ export function ImportarXLSModal({
               quantidade: Math.max(1, Math.round(parseNumber(p['Quantidade']) || 1)),
               peso_unitario: parseNumber(p['Peso Unitário (kg)']),
               peso_total: parseNumber(p['Peso Total (kg)']),
+              comprimento: compPeca > 0 ? compPeca : null,
+              comprimento_ref: compPeca > 0 ? compPeca : undefined,
               tratamento_superficial: String(p['Tratamento Superficial'] || 'pintura').trim(),
               material: String(p['Material'] || 'Aço A36').trim(),
               perfil_principal: String(p['Perfil Principal'] || p['Descrição'] || '').trim(),
@@ -272,7 +288,7 @@ export function ImportarXLSModal({
           else if ((h.includes('tratam') || h.includes('superf') || h.includes('pintura') || h.includes('acab')) && colMap['tratamento'] === undefined) colMap['tratamento'] = colIdx;
           else if ((h.includes('mat') || h.includes('qualidade') || h.includes('aco')) && colMap['material'] === undefined) colMap['material'] = colIdx;
           else if ((h.includes('perfil') || h.includes('perfilprinc')) && colMap['perfil_principal'] === undefined) colMap['perfil_principal'] = colIdx;
-          else if ((h.includes('compriment') || h.includes('comprmm') || h.includes('length')) && colMap['comprimento'] === undefined) colMap['comprimento'] = colIdx;
+          else if ((h.includes('compriment') || h.includes('comprmm') || h.includes('length') || h === 'compr' || h === 'comp') && colMap['comprimento'] === undefined) colMap['comprimento'] = colIdx;
         });
 
         // Itera sobre as linhas de dados após o cabeçalho
@@ -333,7 +349,8 @@ export function ImportarXLSModal({
 
           const rawComp = String(getColVal('componentes', 4)).toLowerCase();
           const temComponentes = rawComp === 'sim' || rawComp === 'true' || rawComp === '1';
-          const comprimentoRef = getColVal('comprimento', 10);
+          const comprimentoRaw = getColVal('comprimento', 11);
+          const comprimentoVal = parseNumber(comprimentoRaw);
 
           pecasLidas.push({
             of_number: ofNumber,
@@ -343,16 +360,17 @@ export function ImportarXLSModal({
             quantidade,
             peso_unitario: pesoUnit,
             peso_total: pesoTot,
+            comprimento: comprimentoVal > 0 ? comprimentoVal : null,
+            comprimento_ref: comprimentoVal > 0 ? comprimentoVal : undefined,
             tratamento_superficial: tratSuperficial,
             material,
             perfil_principal: rawPerfil || rawDesc,
             tem_componentes: temComponentes,
-            comprimento_ref: comprimentoRef || undefined,
           });
         }
       } else {
         // Fallback por ordem posicional estrita:
-        // Coluna 0: OF, 1: Fase, 2: Marca, 3: Descrição, 4: Quantidade, 5: Peso Unit, 6: Peso Total, 7: Tratamento, 8: Material, 9: Perfil Principal
+        // Coluna 0: OF, 1: Fase, 2: Marca, 3: Descrição, 4: Quantidade, 5: Peso Unit, 6: Peso Total, 7: Tratamento, 8: Material, 9: Perfil Principal, 10/11: Comprimento
         for (let r = 0; r < rawRows.length; r++) {
           const row = rawRows[r];
           if (!row || row.length < 3) continue;
@@ -369,6 +387,7 @@ export function ImportarXLSModal({
           const tratSuperficial = String(row[7] || 'pintura').trim() || 'pintura';
           const material = String(row[8] || 'Aço A36').trim();
           const perfilPrincipal = String(row[9] || rawDesc).trim();
+          const rawComprFallback = parseNumber(row[11] || row[10]);
 
           pecasLidas.push({
             of_number: ofNumber,
@@ -378,6 +397,8 @@ export function ImportarXLSModal({
             quantidade,
             peso_unitario: pesoUnit,
             peso_total: pesoTot,
+            comprimento: rawComprFallback > 0 ? rawComprFallback : null,
+            comprimento_ref: rawComprFallback > 0 ? rawComprFallback : undefined,
             tratamento_superficial: tratSuperficial,
             material,
             perfil_principal: perfilPrincipal,
@@ -444,6 +465,8 @@ export function ImportarXLSModal({
         quantidade: p.quantidade,
         peso_unitario: p.peso_unitario,
         peso_total: p.peso_total,
+        comprimento: p.comprimento !== undefined && p.comprimento !== null ? Number(p.comprimento) : (p.comprimento_ref ? Number(p.comprimento_ref) : null),
+        comprimento_ref: p.comprimento_ref ? Number(p.comprimento_ref) : (p.comprimento ? Number(p.comprimento) : null),
         tratamento_superficial: p.tratamento_superficial || 'pintura',
         material: p.material,
         perfil_principal: p.perfil_principal,
@@ -670,6 +693,7 @@ export function ImportarXLSModal({
                     <TableHead className="w-16 text-center">Qtd</TableHead>
                     <TableHead className="w-24 text-right">Peso Un. (kg)</TableHead>
                     <TableHead className="w-24 text-right">Peso Total (kg)</TableHead>
+                    <TableHead className="w-24 text-right">Compr. (mm)</TableHead>
                     <TableHead className="w-24">Tratamento</TableHead>
                     <TableHead className="w-24">Material</TableHead>
                     <TableHead className="w-28">Perfil Princ.</TableHead>
@@ -687,6 +711,9 @@ export function ImportarXLSModal({
                       <TableCell className="text-right text-xs">{peca.peso_unitario.toLocaleString('pt-BR')}</TableCell>
                       <TableCell className="text-right text-xs font-semibold text-emerald-500">
                         {peca.peso_total.toLocaleString('pt-BR')}
+                      </TableCell>
+                      <TableCell className="text-right text-xs font-mono text-cyan-400 font-semibold">
+                        {peca.comprimento || peca.comprimento_ref ? `${peca.comprimento || peca.comprimento_ref} mm` : '-'}
                       </TableCell>
                       <TableCell className="text-xs">{peca.tratamento_superficial}</TableCell>
                       <TableCell className="text-xs">{peca.material}</TableCell>

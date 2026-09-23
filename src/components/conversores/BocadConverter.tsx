@@ -390,8 +390,13 @@ export const BocadConverter: React.FC = () => {
         const rawMaterial = firstWhiteRow ? firstWhiteRow.qualid : 'A36';
         const normalizedMat = normalizeMaterial(rawMaterial);
 
-        // Comprimento de referência (pega da linha principal ou do primeiro componente se a linha principal não tiver)
-        const compRef = asm.compr || (firstWhiteRow ? firstWhiteRow.compr : '');
+        // Comprimento de referência (pega da linha principal, do primeiro componente ou do maior componente)
+        let maxCompSub = 0;
+        asm.components.forEach(c => {
+          const n = Number(c.compr) || 0;
+          if (n > maxCompSub) maxCompSub = n;
+        });
+        const compRef = asm.compr || (firstWhiteRow ? firstWhiteRow.compr : '') || (maxCompSub > 0 ? maxCompSub : '');
 
         return {
           of: detectedOF,
