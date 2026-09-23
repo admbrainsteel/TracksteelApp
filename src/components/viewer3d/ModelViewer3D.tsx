@@ -956,33 +956,33 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
       <div className="absolute top-4 right-4 z-20 flex flex-col items-end gap-2.5 pointer-events-auto">
         <ViewCube onSelectView={handleViewCubeSelect} mainCameraRef={activeCameraRef} />
 
-        {/* Card de Controle de Seleção Flutuante Abaixo do Cubo */}
+        {/* Card de Controle de Seleção Flutuante Harmonizado Abaixo do Cubo */}
         <div
-          className={`flex flex-col items-stretch gap-1.5 p-2 rounded-2xl backdrop-blur-xl border transition-all duration-300 shadow-xl ${
+          className={`flex flex-col items-stretch gap-1.5 p-2 rounded-2xl backdrop-blur-md border transition-all duration-200 shadow-lg ${
             selectedCount > 0
-              ? 'bg-slate-900/95 border-fuchsia-500/50 shadow-fuchsia-950/50 ring-1 ring-fuchsia-500/30'
-              : 'bg-white/80 dark:bg-slate-900/70 border-slate-200/80 dark:border-slate-800/80 opacity-75 hover:opacity-100'
+              ? 'bg-white/95 dark:bg-slate-900/95 border-slate-300 dark:border-slate-700 shadow-slate-300/40 dark:shadow-slate-950/60 ring-1 ring-blue-500/20'
+              : 'bg-white/80 dark:bg-slate-900/70 border-slate-200 dark:border-slate-800/80 opacity-75 hover:opacity-100'
           }`}
           style={{ minWidth: '130px' }}
         >
-          {/* Badge Indicador de Seleção Ativa */}
+          {/* Badge Indicador de Seleção Ativa Sóbrio */}
           {selectedCount > 0 && (
-            <div className="flex items-center justify-center gap-1.5 px-2 py-0.5 mb-0.5 rounded-full bg-fuchsia-500/20 border border-fuchsia-500/30 text-fuchsia-300 text-[10px] font-mono font-bold animate-in fade-in zoom-in-95 duration-200">
-              <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-500 animate-pulse shadow-sm shadow-fuchsia-500" />
+            <div className="flex items-center justify-center gap-1.5 px-2 py-0.5 mb-0.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-[10px] font-mono font-bold animate-in fade-in zoom-in-95 duration-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-500 shadow-sm" />
               <span>
                 {selectedCount} {selectedCount === 1 ? 'peça' : 'peças'}
               </span>
             </div>
           )}
 
-          {/* Botão Gerar Lista da Seleção ("Acende" e Habilita quando há peças selecionadas) */}
+          {/* Botão Gerar Lista da Seleção (Azul Escuro no claro / Azul Elegante no escuro) */}
           <button
             onClick={() => setIsSelectionModalOpen(true)}
             disabled={selectedCount === 0}
             className={`flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all duration-200 cursor-pointer ${
               selectedCount > 0
-                ? 'bg-gradient-to-r from-fuchsia-600 to-pink-600 hover:from-fuchsia-500 hover:to-pink-500 text-white shadow-lg shadow-fuchsia-950/60 scale-[1.02] active:scale-[0.98]'
-                : 'bg-slate-100 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700/50 cursor-not-allowed opacity-50'
+                ? 'bg-blue-950 hover:bg-blue-900 text-white shadow-sm dark:bg-blue-600 dark:hover:bg-blue-500 scale-[1.02] active:scale-[0.98]'
+                : 'bg-slate-100 dark:bg-slate-800/50 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-800 cursor-not-allowed opacity-50'
             }`}
             title={
               selectedCount > 0
@@ -994,13 +994,13 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
             <span className="whitespace-nowrap">Gerar lista</span>
           </button>
 
-          {/* Botão Limpar Seleção */}
+          {/* Botão Limpar Seleção Harmonizado */}
           <button
             onClick={handleClearSelection}
             disabled={selectedCount === 0}
             className={`flex items-center justify-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-semibold transition-all duration-200 cursor-pointer ${
               selectedCount > 0
-                ? 'text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/20 active:scale-[0.98]'
+                ? 'text-slate-600 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 dark:border-slate-700 dark:text-slate-400 dark:hover:text-rose-300 dark:hover:bg-rose-950/30 active:scale-[0.98]'
                 : 'text-slate-400 dark:text-slate-600 border border-transparent cursor-not-allowed opacity-40'
             }`}
             title="Desmarcar todas as peças"
