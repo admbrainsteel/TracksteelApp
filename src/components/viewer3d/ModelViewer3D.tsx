@@ -299,13 +299,15 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
 
   // Update Model in Scene & Carregar Rotação Memorizada
   useEffect(() => {
-    if (!sceneRef.current || !modelData) return;
+    if (!sceneRef.current) return;
 
     // Remove old model if present
     if (modelGroupRef.current) {
       sceneRef.current.remove(modelGroupRef.current);
       modelGroupRef.current = null;
     }
+
+    if (!modelData) return;
 
     const group = modelData.sceneGroup;
     modelGroupRef.current = group;
