@@ -792,7 +792,8 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
             pecasComSaldo.map((item) => {
               const pendenciasItem = pecasPendentesMap.get(item.id) || [];
               const temPendencia = pendenciasItem.length > 0;
-              const concluida = item.saldo <= 0;
+              const concluida = item.jaProduzido >= item.quantidade;
+              const aguardandoAnterior = !concluida && item.saldo <= 0;
 
               return (
                 <div
@@ -802,6 +803,8 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
                       ? 'animate-pulse-red-fast bg-red-50/70 dark:bg-red-950/40 border-red-500 shadow-md shadow-red-500/20'
                       : concluida
                       ? 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 opacity-75'
+                      : aguardandoAnterior
+                      ? 'bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800/80 opacity-60'
                       : 'bg-white dark:bg-slate-800/95 border-slate-200 dark:border-slate-700/90 hover:border-amber-400 dark:hover:border-amber-500/80'
                   }`}
                 >
@@ -828,7 +831,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
                       <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 line-clamp-1">
                         {item.descricao || 'Peça Estrutural'}
                       </div>
-                      {item.motivoBloqueio && item.saldo === 0 && !concluida && (
+                      {item.motivoBloqueio && aguardandoAnterior && (
                         <div className="text-[11px] text-amber-700 dark:text-amber-400/90 font-medium mt-1 flex items-center gap-1">
                           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
                           <span>{item.motivoBloqueio}</span>
@@ -871,8 +874,8 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
                           Disponível: {item.saldo}
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 mt-1">
-                          Pendente ant.
+                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-600 dark:text-slate-400 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 mt-1" title={item.motivoBloqueio || 'Aguardando processo anterior'}>
+                          {item.motivoBloqueio ? item.motivoBloqueio.slice(0, 22) : 'Aguardando anterior'}
                         </span>
                       )}
                     </div>
@@ -919,7 +922,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
                       onClick={() => handleIniciarApontamentoPeca(item, item.saldo)}
                       className={`sm:col-span-2 h-13 text-sm font-black rounded-xl uppercase tracking-wider transition-all active:scale-[0.98] ${
                         concluida
-                          ? 'bg-slate-100 text-slate-400 border border-slate-200 dark:bg-slate-800 dark:text-slate-500 dark:border-slate-700'
+                          ? 'bg-slate-100 text-slate-400 border border-slate-200 dark:bg-slate-800 dark:text-slate-500 dark:border-slate-700 cursor-not-allowed'
                           : item.saldo <= 0
                           ? 'bg-slate-100 text-slate-400 border border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700 cursor-not-allowed'
                           : 'bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 shadow-md shadow-amber-900/20 dark:shadow-amber-950/30'
@@ -928,7 +931,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
                       {concluida
                         ? 'Processo Concluído'
                         : item.saldo <= 0
-                        ? item.motivoBloqueio || 'Indisponível neste processo'
+                        ? item.motivoBloqueio || 'Aguardando processo anterior'
                         : `DIGITAR / ESCOLHER QUANTIDADE`}
                     </Button>
 
