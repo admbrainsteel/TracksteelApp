@@ -59,16 +59,17 @@ for schema in "${SCHEMAS[@]}"; do
         # 2. Transferir para marcos-vps via SCP
         scp -q -o BatchMode=yes -o ConnectTimeout=5 "$TMP_DUMP" "root@$DEST_IP:$TMP_DUMP"
 
-        # 3. Restaurar dentro do container de destino
+        # 3. Restaurar dentro do container de destino e restabelecer privilégios para PostgREST
         ssh -o BatchMode=yes -o ConnectTimeout=5 "root@$DEST_IP" \
             "docker cp '$TMP_DUMP' '$DEST_DB_CONTAINER:$TMP_DUMP' && \
              docker exec '$DEST_DB_CONTAINER' pg_restore -U postgres -d postgres --clean --if-exists --no-owner --no-privileges '$TMP_DUMP' && \
+             docker exec '$DEST_DB_CONTAINER' psql -U postgres -d postgres -c \"GRANT USAGE ON SCHEMA \\\"$schema\\\" TO anon, authenticated, service_role, authenticator; GRANT ALL ON ALL TABLES IN SCHEMA \\\"$schema\\\" TO anon, authenticated, service_role; GRANT ALL ON ALL SEQUENCES IN SCHEMA \\\"$schema\\\" TO anon, authenticated, service_role; GRANT ALL ON ALL ROUTINES IN SCHEMA \\\"$schema\\\" TO anon, authenticated, service_role; ALTER DEFAULT PRIVILEGES IN SCHEMA \\\"$schema\\\" GRANT ALL ON TABLES TO anon, authenticated, service_role; ALTER DEFAULT PRIVILEGES IN SCHEMA \\\"$schema\\\" GRANT ALL ON SEQUENCES TO anon, authenticated, service_role; ALTER DEFAULT PRIVILEGES IN SCHEMA \\\"$schema\\\" GRANT ALL ON ROUTINES TO anon, authenticated, service_role; NOTIFY pgrst, 'reload schema';\" && \
              rm -f '$TMP_DUMP' && \
              docker exec '$DEST_DB_CONTAINER' rm -f '$TMP_DUMP'"
 
         # 4. Limpar arquivo local
         rm -f "$TMP_DUMP"
-        log "${GREEN}  ↳ Schema $schema replicado com sucesso.${NC}"
+        log "${GREEN}  ↳ Schema $schema replicado e privilégios aplicados com sucesso.${NC}"
     fi
 done
 
