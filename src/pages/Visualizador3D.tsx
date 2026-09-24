@@ -28,6 +28,7 @@ interface OFOption {
   ifc_filename?: string | null;
   ifc_file_size?: number | null;
   ifc_updated_at?: string | null;
+  model_3d_rotation?: { x: number; y: number; z: number } | null;
 }
 
 const PROCESS_COLORS: Record<string, string> = {
@@ -67,13 +68,13 @@ export default function Visualizador3D() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 1. Fetch OFs (com colunas de IFC para persistência na nuvem)
+  // 1. Fetch OFs (com colunas de IFC e rotação 3D para persistência na nuvem)
   useEffect(() => {
     async function fetchOFs() {
       try {
         const { data, error } = await supabase
           .from('ordens_fabricacao' as any)
-          .select('id, num_of, descritivo, peso_total, ifc_url, ifc_filename, ifc_file_size, ifc_updated_at')
+          .select('id, num_of, descritivo, peso_total, ifc_url, ifc_filename, ifc_file_size, ifc_updated_at, model_3d_rotation')
           .order('num_of', { ascending: false });
 
         if (!error && data) {
@@ -86,6 +87,7 @@ export default function Visualizador3D() {
             ifc_filename: item.ifc_filename || null,
             ifc_file_size: item.ifc_file_size ? Number(item.ifc_file_size) : null,
             ifc_updated_at: item.ifc_updated_at || null,
+            model_3d_rotation: item.model_3d_rotation || null,
           }));
           setOfs(list);
         }
@@ -130,8 +132,13 @@ export default function Visualizador3D() {
 
         if (pecasData) {
           pecasData.forEach((p: any) => {
-            const fase = String(p.etapa_fase || '').trim();
-            if (fase) phases.add(fase);
+            let fase = String(p.etapa_fase || '').trim();
+            if (fase) {
+              if (/^\d+$/.test(fase)) {
+                fase = String(parseInt(fase, 10));
+              }
+              phases.add(fase);
+            }
             totalPecas += Number(p.quantidade || 0);
             totalPeso += Number(p.peso_total || 0);
 
@@ -269,10 +276,12 @@ export default function Visualizador3D() {
       setModelData(result);
       setAuditData(result.audit);
 
-      // Mescla fases detectadas no IFC às fases da OF
+      // Mescla fases detectadas no IFC/WRL às fases da OF
       if (result.detectedPhases && result.detectedPhases.length > 0) {
         setPhasesList((prev) => {
-          const combined = new Set([...prev, ...result.detectedPhases]);
+          const normPrev = prev.map((f) => (/^\d+$/.test(f) ? String(parseInt(f, 10)) : f));
+          const normDetected = result.detectedPhases.map((f) => (/^\d+$/.test(f) ? String(parseInt(f, 10)) : f));
+          const combined = new Set([...normPrev, ...normDetected]);
           return Array.from(combined).sort((a, b) => {
             const na = Number(a);
             const nb = Number(b);
@@ -305,6 +314,7 @@ export default function Visualizador3D() {
     setModelData(null);
     setAuditData(null);
     setSelectedPhase('all');
+    setPhasesList([]);
 
     const currentOF = ofs.find((o) => o.of_number === selectedOF);
 
@@ -361,10 +371,12 @@ export default function Visualizador3D() {
       setAuditData(result.audit);
       setIsAuditModalOpen(true); // Abre modal de qualidade automaticamente
 
-      // Mescla fases detectadas no IFC
+      // Mescla fases detectadas no IFC/WRL às fases da OF
       if (result.detectedPhases && result.detectedPhases.length > 0) {
         setPhasesList((prev) => {
-          const combined = new Set([...prev, ...result.detectedPhases]);
+          const normPrev = prev.map((f) => (/^\d+$/.test(f) ? String(parseInt(f, 10)) : f));
+          const normDetected = result.detectedPhases.map((f) => (/^\d+$/.test(f) ? String(parseInt(f, 10)) : f));
+          const combined = new Set([...normPrev, ...normDetected]);
           return Array.from(combined).sort((a, b) => {
             const na = Number(a);
             const nb = Number(b);
@@ -721,6 +733,7 @@ export default function Visualizador3D() {
           productionData={productionMap}
           selectedOF={selectedOF}
           selectedPhase={selectedPhase}
+          initialRotation={ofs.find((o) => o.of_number === selectedOF)?.model_3d_rotation}
         />
       </div>
 

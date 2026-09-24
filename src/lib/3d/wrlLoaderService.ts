@@ -25,11 +25,49 @@ async function decompressGzipIfNeeded(buffer: ArrayBuffer): Promise<string> {
 }
 
 /**
- * Heurística avançada para extrair e normalizar a marca da peça a partir do nó VRML (DEF).
- * Softwares como Tekla, Advance Steel, Bocad e outros exportam identificadores variados:
- * Ex: "DEF V101 Transform", "DEF Part_V101_1 Transform", "DEF C1_V101 Transform", "DEF 01-V101 Transform"
+ * Extrai a Fase da estrutura a partir dos ancestrais na árvore 3D (ex: "00001_COLUNAS", "00004_GUARDA_CORPO").
+ * Garante que apenas o nó de primeiro nível (raiz da cena) ou nós explicitamente marcados como FASE/ETAPA sejam considerados.
+ * Evita rigorosamente que marcas de montagem (ex: "106", "121") ou dimensões (ex: "10x57", "1127") sejam confundidas com fases.
  */
-function parseWrlNodeName(rawName: string): {
+function extractPhaseFromAncestors(ancestors: string[]): string | undefined {
+  if (!ancestors || ancestors.length === 0) return undefined;
+
+  // 1. O nó de primeiro nível (ancestors[0]) representa a pasta raiz no WRL (ex: "00001_COLUNAS", "00004_GUARDA_CORPO")
+  const rootNode = ancestors[0].replace(/^DEF\s+/i, '').replace(/^ID_/, '').trim();
+
+  // Padrão Tekla / Bocad com prefixo numérico seguido de nome de grupo (ex: "00001_COLUNAS", "00004_GUARDA_CORPO")
+  const mZeros = rootNode.match(/^(?:0*([1-9]\d*))[-_ ]+([A-Za-zÀ-ÿ]+.*)$/i);
+  if (mZeros) {
+    return String(Number(mZeros[1])); // "1", "2", "3", "4"
+  }
+
+  // Padrão explícito na raiz "FASE 1", "FASE_01", "ETAPA 2"
+  const mRootFase = rootNode.match(/^(?:fase|etapa|phase|stage)[-_ ]*0*([1-9]\d*)/i);
+  if (mRootFase) {
+    return String(Number(mRootFase[1]));
+  }
+
+  // 2. Se o primeiro nó não for fase, pesquisa nos ancestrais intermediários APENAS se contiver palavra-chave explícita FASE ou ETAPA
+  for (let i = 1; i < ancestors.length; i++) {
+    const clean = ancestors[i].replace(/^DEF\s+/i, '').replace(/^ID_/, '').trim();
+    const mExplicit = clean.match(/^(?:fase|etapa|phase|stage)[-_ ]*0*([1-9]\d*)/i);
+    if (mExplicit) {
+      return String(Number(mExplicit[1]));
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Analisa e normaliza a marca da peça, marca do conjunto e tipo estrutural,
+ * levando em conta a hierarquia de pastas (ex: Fase -> Conjunto '121' -> Componente '121_1127_TUBO...').
+ */
+function parseWrlNodeName(
+  rawName: string,
+  inheritedPhase?: string,
+  ancestorAssembly?: string
+): {
   pieceMark: string;
   cleanMark: string;
   assemblyMark?: string;
@@ -39,61 +77,61 @@ function parseWrlNodeName(rawName: string): {
 } {
   let name = String(rawName || '').trim();
 
-  // Remove prefixos de sanitização interna se houver
-  name = name.replace(/^ID_/, '');
+  // Remove prefixos internos
+  name = name.replace(/^ID_/, '').replace(/^DEF\s+/i, '').replace(/[\{\}\[\]"']/g, '').trim();
 
-  // Remove caracteres especiais de escape ou tags extras
-  name = name.replace(/^DEF\s+/i, '').replace(/[\{\}\[\]"']/g, '').trim();
-
-  let phase: string | undefined = undefined;
-  let assemblyMark: string | undefined = undefined;
+  let assemblyMark = ancestorAssembly ? ancestorAssembly.trim() : undefined;
   let pieceMark = name;
+  let profile = '';
 
-  // 1. Detecção de Fase no início (ex: "01-V101", "F1_V101", "B138-01-V101")
-  const phaseMatch = name.match(/^(?:[A-Za-z0-9]+-)?(?:Fase|F|Etapa)?(\d+)[-_](.+)$/i);
-  if (phaseMatch) {
-    phase = phaseMatch[1];
-    pieceMark = phaseMatch[2];
+  // Formato padrão Tekla/Bocad: [Conjunto]_[Peca]_[Perfil]_[Instancia]
+  // Ex: "121_1127_TUBO44x45X3_121293" -> assembly="121", piece="1127", profile="TUBO44x45X3"
+  const parts = name.split('_');
+
+  if (parts.length >= 3 && /^\d+$/.test(parts[0]) && /^\d+$/.test(parts[1])) {
+    assemblyMark = parts[0];
+    pieceMark = parts[1];
+    profile = parts[2];
+  } else if (parts.length >= 2 && /^\d+$/.test(parts[0])) {
+    assemblyMark = parts[0];
+    pieceMark = parts[1];
+    if (parts.length > 2) profile = parts.slice(2).join('_');
+  } else if (/^(?:PARAF|BOLT)/i.test(name)) {
+    pieceMark = parts[0];
+    profile = 'PARAFUSO';
+  } else {
+    // Remoção de prefixos comuns como "Part_", "Piece_", "Peca_", "Elem_"
+    pieceMark = pieceMark.replace(/^(?:Part|Piece|Peca|Elem|Item|Member|Profile|Mesh)[-_]/i, '');
   }
 
-  // 2. Remoção de prefixos comuns como "Part_", "Piece_", "Peca_", "Elem_", "Assembly_", "Conjunto_"
-  pieceMark = pieceMark.replace(/^(?:Part|Piece|Peca|Elem|Item|Member|Profile|Mesh)[-_]/i, '');
-
-  // 3. Detecção de Conjunto e Peça (ex: "C1_V101", "ASSEMBLY1-V101", "V101-PL1")
-  if (pieceMark.includes('_') || pieceMark.includes('-')) {
-    const parts = pieceMark.split(/[-_]/);
-    if (parts.length >= 2) {
-      const first = parts[0].trim();
-      const second = parts.slice(1).join('-').trim();
-      if (/^(?:C|M|CONJ|ASS|G)\d+$/i.test(first)) {
-        assemblyMark = first;
-        pieceMark = second;
-      }
-    }
-  }
-
-  // 4. Marca limpa (remove sufixo de instância numérica gerada por exportadores, ex: "V101_1", "V101-2", "V101.1", "V101#1")
   let cleanMark = pieceMark.replace(/[-_.#]\d+$/, '').trim().toUpperCase();
-  if (!cleanMark) {
-    cleanMark = pieceMark.toUpperCase();
-  }
+  if (!cleanMark) cleanMark = pieceMark.toUpperCase();
 
   const cleanAssemblyMark = assemblyMark ? assemblyMark.replace(/[-_.#]\d+$/, '').trim().toUpperCase() : cleanMark;
 
-  // 5. Detecção de Tipo de Elemento Estrutural com base na marca
+  // Detecção de tipo de elemento estrutural
   let detectedType = 'ELEMENT';
-  const upper = cleanMark.toUpperCase();
-  if (/^(?:V|VIGA|BEAM|VIG)/.test(upper)) {
+  const searchStr = `${profile} ${name} ${cleanMark}`.toUpperCase();
+
+  if (searchStr.includes('VIGA') || searchStr.includes('BEAM') || cleanMark.startsWith('V')) {
     detectedType = 'BEAM';
-  } else if (/^(?:P|PILAR|COL|COLUMN|PIL)/.test(upper)) {
+  } else if (searchStr.includes('COLUNA') || searchStr.includes('PILAR') || searchStr.includes('COLUMN') || cleanMark.startsWith('P')) {
     detectedType = 'COLUMN';
-  } else if (/^(?:PL|CH|CHAPA|PLATE|GUSSET|BASE|FLANGE)/.test(upper)) {
+  } else if (searchStr.includes('CHAPA') || searchStr.includes('PLATE') || cleanMark.startsWith('PL') || cleanMark.startsWith('CH')) {
     detectedType = 'PLATE';
-  } else if (/^(?:CV|CONTRA|BRACE|TIE|DIAG)/.test(upper)) {
+  } else if (searchStr.includes('TUBO') || searchStr.includes('TUBE') || searchStr.includes('ROBN')) {
+    detectedType = 'TUBE';
+  } else if (searchStr.includes('PARAF') || searchStr.includes('BOLT')) {
+    detectedType = 'FASTENER';
+  } else if (searchStr.includes('ESCAD') || searchStr.includes('STAIR')) {
+    detectedType = 'STAIR';
+  } else if (searchStr.includes('GUARDA') || searchStr.includes('CORRIM')) {
+    detectedType = 'RAILING';
+  } else if (searchStr.includes('CONTRA') || searchStr.includes('BRACE') || searchStr.includes('DIAG')) {
     detectedType = 'BRACE';
-  } else if (/^(?:TER|TERCA|PURLIN)/.test(upper)) {
+  } else if (searchStr.includes('TERCA') || searchStr.includes('PURLIN')) {
     detectedType = 'PURLIN';
-  } else if (/^(?:T|TRENA|TIE|TIRANTE)/.test(upper)) {
+  } else if (searchStr.includes('TIRANTE') || searchStr.includes('TIE')) {
     detectedType = 'TIE';
   }
 
@@ -102,7 +140,7 @@ function parseWrlNodeName(rawName: string): {
     cleanMark,
     assemblyMark: assemblyMark ? assemblyMark.toUpperCase() : undefined,
     cleanAssemblyMark,
-    phase,
+    phase: inheritedPhase,
     detectedType,
   };
 }
@@ -153,8 +191,6 @@ function parseVrmlDirectFallback(
   const group = new THREE.Group();
   group.name = 'WRL_Direct_Fallback_Root';
 
-  // Procura ocorrências de DEF <nome> associadas a IndexedFaceSet
-  // Suporta tanto VRML 1.0 (Separator, Coordinate3) quanto VRML 2.0 (Shape, Coordinate, Transform)
   const defRegex = /DEF\s+([^\s\{\[\(\)]+)[\s\S]*?(?:point\s*\[([\s\S]*?)\])[\s\S]*?(?:coordIndex\s*\[([\s\S]*?)\])/gi;
   let match: RegExpExecArray | null;
   let count = 0;
@@ -166,9 +202,8 @@ function parseVrmlDirectFallback(
     const pointStr = match[2];
     const indexStr = match[3];
 
-    // Extrai vértices flutuantes (x, y, z)
     const rawCoords = pointStr.trim().split(/[\s,]+/).filter(Boolean).map(Number);
-    if (rawCoords.length < 9) continue; // mínimo 3 vértices (1 triângulo)
+    if (rawCoords.length < 9) continue;
 
     const vertices: [number, number, number][] = [];
     for (let i = 0; i < rawCoords.length; i += 3) {
@@ -179,7 +214,6 @@ function parseVrmlDirectFallback(
 
     if (vertices.length === 0) continue;
 
-    // Extrai índices de faces separados por -1
     const rawIndices = indexStr.trim().split(/[\s,]+/).filter(Boolean).map(Number);
     const triangleIndices: number[] = [];
     let currentPoly: number[] = [];
@@ -187,7 +221,6 @@ function parseVrmlDirectFallback(
     for (const idx of rawIndices) {
       if (idx === -1) {
         if (currentPoly.length >= 3) {
-          // Triangulação em leque (fan triangulation)
           for (let p = 1; p < currentPoly.length - 1; p++) {
             triangleIndices.push(currentPoly[0], currentPoly[p], currentPoly[p + 1]);
           }
@@ -209,9 +242,7 @@ function parseVrmlDirectFallback(
     const positions: number[] = [];
     for (const tIdx of triangleIndices) {
       const v = vertices[tIdx];
-      if (v) {
-        positions.push(v[0], v[1], v[2]);
-      }
+      if (v) positions.push(v[0], v[1], v[2]);
     }
 
     if (positions.length === 0) continue;
@@ -227,7 +258,6 @@ function parseVrmlDirectFallback(
     group.add(mesh);
   }
 
-  // Se a busca com DEF não encontrou malhas, busca todos os point/coordIndex sem DEF
   if (count === 0) {
     const genericRegex = /point\s*\[([\s\S]*?)\][\s\S]*?coordIndex\s*\[([\s\S]*?)\]/gi;
     let genMatch: RegExpExecArray | null;
@@ -348,19 +378,6 @@ export async function loadAndAuditWRL(
   let totalMembers = 0;
   const marksFound = new Set<string>();
 
-  // Helper para buscar o nome do nó mais relevante na árvore
-  const resolveMeaningfulNodeName = (mesh: THREE.Mesh): string => {
-    let curr: THREE.Object3D | null = mesh;
-    while (curr) {
-      if (curr.name && !/^(Scene|Root|Group|Transform|Shape|IndexedFaceSet|WRL_Direct_Fallback_Root)$/i.test(curr.name.trim())) {
-        const mapped = nameMap.get(curr.name.trim()) || curr.name.trim();
-        return mapped;
-      }
-      curr = curr.parent;
-    }
-    return mesh.name || `PECA-${idCounter}`;
-  };
-
   // Percorre todos os nós e malhas gerados
   vrmlScene.traverse((child) => {
     if ((child as THREE.Mesh).isMesh) {
@@ -376,8 +393,34 @@ export async function loadAndAuditWRL(
         mesh.receiveShadow = true;
       }
 
-      const rawNodeName = resolveMeaningfulNodeName(mesh);
-      const parsed = parseWrlNodeName(rawNodeName);
+      // Constrói a lista de ancestrais da raiz até o nó da malha
+      const ancestors: string[] = [];
+      let p: THREE.Object3D | null = mesh.parent;
+      while (p && p !== vrmlScene && p.name !== 'WRL_Root_Model') {
+        const pName = (p.name || '').trim();
+        if (pName && !/^(Scene|Root|Group|Transform|Shape|IndexedFaceSet|WRL_Direct_Fallback_Root)$/i.test(pName)) {
+          const unmapped = nameMap.get(pName) || pName;
+          ancestors.unshift(unmapped);
+        }
+        p = p.parent;
+      }
+
+      // 1. Extração rigorosa da Fase a partir dos nós ancestrais (evita falsos positivos em nomes de peças)
+      const inheritedPhase = extractPhaseFromAncestors(ancestors);
+
+      // 2. Extração do conjunto pai se houver na árvore (ex: pasta '121')
+      let ancestorAssembly: string | undefined = undefined;
+      for (const anc of ancestors) {
+        const cleanAnc = anc.replace(/^DEF\s+/i, '').replace(/^ID_/, '').trim();
+        // Se for um identificador de conjunto (ex: "121", "106", "V101") que não seja a fase
+        if (/^\d+$/.test(cleanAnc) && cleanAnc !== inheritedPhase) {
+          ancestorAssembly = cleanAnc;
+          break;
+        }
+      }
+
+      const rawNodeName = nameMap.get(mesh.name) || mesh.name || `PECA-${idCounter}`;
+      const parsed = parseWrlNodeName(rawNodeName, inheritedPhase, ancestorAssembly);
 
       const expressID = idCounter++;
       const guid = `wrl-${expressID}-${parsed.cleanMark}`;
@@ -465,6 +508,13 @@ export async function loadAndAuditWRL(
     sceneGroup.updateMatrixWorld(true);
   }
 
+  // Gera lista ordenada de fases limpas (ex: ["1", "2", "3", "4"])
+  const sortedPhases = Array.from(detectedPhasesSet).sort((a, b) => {
+    const na = Number(a);
+    const nb = Number(b);
+    return !isNaN(na) && !isNaN(nb) ? na - nb : a.localeCompare(b);
+  });
+
   // Gera auditoria de qualidade compatível
   const uniqueMarksFound = marksFound.size;
   const marksList = Array.from(marksFound).sort();
@@ -488,7 +538,7 @@ export async function loadAndAuditWRL(
     qualityScore,
     qualityMessage:
       uniqueMarksFound > 0
-        ? `Modelo WRL processado com sucesso. ${totalMeshes} malhas renderizadas e ${uniqueMarksFound} marcas identificadas para apontamento.`
+        ? `Modelo WRL processado com sucesso. ${totalMeshes} malhas renderizadas e ${uniqueMarksFound} marcas identificadas em ${sortedPhases.length} fases estruturais.`
         : `Modelo WRL processado com ${totalMeshes} malhas. Nenhuma marca nominal identificada na geometria.`,
     fallbackActive: isFallback,
   };
@@ -503,6 +553,6 @@ export async function loadAndAuditWRL(
     weldedGroupMap,
     materialsByColor,
     totalMeshes,
-    detectedPhases: Array.from(detectedPhasesSet).sort(),
+    detectedPhases: sortedPhases,
   };
 }

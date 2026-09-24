@@ -6,7 +6,9 @@ import { ViewCube } from './ViewCube';
 import { Viewer3DSidebar } from './Viewer3DSidebar';
 import { PieceHoverTooltip } from './PieceHoverTooltip';
 import { SelectionListModal, SelectedPieceItem } from './SelectionListModal';
-import { Trash2, FileSpreadsheet, RotateCcw } from 'lucide-react';
+import { Trash2, FileSpreadsheet, RotateCcw, RotateCw, Lock, Unlock } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
 
 interface ProductionPieceStatus {
   marca: string;
@@ -24,6 +26,7 @@ interface ModelViewer3DProps {
   selectedPieceMark?: string | null;
   selectedOF?: string;
   selectedPhase?: string;
+  initialRotation?: { x: number; y: number; z: number } | null;
   onSelectPiece?: (piece: PieceInfo | null) => void;
 }
 
@@ -33,6 +36,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
   selectedPieceMark,
   selectedOF,
   selectedPhase,
+  initialRotation,
   onSelectPiece,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -259,23 +263,11 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     };
   }, []);
 
-  // Update Model in Scene
-  useEffect(() => {
-    if (!sceneRef.current || !modelData) return;
-
-    // Remove old model if present
-    if (modelGroupRef.current) {
-      sceneRef.current.remove(modelGroupRef.current);
-      modelGroupRef.current = null;
-    }
-
-    const group = modelData.sceneGroup;
-    modelGroupRef.current = group;
-    sceneRef.current.add(group);
-
-    // Fit View (Center Model)
-    fitModelToView(group);
-  }, [modelData]);
+  // Estados de Rotação 3D e Bloqueio com Cadeado
+  const [rotationX, setRotationX] = useState<number>(0);
+  const [rotationY, setRotationY] = useState<number>(0);
+  const [isRotationLocked, setIsRotationLocked] = useState<boolean>(false);
+  const { toast } = useToast();
 
   // Function: Fit Model to View
   const fitModelToView = useCallback((group?: THREE.Group | null) => {
@@ -304,6 +296,117 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
       gridHelperRef.current.position.y = box.min.y;
     }
   }, []);
+
+  // Update Model in Scene & Carregar Rotação Memorizada
+  useEffect(() => {
+    if (!sceneRef.current || !modelData) return;
+
+    // Remove old model if present
+    if (modelGroupRef.current) {
+      sceneRef.current.remove(modelGroupRef.current);
+      modelGroupRef.current = null;
+    }
+
+    const group = modelData.sceneGroup;
+    modelGroupRef.current = group;
+    sceneRef.current.add(group);
+
+    // Recupera rotação memorizada para esta OF (localStorage ou banco de dados)
+    const storageKey = selectedOF ? `tracksteel_model_rot_${selectedOF}` : null;
+    let savedX = 0;
+    let savedY = 0;
+    let isLocked = false;
+
+    if (storageKey) {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (typeof parsed.x === 'number') savedX = parsed.x;
+          if (typeof parsed.y === 'number') savedY = parsed.y;
+          isLocked = true;
+        } catch (e) {}
+      }
+    }
+
+    if (!isLocked && initialRotation) {
+      if (typeof initialRotation.x === 'number') savedX = initialRotation.x;
+      if (typeof initialRotation.y === 'number') savedY = initialRotation.y;
+      isLocked = true;
+    }
+
+    setRotationX(savedX);
+    setRotationY(savedY);
+    setIsRotationLocked(isLocked);
+
+    // Aplica rotação inicial no grupo do modelo (garantindo que se comporte em pé/adequado)
+    group.rotation.set(
+      THREE.MathUtils.degToRad(savedX),
+      THREE.MathUtils.degToRad(savedY),
+      0
+    );
+    group.updateMatrixWorld(true);
+
+    // Fit View (Center Model)
+    fitModelToView(group);
+  }, [modelData, selectedOF, initialRotation, fitModelToView]);
+
+  // Gira o modelo em 90 graus no eixo X (tombamento vertical para alinhar Z-Up do CAD com Y-Up)
+  const handleRotate90X = useCallback(() => {
+    if (!modelGroupRef.current) return;
+
+    const nextX = (rotationX + 90) % 360;
+    setRotationX(nextX);
+    setIsRotationLocked(false); // Destrava temporariamente para indicar alteração pendente de trava
+
+    modelGroupRef.current.rotation.x = THREE.MathUtils.degToRad(nextX);
+    modelGroupRef.current.rotation.y = THREE.MathUtils.degToRad(rotationY);
+    modelGroupRef.current.updateMatrixWorld(true);
+
+    fitModelToView(modelGroupRef.current);
+  }, [rotationX, rotationY, fitModelToView]);
+
+  // Alterna o bloqueio/gravação da posição ideal de visualização no banco e no navegador
+  const handleToggleLockRotation = useCallback(async () => {
+    if (!selectedOF) {
+      toast({
+        title: 'Aviso',
+        description: 'Selecione uma OF para memorizar a rotação do modelo.',
+      });
+      return;
+    }
+
+    if (!isRotationLocked) {
+      // Trava e grava a rotação
+      setIsRotationLocked(true);
+      const rotData = { x: rotationX, y: rotationY, z: 0 };
+
+      // 1. Grava no localStorage para acesso instantâneo
+      localStorage.setItem(`tracksteel_model_rot_${selectedOF}`, JSON.stringify(rotData));
+
+      // 2. Persiste na nuvem/Supabase na tabela ordens_fabricacao
+      try {
+        await supabase
+          .from('ordens_fabricacao' as any)
+          .update({ model_3d_rotation: rotData })
+          .eq('num_of', selectedOF);
+      } catch (err) {
+        console.error('Erro ao salvar rotação no banco:', err);
+      }
+
+      toast({
+        title: 'Posição Travada e Salva',
+        description: `Posição ideal de visualização (${rotationX}°) gravada com sucesso para a OF ${selectedOF}.`,
+      });
+    } else {
+      // Destrava para permitir novo ajuste
+      setIsRotationLocked(false);
+      toast({
+        title: 'Posição Destravada',
+        description: 'Clique em "Girar 90°" para ajustar e trave no cadeado novamente quando estiver na posição correta.',
+      });
+    }
+  }, [selectedOF, isRotationLocked, rotationX, rotationY, toast]);
 
   // Color Mode & Proportional Apontamentos Application
   useEffect(() => {
@@ -1053,6 +1156,54 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
           >
             <Trash2 className="w-3 h-3" />
             <span className="whitespace-nowrap">Limpar Seleção</span>
+          </button>
+        </div>
+
+        {/* Card de Ajuste e Travamento de Rotação 3D (Tombamento 90° + Cadeado Memorizável) */}
+        <div
+          className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-300 dark:border-slate-700 shadow-lg shadow-slate-300/30 dark:shadow-slate-950/50 pointer-events-auto"
+          style={{ minWidth: '130px' }}
+        >
+          {/* Botão Rotacionar / Tombar 90° */}
+          <button
+            onClick={handleRotate90X}
+            disabled={!modelData}
+            className={`flex-1 flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all duration-150 active:scale-95 ${
+              modelData
+                ? 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 cursor-pointer shadow-sm'
+                : 'bg-slate-100/50 dark:bg-slate-800/30 text-slate-400 dark:text-slate-600 cursor-not-allowed opacity-50'
+            }`}
+            title="Girar o modelo 90° no eixo de tombamento (adequar orientação Z/Y)"
+          >
+            <RotateCw className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+            <span className="whitespace-nowrap">Girar 90°</span>
+            <span className="text-[10px] font-mono font-normal text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-950 px-1 py-0.2 rounded border border-slate-200 dark:border-slate-800">
+              {rotationX}°
+            </span>
+          </button>
+
+          {/* Botão Cadeado: Travar / Gravar ou Destravar */}
+          <button
+            onClick={handleToggleLockRotation}
+            disabled={!modelData}
+            className={`flex items-center justify-center p-1.5 rounded-xl transition-all duration-200 active:scale-95 border ${
+              !modelData
+                ? 'bg-slate-100/50 dark:bg-slate-800/30 text-slate-400 border-transparent cursor-not-allowed opacity-40'
+                : isRotationLocked
+                ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 dark:text-emerald-300 dark:border-emerald-700/80 shadow-sm cursor-pointer'
+                : 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-950/50 dark:hover:bg-amber-900/70 dark:text-amber-300 dark:border-amber-700/70 shadow-sm cursor-pointer animate-pulse'
+            }`}
+            title={
+              isRotationLocked
+                ? 'Posição TRAVADA e salva para esta OF. Clique para destravar e ajustar.'
+                : 'Posição DESTRAVADA. Clique aqui no cadeado para travar e salvar a posição ideal.'
+            }
+          >
+            {isRotationLocked ? (
+              <Lock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <Unlock className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+            )}
           </button>
         </div>
       </div>
