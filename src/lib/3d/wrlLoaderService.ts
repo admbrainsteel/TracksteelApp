@@ -191,71 +191,103 @@ function parseVrmlDirectFallback(
   const group = new THREE.Group();
   group.name = 'WRL_Direct_Fallback_Root';
 
-  const defRegex = /DEF\s+([^\s\{\[\(\)]+)[\s\S]*?(?:point\s*\[([\s\S]*?)\])[\s\S]*?(?:coordIndex\s*\[([\s\S]*?)\])/gi;
+  const tokenRegex = /(DEF\s+([^\s\{\[\(\)]+))|(\{)|(\})|(point\s*\[([\s\S]*?)\])|(coordIndex\s*\[([\s\S]*?)\])/gi;
   let match: RegExpExecArray | null;
+
+  const stack: { name: string; group: THREE.Group }[] = [{ name: 'ROOT', group }];
+  let currentGroup = group;
+  let lastDef: string | null = null;
+  let currentPoints: number[] | null = null;
   let count = 0;
 
-  while ((match = defRegex.exec(vrmlText)) !== null) {
-    count++;
-    const rawDefName = match[1].trim();
-    const originalName = nameMap.get(rawDefName) || rawDefName;
-    const pointStr = match[2];
-    const indexStr = match[3];
-
-    const rawCoords = pointStr.trim().split(/[\s,]+/).filter(Boolean).map(Number);
-    if (rawCoords.length < 9) continue;
-
-    const vertices: [number, number, number][] = [];
-    for (let i = 0; i < rawCoords.length; i += 3) {
-      if (!isNaN(rawCoords[i]) && !isNaN(rawCoords[i + 1]) && !isNaN(rawCoords[i + 2])) {
-        vertices.push([rawCoords[i], rawCoords[i + 1], rawCoords[i + 2]]);
+  while ((match = tokenRegex.exec(vrmlText)) !== null) {
+    if (match[1]) {
+      lastDef = match[2];
+    } else if (match[3]) {
+      const newGroup = new THREE.Group();
+      if (lastDef) {
+        newGroup.name = nameMap.get(lastDef) || lastDef;
+        lastDef = null;
+      } else {
+        newGroup.name = 'Unnamed_Group';
       }
-    }
-
-    if (vertices.length === 0) continue;
-
-    const rawIndices = indexStr.trim().split(/[\s,]+/).filter(Boolean).map(Number);
-    const triangleIndices: number[] = [];
-    let currentPoly: number[] = [];
-
-    for (const idx of rawIndices) {
-      if (idx === -1) {
-        if (currentPoly.length >= 3) {
-          for (let p = 1; p < currentPoly.length - 1; p++) {
-            triangleIndices.push(currentPoly[0], currentPoly[p], currentPoly[p + 1]);
+      currentGroup.add(newGroup);
+      stack.push({ name: newGroup.name, group: newGroup });
+      currentGroup = newGroup;
+    } else if (match[4]) {
+      if (stack.length > 1) {
+        stack.pop();
+        currentGroup = stack[stack.length - 1].group;
+      }
+    } else if (match[5]) {
+      const rawCoords = match[6].trim().split(/[\s,]+/).filter(Boolean).map(Number);
+      if (rawCoords.length >= 9) {
+        currentPoints = rawCoords;
+      }
+    } else if (match[7]) {
+      if (!currentPoints) continue;
+      
+      const indexStr = match[8];
+      const rawIndices = indexStr.trim().split(/[\s,]+/).filter(Boolean).map(Number);
+      
+      const vertices: [number, number, number][] = [];
+      for (let i = 0; i < currentPoints.length; i += 3) {
+        if (!isNaN(currentPoints[i]) && !isNaN(currentPoints[i + 1]) && !isNaN(currentPoints[i + 2])) {
+          vertices.push([currentPoints[i], currentPoints[i + 1], currentPoints[i + 2]]);
+        }
+      }
+      
+      const triangleIndices: number[] = [];
+      let currentPoly: number[] = [];
+      
+      for (const idx of rawIndices) {
+        if (idx === -1) {
+          if (currentPoly.length >= 3) {
+            for (let p = 1; p < currentPoly.length - 1; p++) {
+              triangleIndices.push(currentPoly[0], currentPoly[p], currentPoly[p + 1]);
+            }
+          }
+          currentPoly = [];
+        } else {
+          currentPoly.push(idx);
+        }
+      }
+      
+      if (currentPoly.length >= 3) {
+        for (let p = 1; p < currentPoly.length - 1; p++) {
+          triangleIndices.push(currentPoly[0], currentPoly[p], currentPoly[p + 1]);
+        }
+      }
+      
+      if (triangleIndices.length === 0) continue;
+      
+      const positions: number[] = [];
+      for (const tIdx of triangleIndices) {
+        const v = vertices[tIdx];
+        if (v) positions.push(v[0], v[1], v[2]);
+      }
+      
+      if (positions.length > 0) {
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geometry.computeVertexNormals();
+        
+        const mesh = new THREE.Mesh(geometry);
+        
+        let meshName = `PECA-${++count}`;
+        for (let i = stack.length - 1; i >= 0; i--) {
+          if (stack[i].name && stack[i].name !== 'Unnamed_Group' && stack[i].name !== 'ROOT') {
+            meshName = stack[i].name;
+            break;
           }
         }
-        currentPoly = [];
-      } else {
-        currentPoly.push(idx);
+        mesh.name = meshName;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        
+        currentGroup.add(mesh);
       }
     }
-
-    if (currentPoly.length >= 3) {
-      for (let p = 1; p < currentPoly.length - 1; p++) {
-        triangleIndices.push(currentPoly[0], currentPoly[p], currentPoly[p + 1]);
-      }
-    }
-
-    if (triangleIndices.length === 0) continue;
-
-    const positions: number[] = [];
-    for (const tIdx of triangleIndices) {
-      const v = vertices[tIdx];
-      if (v) positions.push(v[0], v[1], v[2]);
-    }
-
-    if (positions.length === 0) continue;
-
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.computeVertexNormals();
-
-    const mesh = new THREE.Mesh(geometry);
-    mesh.name = originalName;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    group.add(mesh);
   }
 
   if (count === 0) {
