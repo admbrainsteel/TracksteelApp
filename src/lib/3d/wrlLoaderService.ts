@@ -383,17 +383,28 @@ export async function loadAndAuditWRL(
   const { sanitized: vrmlText, nameMap } = sanitizeVrmlForLoader(rawVrmlText);
 
   if (onProgress) onProgress(60, 'Processando geometria 3D com motor VRML...');
-  const loader = new VRMLLoader();
   let vrmlScene: THREE.Object3D;
   let isFallback = false;
 
-  try {
-    vrmlScene = loader.parse(vrmlText, '');
-  } catch (parseError: any) {
-    console.warn('[WRL Loader] VRMLLoader padrão falhou, acionando fallback direto resiliente:', parseError?.message);
-    if (onProgress) onProgress(65, 'Acionando decodificador direto de geometria VRML...');
+  // Detecta se o arquivo é VRML 1.0 (padrão Tekla / Bocad com nós Separator)
+  const isVrml1 = /#VRML\s+V1\.0/i.test(rawVrmlText) || /\bSeparator\s*\{/i.test(rawVrmlText);
+
+  if (isVrml1) {
+    // Para VRML 1.0, utilizamos diretamente nosso decodificador de alta performance
+    // sem acionar o VRMLLoader do Three.js (que suporta apenas VRML 2.0 e gerava MismatchedTokenException)
+    if (onProgress) onProgress(65, 'Decodificando geometria nativa Tekla/Bocad (VRML 1.0)...');
     vrmlScene = parseVrmlDirectFallback(rawVrmlText, nameMap);
     isFallback = true;
+  } else {
+    // Para VRML 2.0, utiliza o parser padrão do Three.js com fallback de contingência
+    const loader = new VRMLLoader();
+    try {
+      vrmlScene = loader.parse(vrmlText, '');
+    } catch (parseError: any) {
+      if (onProgress) onProgress(65, 'Acionando decodificador direto de geometria VRML...');
+      vrmlScene = parseVrmlDirectFallback(rawVrmlText, nameMap);
+      isFallback = true;
+    }
   }
 
   if (onProgress) onProgress(75, 'Mapeando peças estruturais e hierarquia...');
