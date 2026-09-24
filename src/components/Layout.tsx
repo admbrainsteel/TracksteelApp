@@ -49,7 +49,7 @@ export const Layout = ({ children }: LayoutProps) => {
             </div>
           </header>
           {/* Conteúdo principal */}
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 overflow-auto flex flex-col min-h-0">
             {children}
           </div>
         </main>

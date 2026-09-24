@@ -235,11 +235,12 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     };
     animate();
 
-    // 8. Resize Handler
+    // 8. Resize Handler com ResizeObserver para garantir cálculo perfeito de dimensões
     const handleResize = () => {
       if (!canvasContainerRef.current || !rendererRef.current) return;
       const w = canvasContainerRef.current.clientWidth;
       const h = canvasContainerRef.current.clientHeight;
+      if (w <= 0 || h <= 0) return;
 
       perspCamera.aspect = w / h;
       perspCamera.updateProjectionMatrix();
@@ -255,9 +256,17 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     };
     window.addEventListener('resize', handleResize);
 
+    const resizeObserver = new ResizeObserver(() => {
+      handleResize();
+    });
+    if (canvasContainerRef.current) {
+      resizeObserver.observe(canvasContainerRef.current);
+    }
+
     return () => {
       cancelAnimationFrame(animationFrameId);
       window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
       themeObserver.disconnect();
       renderer.dispose();
     };

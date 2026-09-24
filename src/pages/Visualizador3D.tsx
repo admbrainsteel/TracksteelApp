@@ -501,7 +501,7 @@ export default function Visualizador3D() {
   const hasSavedModel = Boolean(currentOFInfo?.ifc_url);
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 p-4 md:p-6 space-y-4 max-w-[1920px] mx-auto overflow-hidden">
+    <div className="flex flex-col flex-1 h-[calc(100vh-var(--hub-banner-height,0px)-4rem)] min-h-[600px] w-full p-4 md:p-6 space-y-4 max-w-[1920px] mx-auto">
       {/* Top Header Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-white dark:bg-slate-900/90 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg dark:shadow-xl">
         {/* Left: Title, OF Selector & Phase Filter */}
@@ -695,7 +695,7 @@ export default function Visualizador3D() {
       </div>
 
       {/* Main 3D Viewport */}
-      <div className="relative flex-1 w-full bg-slate-100 dark:bg-slate-950 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xl dark:shadow-2xl">
+      <div className="relative flex-1 min-h-[480px] w-full bg-slate-100 dark:bg-slate-950 rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xl dark:shadow-2xl">
         {isLoadingModel && (
           <div className="absolute inset-0 z-30 flex flex-col items-center justify-center p-6 bg-white dark:bg-slate-950/90 backdrop-blur-md text-slate-900 dark:text-white space-y-4">
             <div className="p-4 bg-cyan-100 text-cyan-600 dark:bg-cyan-500/20 dark:text-cyan-400 rounded-2xl border border-cyan-300 dark:border-cyan-500/40 animate-pulse">
