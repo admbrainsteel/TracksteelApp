@@ -34,7 +34,7 @@ echo -e "\n${GREEN}🚀 Deploy local (Hostinger) engatilhado com sucesso!${NC}"
 
 echo -e "\n${YELLOW}🌐 Sincronizando código e atualizando app na marcos-vps (100.97.2.16)...${NC}"
 ssh -o BatchMode=yes -o ConnectTimeout=5 root@100.97.2.16 \
-    "cd /root/Apps/TracksteelApp && git pull origin main && docker restart tracksteel-app" \
+    "cd /root/Apps/TracksteelApp && git pull origin main && npm run build && docker restart tracksteel-app" \
     && echo -e "${GREEN}✅ App na marcos-vps atualizado com sucesso!${NC}" \
     || echo -e "${YELLOW}⚠️ Aviso: Falha ao atualizar app na marcos-vps via SSH.${NC}"
 
