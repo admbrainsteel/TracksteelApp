@@ -274,26 +274,48 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
     const targetGroup = group || modelGroupRef.current;
     if (!targetGroup || !activeCameraRef.current || !controlsRef.current) return;
 
+    targetGroup.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(targetGroup);
     if (box.isEmpty()) return;
 
     const center = box.getCenter(new THREE.Vector3());
     const size = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
+    if (maxDim <= 0) return;
 
     const fov = 45 * (Math.PI / 180);
-    let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2)) * 1.5;
-    cameraZ = Math.max(cameraZ, 20);
+    let cameraDistance = Math.abs(maxDim / (2 * Math.tan(fov / 2))) * 1.6;
+    cameraDistance = Math.max(cameraDistance, 5);
 
     const camera = activeCameraRef.current;
-    camera.position.set(center.x + cameraZ * 0.7, center.y + cameraZ * 0.5, center.z + cameraZ * 0.7);
-    camera.lookAt(center);
+    if ((camera as THREE.PerspectiveCamera).isPerspectiveCamera) {
+      const pCam = camera as THREE.PerspectiveCamera;
+      pCam.near = Math.max(0.01, maxDim / 500);
+      pCam.far = Math.max(2000, maxDim * 20);
+      pCam.updateProjectionMatrix();
+      pCam.position.set(center.x + cameraDistance * 0.7, center.y + cameraDistance * 0.5, center.z + cameraDistance * 0.7);
+      pCam.lookAt(center);
+    } else if ((camera as THREE.OrthographicCamera).isOrthographicCamera) {
+      const oCam = camera as THREE.OrthographicCamera;
+      const aspect = oCam.right / oCam.top;
+      const frustum = maxDim * 1.5;
+      oCam.left = (frustum * aspect) / -2;
+      oCam.right = (frustum * aspect) / 2;
+      oCam.top = frustum / 2;
+      oCam.bottom = frustum / -2;
+      oCam.near = Math.max(0.01, maxDim / 500);
+      oCam.far = Math.max(2000, maxDim * 20);
+      oCam.position.set(center.x + maxDim, center.y + maxDim * 0.8, center.z + maxDim);
+      oCam.lookAt(center);
+      oCam.updateProjectionMatrix();
+    }
 
     controlsRef.current.target.copy(center);
+    controlsRef.current.maxDistance = Math.max(1500, maxDim * 10);
     controlsRef.current.update();
 
     if (gridHelperRef.current) {
-      gridHelperRef.current.position.y = box.min.y;
+      gridHelperRef.current.position.set(center.x, box.min.y, center.z);
     }
   }, []);
 

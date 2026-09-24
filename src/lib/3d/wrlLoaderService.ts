@@ -26,8 +26,6 @@ async function decompressGzipIfNeeded(buffer: ArrayBuffer): Promise<string> {
 
 /**
  * Extrai a Fase da estrutura a partir dos ancestrais na árvore 3D (ex: "00001_COLUNAS", "00004_GUARDA_CORPO").
- * Garante que apenas o nó de primeiro nível (raiz da cena) ou nós explicitamente marcados como FASE/ETAPA sejam considerados.
- * Evita rigorosamente que marcas de montagem (ex: "106", "121") ou dimensões (ex: "10x57", "1127") sejam confundidas com fases.
  */
 function extractPhaseFromAncestors(ancestors: string[]): string | undefined {
   if (!ancestors || ancestors.length === 0) return undefined;
@@ -35,7 +33,7 @@ function extractPhaseFromAncestors(ancestors: string[]): string | undefined {
   // 1. O nó de primeiro nível (ancestors[0]) representa a pasta raiz no WRL (ex: "00001_COLUNAS", "00004_GUARDA_CORPO")
   const rootNode = ancestors[0].replace(/^DEF\s+/i, '').replace(/^ID_/, '').trim();
 
-  // Padrão Tekla / Bocad com prefixo numérico seguido de nome de grupo (ex: "00001_COLUNAS", "00004_GUARDA_CORPO")
+  // Padrão Tekla / Bocad com prefixo numérico seguido de nome de grupo (ex: "00001_COLUNAS", "00002_VIGAS")
   const mZeros = rootNode.match(/^(?:0*([1-9]\d*))[-_ ]+([A-Za-zÀ-ÿ]+.*)$/i);
   if (mZeros) {
     return String(Number(mZeros[1])); // "1", "2", "3", "4"
@@ -47,7 +45,7 @@ function extractPhaseFromAncestors(ancestors: string[]): string | undefined {
     return String(Number(mRootFase[1]));
   }
 
-  // 2. Se o primeiro nó não for fase, pesquisa nos ancestrais intermediários APENAS se contiver palavra-chave explícita FASE ou ETAPA
+  // 2. Pesquisa nos ancestrais intermediários APENAS se contiver palavra-chave explícita FASE ou ETAPA
   for (let i = 1; i < ancestors.length; i++) {
     const clean = ancestors[i].replace(/^DEF\s+/i, '').replace(/^ID_/, '').trim();
     const mExplicit = clean.match(/^(?:fase|etapa|phase|stage)[-_ ]*0*([1-9]\d*)/i);
@@ -60,8 +58,7 @@ function extractPhaseFromAncestors(ancestors: string[]): string | undefined {
 }
 
 /**
- * Analisa e normaliza a marca da peça, marca do conjunto e tipo estrutural,
- * levando em conta a hierarquia de pastas (ex: Fase -> Conjunto '121' -> Componente '121_1127_TUBO...').
+ * Analisa e normaliza a marca da peça, marca do conjunto e tipo estrutural com suporte completo a Tekla / Bocad.
  */
 function parseWrlNodeName(
   rawName: string,
@@ -84,22 +81,34 @@ function parseWrlNodeName(
   let pieceMark = name;
   let profile = '';
 
-  // Formato padrão Tekla/Bocad: [Conjunto]_[Peca]_[Perfil]_[Instancia]
-  // Ex: "121_1127_TUBO44x45X3_121293" -> assembly="121", piece="1127", profile="TUBO44x45X3"
   const parts = name.split('_');
 
+  // CASO 1: Tekla composto com 2 números no início: [Conjunto]_[Peca]_[Perfil] (ex: "121_1127_TUBO44x45X3_121293")
   if (parts.length >= 3 && /^\d+$/.test(parts[0]) && /^\d+$/.test(parts[1])) {
     assemblyMark = parts[0];
     pieceMark = parts[1];
     profile = parts[2];
-  } else if (parts.length >= 2 && /^\d+$/.test(parts[0])) {
+  } 
+  // CASO 2: Tekla padrão [MarcaPeca]_[Perfil] (ex: "5_W360X44_0", "6_W360X32_9", "1_W360X44_0", "6_VIGA")
+  else if (parts.length >= 2 && /^\d+$/.test(parts[0])) {
+    // Se o primeiro segmento é numérico e o segundo não é outro número (é perfil ou descrição),
+    // a marca real da peça é o primeiro segmento (ex: "5", "6", "1")!
+    pieceMark = parts[0];
     assemblyMark = parts[0];
-    pieceMark = parts[1];
-    if (parts.length > 2) profile = parts.slice(2).join('_');
-  } else if (/^(?:PARAF|BOLT)/i.test(name)) {
+    profile = parts.slice(1).join('_');
+  } 
+  // CASO 3: Prefixo de conjunto alfanumérico (ex: "V101_1_CHAPA", "P1_2_CANTON")
+  else if (parts.length >= 2 && /^[A-Za-z]+\d+$/i.test(parts[0])) {
+    assemblyMark = parts[0];
+    pieceMark = parts[0]; // ou parts[1]
+    profile = parts.slice(1).join('_');
+  }
+  // CASO 4: Parafusos / Fixadores
+  else if (/^(?:PARAF|BOLT)/i.test(name)) {
     pieceMark = parts[0];
     profile = 'PARAFUSO';
-  } else {
+  } 
+  else {
     // Remoção de prefixos comuns como "Part_", "Piece_", "Peca_", "Elem_"
     pieceMark = pieceMark.replace(/^(?:Part|Piece|Peca|Elem|Item|Member|Profile|Mesh)[-_]/i, '');
   }
@@ -111,7 +120,7 @@ function parseWrlNodeName(
 
   // Detecção de tipo de elemento estrutural
   let detectedType = 'ELEMENT';
-  const searchStr = `${profile} ${name} ${cleanMark}`.toUpperCase();
+  const searchStr = `${profile} ${name} ${cleanMark} ${cleanAssemblyMark}`.toUpperCase();
 
   if (searchStr.includes('VIGA') || searchStr.includes('BEAM') || cleanMark.startsWith('V')) {
     detectedType = 'BEAM';
@@ -146,9 +155,7 @@ function parseWrlNodeName(
 }
 
 /**
- * Sanitiza o texto VRML para compatibilidade com o parser do Three.js:
- * 1. Ajusta cabeçalho para #VRML V2.0 utf8.
- * 2. Converte identificadores que iniciam com dígitos ou contêm hífens para identificadores válidos.
+ * Sanitiza o texto VRML para máxima compatibilidade com o parser do Three.js
  */
 function sanitizeVrmlForLoader(rawText: string): {
   sanitized: string;
@@ -181,8 +188,6 @@ function sanitizeVrmlForLoader(rawText: string): {
 
 /**
  * Parser de Fallback Direto e Resiliente para arquivos VRML (.wrl 1.0 ou 2.0).
- * Extrai blocos IndexedFaceSet com Coordinate/Coordinate3 diretamente via expressões regulares,
- * garantindo renderização mesmo quando o parser Chevrotain do VRMLLoader encontra erros de sintaxe.
  */
 function parseVrmlDirectFallback(
   vrmlText: string,
@@ -437,14 +442,13 @@ export async function loadAndAuditWRL(
         p = p.parent;
       }
 
-      // 1. Extração rigorosa da Fase a partir dos nós ancestrais (evita falsos positivos em nomes de peças)
+      // 1. Extração rigorosa da Fase a partir dos nós ancestrais
       const inheritedPhase = extractPhaseFromAncestors(ancestors);
 
       // 2. Extração do conjunto pai se houver na árvore (ex: pasta '121')
       let ancestorAssembly: string | undefined = undefined;
       for (const anc of ancestors) {
         const cleanAnc = anc.replace(/^DEF\s+/i, '').replace(/^ID_/, '').trim();
-        // Se for um identificador de conjunto (ex: "121", "106", "V101") que não seja a fase
         if (/^\d+$/.test(cleanAnc) && cleanAnc !== inheritedPhase) {
           ancestorAssembly = cleanAnc;
           break;
@@ -463,6 +467,9 @@ export async function loadAndAuditWRL(
 
       if (parsed.cleanMark && isValidMark(parsed.cleanMark)) {
         marksFound.add(parsed.cleanMark);
+      }
+      if (parsed.cleanAssemblyMark && isValidMark(parsed.cleanAssemblyMark)) {
+        marksFound.add(parsed.cleanAssemblyMark);
       }
 
       // Contabiliza tipos
@@ -498,7 +505,7 @@ export async function loadAndAuditWRL(
         mesh,
       };
 
-      // Injeta metadados essenciais no userData do Mesh (exatamente o que o ModelViewer3D espera)
+      // Injeta metadados essenciais no userData do Mesh
       mesh.userData = {
         expressID,
         guid,
@@ -522,21 +529,40 @@ export async function loadAndAuditWRL(
         list.push(pieceInfo);
         piecesByMark.set(markKey, list);
       }
+      if (parsed.cleanAssemblyMark && parsed.cleanAssemblyMark !== markKey) {
+        const listAss = piecesByMark.get(parsed.cleanAssemblyMark) || [];
+        listAss.push(pieceInfo);
+        piecesByMark.set(parsed.cleanAssemblyMark, listAss);
+      }
     }
   });
 
   // Adiciona a cena VRML ao grupo final
   sceneGroup.add(vrmlScene);
 
-  // Normaliza dimensões e orientação: se o modelo estiver em milímetros (típico CAD metálico > 1000 unidades), converte para metros
-  const bbox = new THREE.Box3().setFromObject(sceneGroup);
-  const size = bbox.getSize(new THREE.Vector3());
-  const maxDim = Math.max(size.x, size.y, size.z);
+  // -------------------------------------------------------------
+  // CENTRALIZAÇÃO ABSOLUTA E NORMALIZAÇÃO DE ESCALA DO MODELO
+  // -------------------------------------------------------------
+  // Garante que o centro do modelo fique exatamente em (0, 0, 0) local
+  // para que qualquer rotação (ex: 270° no eixo X) ocorra em torno do centro da estrutura
+  // e não lance o modelo para fora da visualização da câmera.
+  const rawBox = new THREE.Box3().setFromObject(vrmlScene);
+  if (!rawBox.isEmpty()) {
+    const rawCenter = rawBox.getCenter(new THREE.Vector3());
+    const rawSize = rawBox.getSize(new THREE.Vector3());
 
-  // Se o modelo estiver em milímetros (ex: 20 metros = 20000mm)
-  if (maxDim > 500) {
-    const scaleFactor = 0.001;
-    sceneGroup.scale.set(scaleFactor, scaleFactor, scaleFactor);
+    // Desloca o vrmlScene interno para centrar em (0,0,0)
+    vrmlScene.position.x -= rawCenter.x;
+    vrmlScene.position.y -= rawCenter.y;
+    vrmlScene.position.z -= rawCenter.z;
+    vrmlScene.updateMatrixWorld(true);
+
+    // Se as dimensões forem em milímetros (> 500 unidades), converte para metros (escala 0.001)
+    const maxDim = Math.max(rawSize.x, rawSize.y, rawSize.z);
+    if (maxDim > 500) {
+      const scaleFactor = 0.001;
+      sceneGroup.scale.set(scaleFactor, scaleFactor, scaleFactor);
+    }
     sceneGroup.updateMatrixWorld(true);
   }
 
