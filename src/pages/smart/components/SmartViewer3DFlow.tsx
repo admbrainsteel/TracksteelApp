@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { OFAtiva } from '@/hooks/useOFsAtivas';
 import { supabase } from '@/integrations/supabase/client';
-import { loadAndAuditIFC, LoadedIFCResult } from '@/lib/ifc/ifcLoaderService';
+import { loadAndAuditModel3D, LoadedModel3DResult } from '@/lib/3d/modelLoaderService';
 import { fetchSavedIFCModel } from '@/lib/ifc/ifcStorageService';
 import { SmartModelViewer3D, ProductionPieceStatus } from '@/components/viewer3d/SmartModelViewer3D';
 import { smartAudio } from '@/utils/smartAudio';
@@ -17,7 +17,7 @@ export const SmartViewer3DFlow: React.FC<SmartViewer3DFlowProps> = ({
   obra,
   onVoltarHub,
 }) => {
-  const [modelData, setModelData] = useState<LoadedIFCResult | null>(null);
+  const [modelData, setModelData] = useState<LoadedModel3DResult | null>(null);
   const [phasesList, setPhasesList] = useState<string[]>([]);
   const [productionMap, setProductionMap] = useState<Map<string, ProductionPieceStatus>>(new Map());
 
@@ -186,7 +186,7 @@ export const SmartViewer3DFlow: React.FC<SmartViewer3DFlowProps> = ({
       setLoadingStep('Decodificando montagens e geometrias do modelo...');
       setLoadingPercent(68);
 
-      const result = await loadAndAuditIFC(buffer, (pct, msg) => {
+      const result = await loadAndAuditModel3D(buffer, ifcFilename || undefined, (pct, msg) => {
         setLoadingPercent(68 + Math.round(pct * 0.32));
         setLoadingStep(msg);
       });

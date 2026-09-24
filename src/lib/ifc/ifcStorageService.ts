@@ -103,7 +103,7 @@ export async function clearCachedIFCModel(ofNumber: string): Promise<void> {
 }
 
 /**
- * Realiza o upload do arquivo IFC para o Supabase Storage e salva o vínculo na OF.
+ * Realiza o upload do arquivo de modelo 3D (IFC ou WRL) para o Supabase Storage e salva o vínculo na OF.
  */
 export async function uploadIFCToCloud(
   file: File,
@@ -113,9 +113,11 @@ export async function uploadIFCToCloud(
 ): Promise<{ publicUrl: string; filePath: string }> {
   const sanitizedOf = ofNumber.replace(/[^a-zA-Z0-9_-]/g, '_');
   const cleanFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-  const filePath = `ifc/${sanitizedOf}/${cleanFileName}`;
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  const folder = (ext === 'wrl' || ext === 'wrz') ? 'wrl' : 'ifc';
+  const filePath = `${folder}/${sanitizedOf}/${cleanFileName}`;
 
-  if (onProgress) onProgress('Enviando arquivo IFC para a nuvem...', 20);
+  if (onProgress) onProgress('Enviando modelo 3D para a nuvem...', 20);
 
   // 1. Upload no Supabase Storage (bucket modelos-3d)
   const { error: uploadError } = await supabase.storage
@@ -126,7 +128,7 @@ export async function uploadIFCToCloud(
     });
 
   if (uploadError) {
-    console.error('[IFC Storage] Erro no upload:', uploadError);
+    console.error('[Storage] Erro no upload:', uploadError);
     throw new Error(`Falha ao salvar no storage: ${uploadError.message}`);
   }
 
@@ -151,7 +153,7 @@ export async function uploadIFCToCloud(
     .eq('num_of', ofNumber);
 
   if (dbError) {
-    console.warn('[IFC Storage] Aviso ao atualizar ordens_fabricacao:', dbError);
+    console.warn('[Storage] Aviso ao atualizar ordens_fabricacao:', dbError);
   }
 
   // 4. Inserir histórico em of_modelos_3d
@@ -168,7 +170,7 @@ export async function uploadIFCToCloud(
         updated_at: new Date().toISOString()
       });
   } catch (histErr) {
-    console.debug('[IFC Storage] Registro histórico:', histErr);
+    console.debug('[Storage] Registro histórico:', histErr);
   }
 
   // 5. Salva no cache local do navegador
@@ -176,13 +178,15 @@ export async function uploadIFCToCloud(
     const buffer = await file.arrayBuffer();
     await cacheIFCModel(ofNumber, publicUrl, buffer);
   } catch (cErr) {
-    console.debug('[IFC Storage] Cache local:', cErr);
+    console.debug('[Storage] Cache local:', cErr);
   }
 
-  if (onProgress) onProgress('Modelo IFC salvo com sucesso!', 100);
+  if (onProgress) onProgress('Modelo 3D salvo com sucesso!', 100);
 
   return { publicUrl, filePath };
 }
+
+export const uploadModel3DToCloud = uploadIFCToCloud;
 
 /**
  * Baixa e armazena em cache o modelo IFC salvo para a OF.

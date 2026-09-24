@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { loadAndAuditIFC, LoadedIFCResult, IFCQualityAudit } from '@/lib/ifc/ifcLoaderService';
+import { loadAndAuditModel3D, LoadedModel3DResult, IFCQualityAudit } from '@/lib/3d/modelLoaderService';
 import { uploadIFCToCloud, fetchSavedIFCModel, removeSavedIFCModel } from '@/lib/ifc/ifcStorageService';
 import { ModelViewer3D } from '@/components/viewer3d/ModelViewer3D';
 import { IFCQualityModal } from '@/components/viewer3d/IFCQualityModal';
@@ -58,7 +58,7 @@ export default function Visualizador3D() {
   const [progressoOF, setProgressoOF] = useState<number>(0);
 
   // 3D Model and Quality State
-  const [modelData, setModelData] = useState<LoadedIFCResult | null>(null);
+  const [modelData, setModelData] = useState<LoadedModel3DResult | null>(null);
   const [auditData, setAuditData] = useState<IFCQualityAudit | null>(null);
   const [isAuditModalOpen, setIsAuditModalOpen] = useState<boolean>(false);
   const [loadingStep, setLoadingStep] = useState<string>('');
@@ -258,10 +258,10 @@ export default function Visualizador3D() {
         setLoadingStep(step);
       });
 
-      setLoadingStep('Decodificando entidades e montagens IFC...');
+      setLoadingStep('Decodificando entidades e montagens 3D...');
       setLoadingPercent(55);
 
-      const result = await loadAndAuditIFC(buffer, (percent, step) => {
+      const result = await loadAndAuditModel3D(buffer, filename || undefined, (percent, step) => {
         setLoadingPercent(55 + Math.round(percent * 0.45));
         setLoadingStep(step);
       });
@@ -342,7 +342,7 @@ export default function Visualizador3D() {
 
     try {
       // 1. Processa e audita localmente para renderização imediata
-      const result = await loadAndAuditIFC(file, (percent, step) => {
+      const result = await loadAndAuditModel3D(file, file.name, (percent, step) => {
         setLoadingPercent(Math.min(percent, 70));
         setLoadingStep(step);
       });
@@ -393,11 +393,11 @@ export default function Visualizador3D() {
       );
 
       toast({
-        title: 'Modelo IFC Gravado no Banco!',
+        title: 'Modelo 3D Gravado no Banco!',
         description: `O arquivo "${file.name}" foi salvo com sucesso e carregará automaticamente ao entrar na OF ${selectedOF}.`,
       });
     } catch (err: any) {
-      console.error('Erro ao carregar e salvar IFC:', err);
+      console.error('Erro ao carregar e salvar Modelo 3D:', err);
       toast({
         variant: 'destructive',
         title: 'Erro no Carregamento',
@@ -411,7 +411,7 @@ export default function Visualizador3D() {
 
   // Remover modelo salvo
   const handleRemoveSavedModel = async () => {
-    if (!confirm(`Deseja remover o modelo IFC vinculado à OF ${selectedOF}?`)) return;
+    if (!confirm(`Deseja remover o modelo 3D vinculado à OF ${selectedOF}?`)) return;
 
     try {
       await removeSavedIFCModel(selectedOF);
@@ -524,7 +524,7 @@ export default function Visualizador3D() {
               <Cloud className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
               <span
                 className="text-emerald-900 dark:text-emerald-300 font-mono font-bold max-w-[170px] truncate"
-                title={currentOFInfo?.ifc_filename || 'Modelo IFC Vinculado'}
+                title={currentOFInfo?.ifc_filename || 'Modelo 3D Vinculado'}
               >
                 {currentOFInfo?.ifc_filename || 'Modelo Salvo'}
               </span>
@@ -585,7 +585,7 @@ export default function Visualizador3D() {
           <input
             ref={fileInputRef}
             type="file"
-            accept=".ifc,.gltf,.glb"
+            accept=".ifc,.wrl,.wrz,.gltf,.glb"
             onChange={handleFileChange}
             className="hidden"
           />
@@ -603,7 +603,7 @@ export default function Visualizador3D() {
             ) : (
               <>
                 <Upload className="w-4 h-4" />
-                <span>{hasSavedModel ? 'Substituir Modelo IFC' : 'Carregar Modelo IFC'}</span>
+                <span>{hasSavedModel ? 'Substituir Modelo 3D' : 'Carregar Modelo 3D (IFC/WRL)'}</span>
               </>
             )}
           </button>
@@ -687,9 +687,9 @@ export default function Visualizador3D() {
               <Box className="w-16 h-16 stroke-[1.2]" />
             </div>
             <div className="space-y-1 max-w-md">
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Nenhum modelo IFC carregado para {selectedOF}</h2>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Nenhum modelo 3D carregado para {selectedOF}</h2>
               <p className="text-xs text-slate-700 font-bold dark:text-slate-300 dark:font-medium leading-relaxed">
-                Clique no botão <span className="text-cyan-600 dark:text-cyan-300 font-semibold">"Carregar Modelo IFC"</span> acima para importar o arquivo de fabricação desta obra. Ele será gravado no banco de dados e recarregado automaticamente nas próximas visitas.
+                Clique no botão <span className="text-cyan-600 dark:text-cyan-300 font-semibold">"Carregar Modelo 3D (IFC/WRL)"</span> acima para importar o arquivo de fabricação desta obra. Ele será gravado no banco de dados e recarregado automaticamente nas próximas visitas.
               </p>
             </div>
           </div>
