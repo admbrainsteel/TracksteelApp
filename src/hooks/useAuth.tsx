@@ -70,9 +70,29 @@ async function syncUserToProfile(user: LogtoUser): Promise<string> {
 // Detecta sessão ativa do BrainSteel Hub (Single Sign-On unificado)
 function getHubUser(): LogtoUser | null {
   try {
-    const raw = localStorage.getItem('brainsteel_session');
-    if (!raw) return null;
-    const session = JSON.parse(raw);
+    let session: any = null;
+
+    // 1. Tenta ler parâmetro bs_session diretamente da URL (search ou hash)
+    const urlParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const bsParam = urlParams.get('bs_session') || hashParams.get('bs_session');
+    if (bsParam) {
+      try {
+        session = JSON.parse(decodeURIComponent(escape(atob(bsParam))));
+        if (session) {
+          localStorage.setItem('brainsteel_session', JSON.stringify(session));
+        }
+      } catch (e) {
+        console.warn('[Hub SSO] Erro ao decodificar bs_session da URL:', e);
+      }
+    }
+
+    // 2. Se não achou na URL, lê do localStorage
+    if (!session) {
+      const raw = localStorage.getItem('brainsteel_session');
+      if (raw) session = JSON.parse(raw);
+    }
+
     if (!session || (!session.token && !session.isMaster && !session.user)) return null;
 
     const u = session.user || {};
