@@ -574,6 +574,16 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
 
         const hasAnyApontamento = hasMontagem || hasExpedicao || hasPintura || hasSolda || hasCorte || hasDetalhamento;
 
+        if (prod) {
+          matchedCount++;
+          if (hasAnyApontamento) {
+            pointedCount++;
+            if (!sampleMatch) {
+              sampleMatch = { pmark: cleanMark || pmark, dbMarca: prod.marca, proc: prod.currentProcessName, cor: prod.processColor };
+            }
+          }
+        }
+
         if (selectedProcess !== 'all') {
           // --- FILTRO POR PROCESSO ESPECÍFICO ---
           let isPointedInThisProcess = false;
@@ -599,13 +609,13 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
               mesh.userData.edgesLine.visible = false;
             }
           } else {
-            // SÓLIDO TRANSLÚCIDO ATENUADO (Ghost Solid volumétrico a 8% - sem linhas de aramado)
+            // SÓLIDO TRANSLÚCIDO ATENUADO PARA PROCESSO NÃO ATINGIDO
             mesh.material = new THREE.MeshStandardMaterial({
               color: new THREE.Color('#94a3b8'), // Cinza industrial translúcido
               metalness: 0.1,
               roughness: 0.8,
               transparent: true,
-              opacity: 0.08, // 8% de opacidade volumétrica suave
+              opacity: Math.max(0.18, (opacity / 100) * 0.25), // Visível de forma suave
               depthWrite: false,
               side: THREE.DoubleSide,
             });
@@ -618,7 +628,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
           if (colorMode === 'production' && productionData && productionData.size > 0) {
             if (hasAnyApontamento) {
               // A PEÇA TEM APONTAMENTO: RENDERIZA EM SÓLIDO COM A COR DA SUA ETAPA MAIS AVANÇADA
-              let pieceColorHex = '#a1a1aa'; // Detalhamento (Cinza Claro Sólido sem atenuação)
+              let pieceColorHex = '#a1a1aa'; // Detalhamento (Cinza Claro Sólido)
 
               if (hasMontagem) {
                 pieceColorHex = '#8b5cf6'; // Roxo Montagem
@@ -631,7 +641,7 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
               } else if (hasCorte) {
                 pieceColorHex = '#3b82f6'; // Azul Corte
               } else if (hasDetalhamento) {
-                pieceColorHex = '#a1a1aa'; // Cinza Claro Industrial Sólido (sem atenuação!)
+                pieceColorHex = '#a1a1aa'; // Cinza Claro Industrial
               }
 
               mesh.material = new THREE.MeshStandardMaterial({
@@ -648,14 +658,14 @@ export const ModelViewer3D: React.FC<ModelViewer3DProps> = ({
                 mesh.userData.edgesLine.visible = false;
               }
             } else {
-              // A PEÇA NÃO TEM NENHUM APONTAMENTO: SÓLIDO TRANSLÚCIDO ATENUADO (Ghost Solid a 8%)
+              // A PEÇA NÃO TEM APONTAMENTO: SÓLIDO CINZA INDUSTRIAL NÍTIDO E VISÍVEL
               mesh.material = new THREE.MeshStandardMaterial({
                 color: new THREE.Color('#94a3b8'),
-                metalness: 0.1,
-                roughness: 0.8,
-                transparent: true,
-                opacity: 0.08,
-                depthWrite: false,
+                metalness: 0.2,
+                roughness: 0.65,
+                transparent: opacity < 100,
+                opacity: opacity / 100,
+                depthWrite: true,
                 side: THREE.DoubleSide,
               });
 
