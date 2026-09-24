@@ -14,7 +14,7 @@ export const PriorityFilter: React.FC<PriorityFilterProps> = ({ value, onChange 
 
   if (loading) {
     return (
-      <Select disabled>
+      <Select disabled value={value || 'all'}>
         <SelectTrigger className="w-48 priority-filter-trigger">
           <SelectValue placeholder="Carregando..." />
         </SelectTrigger>
@@ -23,7 +23,7 @@ export const PriorityFilter: React.FC<PriorityFilterProps> = ({ value, onChange 
   }
 
   return (
-    <Select value={value} onValueChange={onChange}>
+    <Select value={value || 'all'} onValueChange={onChange}>
       <SelectTrigger className="w-48 priority-filter-trigger">
         <SelectValue placeholder="Filtrar por prioridade" />
       </SelectTrigger>
