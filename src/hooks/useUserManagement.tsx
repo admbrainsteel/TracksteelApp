@@ -94,14 +94,14 @@ export function useUserManagement() {
         .from('profiles')
         .select(`
           *,
-          functions (name, description),
-          privileges (name, description, permissions)
+          functions:function_id (name, description),
+          privileges:privilege_id (name, description, permissions)
         `)
         .neq('status', 'pending')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setUsers(data || []);
+      setUsers((data as any) || []);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Erro ao carregar usuários');
@@ -150,7 +150,7 @@ export function useUserManagement() {
         .order('name');
 
       if (error) throw error;
-      setPrivileges(data || []);
+      setPrivileges((data as any) || []);
     } catch (error) {
       console.error('Error fetching privileges:', error);
       toast.error('Erro ao carregar privilégios');
@@ -215,7 +215,7 @@ export function useUserManagement() {
       const err = error as Error;
       if (err.message?.includes('User with this email already exists')) {
         toast.error('Este e-mail já está em uso');
-      } else if (error.message?.includes('Only admins can create new users')) {
+      } else if (err.message?.includes('Only admins can create new users')) {
         toast.error('Apenas administradores podem criar usuários');
       } else {
         toast.error('Erro ao criar usuário');
@@ -403,7 +403,7 @@ export function useUserManagement() {
         .from('privileges')
         .insert({
           ...data,
-          permissions: data.permissions || {}
+          permissions: (data.permissions as any) || {}
         })
         .select()
         .single();
@@ -429,7 +429,7 @@ export function useUserManagement() {
     try {
       const { error } = await supabase
         .from('privileges')
-        .update(data)
+        .update(data as any)
         .eq('id', id);
 
       if (error) throw error;

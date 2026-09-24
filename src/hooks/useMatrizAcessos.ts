@@ -345,6 +345,22 @@ export const useMatrizAcessos = () => {
     );
 
     try {
+      // Garantir que a chave do recurso exista em interface_resources para evitar erro de Foreign Key
+      const { error: resourceError } = await supabase
+        .from('interface_resources')
+        .upsert(
+          { 
+            resource_key: resourceKey, 
+            resource_name: resourceKey, 
+            is_submenu: false 
+          }, 
+          { onConflict: 'resource_key' }
+        );
+
+      if (resourceError) {
+        console.error('Erro ao registrar recurso na tabela interface_resources:', resourceError);
+      }
+
       // 1. Gravação direta e individual por usuário na tabela user_interface_permissions (Prioridade Máxima)
       const dbPermission =
         novoNivel === 'criar'
@@ -403,6 +419,21 @@ export const useMatrizAcessos = () => {
     );
 
     try {
+      // Garantir que todos os recursos do template existam em interface_resources
+      const resourceRecords = Object.keys(novoMap).map(resKey => ({
+        resource_key: resKey,
+        resource_name: resKey,
+        is_submenu: false
+      }));
+
+      const { error: resourceError } = await supabase
+        .from('interface_resources')
+        .upsert(resourceRecords, { onConflict: 'resource_key' });
+
+      if (resourceError) {
+        console.error('Erro ao registrar recursos na tabela interface_resources:', resourceError);
+      }
+
       // 1. Gravação direta em lote na tabela user_interface_permissions
       const uipRecords = Object.entries(novoMap).map(([resKey, nivel]) => ({
         user_id: userId,
