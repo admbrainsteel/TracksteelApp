@@ -67,6 +67,33 @@ async function syncUserToProfile(user: LogtoUser): Promise<string> {
   }
 }
 
+// Detecta sessão ativa do BrainSteel Hub (Single Sign-On unificado)
+function getHubUser(): LogtoUser | null {
+  try {
+    const raw = localStorage.getItem('brainsteel_session');
+    if (!raw) return null;
+    const session = JSON.parse(raw);
+    if (!session || (!session.token && !session.isMaster && !session.user)) return null;
+
+    const u = session.user || {};
+    const email = u.email || (session.isMaster ? 'admbrainsteel@gmail.com' : 'user@brainsteel.com.br');
+    const name = u.name || u.full_name || (session.isMaster ? 'Master Root' : 'Usuário BrainSteel');
+    const sub = u.id || u.sub || (session.isMaster ? 'master-root-brainsteel' : `hub-${email}`);
+
+    return {
+      sub,
+      id: sub,
+      email,
+      name,
+      username: email.split('@')[0],
+      picture: u.picture || u.avatar_url,
+    };
+  } catch (e) {
+    console.warn('[Hub SSO] Erro ao ler sessão do Hub:', e);
+    return null;
+  }
+}
+
 export interface UseAuthReturn {
   user: LogtoUser | null;
   loading: boolean;
@@ -88,8 +115,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isRecoveryFlow, setIsRecoveryFlow] = useState(false);
   const callbackHandled = useRef(false);
 
-  // Detecta callback URL e processa
+  // Inicialização de autenticação: prioridade para o BrainSteel Hub SSO
   useEffect(() => {
+    // 1. Detectar sessão nativa do BrainSteel Hub (marcos-vps)
+    const hubUser = getHubUser();
+    if (hubUser) {
+      console.log('🛡️ [Hub SSO] Sessão corporativa do BrainSteel detectada:', hubUser.email);
+      syncUserToProfile(hubUser).then((profileId) => {
+        hubUser.id = profileId;
+        setUser(hubUser);
+        setAuthInitialized(true);
+        setLoading(false);
+      });
+      return;
+    }
+
+    // 2. Fluxo Logto clássico (Hostinger / Acesso autônomo sem Hub)
     const url = new URL(window.location.href);
     if (url.searchParams.has('code')) {
       if (callbackHandled.current) return;
@@ -143,7 +184,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     localStorage.removeItem('userLoginTime');
+    localStorage.removeItem('brainsteel_session');
+    document.cookie = 'bs_master=; domain=.brainsteel.com.br; path=/; max-age=0';
     setIsRecoveryFlow(false);
+    setUser(null);
     await logtoSignOut();
   }, []);
 
