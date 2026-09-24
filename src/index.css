@@ -41,6 +41,32 @@
     --chart-5: 340 75% 55%;
 
     --radius: 0.5rem;
+    --hub-banner-height: 0px;
+  }
+
+  body:has(#brainsteel-guard-banner) {
+    --hub-banner-height: 34px;
+  }
+
+  body.has-hub-banner {
+    --hub-banner-height: 34px;
+  }
+
+  /* Modo Smart: oculta completamente a targa do BrainSteel Hub */
+  body.modo-smart-active #brainsteel-guard-banner,
+  body.hide-hub-banner #brainsteel-guard-banner {
+    display: none !important;
+    visibility: hidden !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  body.modo-smart-active,
+  body.hide-hub-banner {
+    padding-top: 0px !important;
+    --hub-banner-height: 0px !important;
   }
 
   .light {

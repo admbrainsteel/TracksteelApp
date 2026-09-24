@@ -26,9 +26,9 @@ export const Layout = ({ children }: LayoutProps) => {
 
   return (
     <SidebarProvider>
-      <div className="min-h-screen flex w-full">
+      <div className="min-h-[calc(100vh-var(--hub-banner-height,0px))] flex w-full">
         <AppSidebar />
-        <main className="flex-1 overflow-hidden flex flex-col">
+        <main className="flex-1 overflow-hidden flex flex-col h-[calc(100vh-var(--hub-banner-height,0px))]">
           {/* Header fixo com SidebarTrigger, Modo Smart e ThemeToggle */}
           <header className="h-14 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 flex items-center justify-between px-4 shrink-0">
             <div className="flex items-center">

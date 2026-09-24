@@ -5,6 +5,7 @@ import { ProtectedRoute } from './ProtectedRoute';
 import { ProtectedAdminRoute } from './ProtectedAdminRoute';
 import { ProtectedRouteByResource } from './ProtectedRouteByResource';
 import { routeConfig, RouteDefinition } from '@/config/routeConfig';
+import { useHubBanner } from '@/hooks/useHubBanner';
 
 // ============================================================================
 // Fallback de loading para Suspense
@@ -84,6 +85,8 @@ function wrapWithGuard(
 // ============================================================================
 
 export function AppRoutes() {
+  useHubBanner();
+
   const routes = useMemo(
     () =>
       routeConfig.map((route) => {

@@ -501,7 +501,7 @@ export default function Visualizador3D() {
   const hasSavedModel = Boolean(currentOFInfo?.ifc_url);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)] p-4 md:p-6 space-y-4 max-w-[1920px] mx-auto overflow-hidden">
+    <div className="flex flex-col flex-1 min-h-0 p-4 md:p-6 space-y-4 max-w-[1920px] mx-auto overflow-hidden">
       {/* Top Header Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-white dark:bg-slate-900/90 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg dark:shadow-xl">
         {/* Left: Title, OF Selector & Phase Filter */}

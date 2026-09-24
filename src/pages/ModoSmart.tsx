@@ -73,6 +73,23 @@ export const ModoSmart: React.FC = () => {
     carregarProducaoHoje();
   }, [carregarProducaoHoje]);
 
+  // Modo Smart: Oculta a targa do BrainSteel Hub para maximizar a área de trabalho
+  useEffect(() => {
+    document.body.classList.add('modo-smart-active');
+    document.documentElement.style.setProperty('--hub-banner-height', '0px');
+    document.body.style.paddingTop = '0px';
+
+    return () => {
+      document.body.classList.remove('modo-smart-active');
+      const banner = document.getElementById('brainsteel-guard-banner');
+      if (banner) {
+        document.body.classList.add('has-hub-banner');
+        document.documentElement.style.setProperty('--hub-banner-height', '34px');
+        document.body.style.paddingTop = '34px';
+      }
+    };
+  }, []);
+
   const handleSelectObra = (of: OFAtiva) => {
     setObraAtiva(of);
     setTelaAtiva('hub');
