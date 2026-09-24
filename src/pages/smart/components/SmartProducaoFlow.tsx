@@ -400,58 +400,93 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
       const hoje = new Date().toISOString().split('T')[0];
       const nomeUsuario = user.name || user.username || user.email?.split('@')[0] || 'Operador';
 
-      let delta = qtdApontar;
       if (modoEdicao) {
-        delta = qtdApontar - info.jaProduzido;
-      }
+        if (qtdApontar === info.jaProduzido) {
+          smartAudio.playClick();
+          toast.info('Nenhuma alteração na quantidade foi feita.');
+          setEtapaAtual('pecas');
+          setPecaSelecionada(null);
+          setModoEdicao(false);
+          setSalvando(false);
+          return;
+        }
 
-      if (delta === 0) {
-        smartAudio.playClick();
-        toast.info('Nenhuma alteração na quantidade foi feita.');
-        setEtapaAtual('pecas');
-        setPecaSelecionada(null);
-        setModoEdicao(false);
-        setSalvando(false);
-        return;
-      }
+        // Em modo de edição/ajuste, removemos os apontamentos anteriores dessa peça/processo
+        // e, se a nova quantidade for > 0, inserimos o apontamento ajustado consolidado.
+        // Isso evita deltas negativos (que violam a check constraint quantidade_positiva)
+        // e permite zerar/anular o apontamento com perfeição.
+        const { error: deleteError } = await supabase
+          .from('apontamentos_producao')
+          .delete()
+          .eq('of_number', obra.of_number)
+          .eq('peca_id', pecaSelecionada.id)
+          .eq('processo_id', processoSelecionado.id);
 
-      const payload = {
-        of_number: obra.of_number,
-        peca_id: pecaSelecionada.id,
-        tipo_apontamento: 'peca' as const,
-        processo_id: processoSelecionado.id,
-        quantidade_produzida: delta,
-        data_apontamento: hoje,
-        created_by: user.id,
-        usuario_nome: nomeUsuario,
-        is_forcado: false,
-        status_confirmacao: 'confirmado',
-        observacoes: modoEdicao ? 'Ajuste de quantidade via Modo Smart' : 'Apontado via Modo Smart',
-      };
+        if (deleteError) {
+          throw deleteError;
+        }
 
-      const { error } = await supabase.from('apontamentos_producao').insert(payload);
+        if (qtdApontar > 0) {
+          const payload = {
+            of_number: obra.of_number,
+            peca_id: pecaSelecionada.id,
+            tipo_apontamento: 'peca' as const,
+            processo_id: processoSelecionado.id,
+            quantidade_produzida: qtdApontar,
+            data_apontamento: hoje,
+            created_by: user.id,
+            usuario_nome: nomeUsuario,
+            is_forcado: false,
+            status_confirmacao: 'confirmado',
+            observacoes: `Ajuste de quantidade total para ${qtdApontar} un via Modo Smart`,
+          };
 
-      if (error) {
-        throw error;
-      }
+          const { error: insertError } = await supabase.from('apontamentos_producao').insert(payload);
+          if (insertError) throw insertError;
+        }
 
-      // BIP sonoro de sucesso e vibração háptica!
-      smartAudio.playSuccess();
-      if (modoEdicao) {
-        toast.success(`✏️ Ajuste realizado: ${pecaSelecionada.marca} (${processoSelecionado.nome}) para ${qtdApontar} un`);
+        smartAudio.playSuccess();
+        if (qtdApontar === 0) {
+          toast.success(`🗑️ Apontamento anulado/zerado: ${pecaSelecionada.marca} (${processoSelecionado.nome})`);
+        } else {
+          toast.success(`✏️ Ajuste realizado: ${pecaSelecionada.marca} (${processoSelecionado.nome}) para ${qtdApontar} un`);
+        }
+
+        const delta = qtdApontar - info.jaProduzido;
+        const pesoTotalKg = delta * (pecaSelecionada.peso_unitario || 0);
+        onApontamentoRealizado(qtdApontar, pesoTotalKg);
+
       } else {
+        // Novo apontamento regular
+        const payload = {
+          of_number: obra.of_number,
+          peca_id: pecaSelecionada.id,
+          tipo_apontamento: 'peca' as const,
+          processo_id: processoSelecionado.id,
+          quantidade_produzida: qtdApontar,
+          data_apontamento: hoje,
+          created_by: user.id,
+          usuario_nome: nomeUsuario,
+          is_forcado: false,
+          status_confirmacao: 'confirmado',
+          observacoes: 'Apontado via Modo Smart',
+        };
+
+        const { error } = await supabase.from('apontamentos_producao').insert(payload);
+        if (error) {
+          throw error;
+        }
+
+        smartAudio.playSuccess();
         toast.success(`✅ Apontado: ${qtdApontar}x ${pecaSelecionada.marca} (${processoSelecionado.nome})`);
+
+        const pesoTotalKg = qtdApontar * (pecaSelecionada.peso_unitario || 0);
+        onApontamentoRealizado(qtdApontar, pesoTotalKg);
       }
 
-      // Notificar estatísticas do operador
-      const pesoTotalKg = delta * (pecaSelecionada.peso_unitario || 0);
-      onApontamentoRealizado(qtdApontar, pesoTotalKg);
-
-      // FAST LOOP / STICKY CONTEXT:
-      // Atualiza os dados imediatamente e volta para a lista de peças daquela Fase/Processo!
+      // Atualiza os dados imediatamente e volta para a lista de peças daquela Fase/Processo
       await carregarDadosOF();
 
-      // Permanece na mesma fase para apontar a próxima peça sem voltar tudo!
       setEtapaAtual('pecas');
       setPecaSelecionada(null);
       setModoEdicao(false);
@@ -970,8 +1005,9 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
     const somarQtd = (valor: number) => {
       smartAudio.playClick();
       setQtdApontar((prev) => {
-        const nova = Math.max(1, prev + valor);
-        return saldoPendente > 0 ? Math.min(saldoPendente, nova) : nova;
+        const minQtd = modoEdicao ? 0 : 1;
+        const nova = Math.max(minQtd, prev + valor);
+        return maxPermitido > 0 ? Math.min(maxPermitido, nova) : nova;
       });
     };
 
@@ -1069,7 +1105,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
             <button
               type="button"
               onClick={() => somarQtd(-1)}
-              disabled={qtdApontar <= 0}
+              disabled={qtdApontar <= (modoEdicao ? 0 : 1)}
               className="h-16 w-14 rounded-2xl bg-white hover:bg-slate-100 active:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 dark:active:bg-slate-700 border-2 border-slate-200 dark:border-slate-700 disabled:opacity-40 text-slate-800 dark:text-white flex items-center justify-center font-black active:scale-95 shadow-sm transition-colors"
               title="Diminuir 1"
             >
@@ -1082,7 +1118,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                value={qtdApontar === 0 ? '' : qtdApontar}
+                value={qtdApontar === 0 ? (modoEdicao ? '0' : '') : qtdApontar}
                 placeholder="0"
                 onChange={handleInputChange}
                 className="w-full text-center bg-transparent border-none outline-none text-3xl sm:text-4xl font-black text-amber-700 dark:text-amber-400 tracking-tight placeholder:text-slate-400 dark:placeholder:text-slate-700"
@@ -1149,9 +1185,9 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
             type="button"
             onClick={handleLimpar}
             className="h-13 rounded-xl bg-rose-100 hover:bg-rose-200 active:bg-rose-300 border border-rose-300 text-rose-800 dark:bg-red-950/40 dark:hover:bg-red-900/60 dark:active:bg-red-900 dark:border-red-800/50 dark:text-red-300 text-sm font-black active:scale-95 uppercase tracking-wider transition-colors"
-            title="Limpar valor"
+            title="Zerar / Limpar valor"
           >
-            Limpar
+            Limpar (0)
           </button>
           <button
             type="button"
@@ -1174,9 +1210,13 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
         <div className="space-y-2">
           <Button
             type="button"
-            disabled={salvando || qtdApontar <= 0}
+            disabled={salvando || (!modoEdicao && qtdApontar <= 0) || (modoEdicao && qtdApontar < 0)}
             onClick={handleConfirmarApontamento}
-            className="w-full h-15 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-base font-black rounded-2xl shadow-lg shadow-emerald-950/20 dark:shadow-emerald-950/40 uppercase tracking-wide active:scale-98 gap-2"
+            className={`w-full h-15 text-base font-black rounded-2xl shadow-lg uppercase tracking-wide active:scale-98 gap-2 transition-all ${
+              modoEdicao && qtdApontar === 0
+                ? 'bg-rose-600 hover:bg-rose-500 active:bg-rose-700 text-white shadow-rose-950/20 dark:shadow-rose-950/40'
+                : 'bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white shadow-emerald-950/20 dark:shadow-emerald-950/40'
+            }`}
           >
             {salvando ? (
               <>
@@ -1184,10 +1224,17 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
                 <span>Gravando...</span>
               </>
             ) : modoEdicao ? (
-              <>
-                <Check className="h-5 w-5" />
-                <span>SALVAR EDIÇÃO ({qtdApontar} UN)</span>
-              </>
+              qtdApontar === 0 ? (
+                <>
+                  <Delete className="h-5 w-5" />
+                  <span>ZERAR / ANULAR APONTAMENTO (0 UN)</span>
+                </>
+              ) : (
+                <>
+                  <Check className="h-5 w-5" />
+                  <span>SALVAR AJUSTE ({qtdApontar} UN)</span>
+                </>
+              )
             ) : (
               <>
                 <Check className="h-5 w-5" />
