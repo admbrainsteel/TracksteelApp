@@ -39,6 +39,9 @@ function parseWrlNodeName(rawName: string): {
 } {
   let name = String(rawName || '').trim();
 
+  // Remove prefixos de sanitização interna se houver
+  name = name.replace(/^ID_/, '');
+
   // Remove caracteres especiais de escape ou tags extras
   name = name.replace(/^DEF\s+/i, '').replace(/[\{\}\[\]"']/g, '').trim();
 
@@ -60,7 +63,6 @@ function parseWrlNodeName(rawName: string): {
   if (pieceMark.includes('_') || pieceMark.includes('-')) {
     const parts = pieceMark.split(/[-_]/);
     if (parts.length >= 2) {
-      // Se a primeira parte parecer um conjunto (ex: C1, M1, CONJ1)
       const first = parts[0].trim();
       const second = parts.slice(1).join('-').trim();
       if (/^(?:C|M|CONJ|ASS|G)\d+$/i.test(first)) {
@@ -106,6 +108,192 @@ function parseWrlNodeName(rawName: string): {
 }
 
 /**
+ * Sanitiza o texto VRML para compatibilidade com o parser do Three.js:
+ * 1. Ajusta cabeçalho para #VRML V2.0 utf8.
+ * 2. Converte identificadores que iniciam com dígitos ou contêm hífens para identificadores válidos.
+ */
+function sanitizeVrmlForLoader(rawText: string): {
+  sanitized: string;
+  nameMap: Map<string, string>;
+} {
+  const nameMap = new Map<string, string>();
+  let text = rawText.replace(/^\uFEFF/, ''); // remove BOM
+
+  // Localiza o início da tag #VRML
+  const headerIdx = text.search(/#VRML/i);
+  if (headerIdx > 0) {
+    text = text.slice(headerIdx);
+  }
+
+  // Normaliza primeira linha para #VRML V2.0 utf8
+  text = text.replace(/^#VRML[^\r\n]*/i, '#VRML V2.0 utf8');
+
+  // Normaliza identificadores em DEF e USE (ex: "DEF 01-V101 Transform" -> "DEF ID_01_V101 Transform")
+  text = text.replace(/\b(DEF|USE)\s+([^\s\{\[\(\)]+)/g, (_, keyword, rawId) => {
+    let cleanId = String(rawId).replace(/[^a-zA-Z0-9_]/g, '_');
+    if (/^[0-9]/.test(cleanId)) {
+      cleanId = 'ID_' + cleanId;
+    }
+    nameMap.set(cleanId, rawId);
+    return `${keyword} ${cleanId}`;
+  });
+
+  return { sanitized: text, nameMap };
+}
+
+/**
+ * Parser de Fallback Direto e Resiliente para arquivos VRML (.wrl 1.0 ou 2.0).
+ * Extrai blocos IndexedFaceSet com Coordinate/Coordinate3 diretamente via expressões regulares,
+ * garantindo renderização mesmo quando o parser Chevrotain do VRMLLoader encontra erros de sintaxe.
+ */
+function parseVrmlDirectFallback(
+  vrmlText: string,
+  nameMap: Map<string, string>
+): THREE.Group {
+  const group = new THREE.Group();
+  group.name = 'WRL_Direct_Fallback_Root';
+
+  // Procura ocorrências de DEF <nome> associadas a IndexedFaceSet
+  // Suporta tanto VRML 1.0 (Separator, Coordinate3) quanto VRML 2.0 (Shape, Coordinate, Transform)
+  const defRegex = /DEF\s+([^\s\{\[\(\)]+)[\s\S]*?(?:point\s*\[([\s\S]*?)\])[\s\S]*?(?:coordIndex\s*\[([\s\S]*?)\])/gi;
+  let match: RegExpExecArray | null;
+  let count = 0;
+
+  while ((match = defRegex.exec(vrmlText)) !== null) {
+    count++;
+    const rawDefName = match[1].trim();
+    const originalName = nameMap.get(rawDefName) || rawDefName;
+    const pointStr = match[2];
+    const indexStr = match[3];
+
+    // Extrai vértices flutuantes (x, y, z)
+    const rawCoords = pointStr.trim().split(/[\s,]+/).filter(Boolean).map(Number);
+    if (rawCoords.length < 9) continue; // mínimo 3 vértices (1 triângulo)
+
+    const vertices: [number, number, number][] = [];
+    for (let i = 0; i < rawCoords.length; i += 3) {
+      if (!isNaN(rawCoords[i]) && !isNaN(rawCoords[i + 1]) && !isNaN(rawCoords[i + 2])) {
+        vertices.push([rawCoords[i], rawCoords[i + 1], rawCoords[i + 2]]);
+      }
+    }
+
+    if (vertices.length === 0) continue;
+
+    // Extrai índices de faces separados por -1
+    const rawIndices = indexStr.trim().split(/[\s,]+/).filter(Boolean).map(Number);
+    const triangleIndices: number[] = [];
+    let currentPoly: number[] = [];
+
+    for (const idx of rawIndices) {
+      if (idx === -1) {
+        if (currentPoly.length >= 3) {
+          // Triangulação em leque (fan triangulation)
+          for (let p = 1; p < currentPoly.length - 1; p++) {
+            triangleIndices.push(currentPoly[0], currentPoly[p], currentPoly[p + 1]);
+          }
+        }
+        currentPoly = [];
+      } else {
+        currentPoly.push(idx);
+      }
+    }
+
+    if (currentPoly.length >= 3) {
+      for (let p = 1; p < currentPoly.length - 1; p++) {
+        triangleIndices.push(currentPoly[0], currentPoly[p], currentPoly[p + 1]);
+      }
+    }
+
+    if (triangleIndices.length === 0) continue;
+
+    const positions: number[] = [];
+    for (const tIdx of triangleIndices) {
+      const v = vertices[tIdx];
+      if (v) {
+        positions.push(v[0], v[1], v[2]);
+      }
+    }
+
+    if (positions.length === 0) continue;
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.computeVertexNormals();
+
+    const mesh = new THREE.Mesh(geometry);
+    mesh.name = originalName;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+  }
+
+  // Se a busca com DEF não encontrou malhas, busca todos os point/coordIndex sem DEF
+  if (count === 0) {
+    const genericRegex = /point\s*\[([\s\S]*?)\][\s\S]*?coordIndex\s*\[([\s\S]*?)\]/gi;
+    let genMatch: RegExpExecArray | null;
+    let genIdx = 1;
+
+    while ((genMatch = genericRegex.exec(vrmlText)) !== null) {
+      const pointStr = genMatch[1];
+      const indexStr = genMatch[2];
+
+      const rawCoords = pointStr.trim().split(/[\s,]+/).filter(Boolean).map(Number);
+      if (rawCoords.length < 9) continue;
+
+      const vertices: [number, number, number][] = [];
+      for (let i = 0; i < rawCoords.length; i += 3) {
+        if (!isNaN(rawCoords[i]) && !isNaN(rawCoords[i + 1]) && !isNaN(rawCoords[i + 2])) {
+          vertices.push([rawCoords[i], rawCoords[i + 1], rawCoords[i + 2]]);
+        }
+      }
+
+      const rawIndices = indexStr.trim().split(/[\s,]+/).filter(Boolean).map(Number);
+      const triangleIndices: number[] = [];
+      let currentPoly: number[] = [];
+
+      for (const idx of rawIndices) {
+        if (idx === -1) {
+          if (currentPoly.length >= 3) {
+            for (let p = 1; p < currentPoly.length - 1; p++) {
+              triangleIndices.push(currentPoly[0], currentPoly[p], currentPoly[p + 1]);
+            }
+          }
+          currentPoly = [];
+        } else {
+          currentPoly.push(idx);
+        }
+      }
+
+      if (currentPoly.length >= 3) {
+        for (let p = 1; p < currentPoly.length - 1; p++) {
+          triangleIndices.push(currentPoly[0], currentPoly[p], currentPoly[p + 1]);
+        }
+      }
+
+      const positions: number[] = [];
+      for (const tIdx of triangleIndices) {
+        const v = vertices[tIdx];
+        if (v) positions.push(v[0], v[1], v[2]);
+      }
+
+      if (positions.length > 0) {
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        geometry.computeVertexNormals();
+
+        const mesh = new THREE.Mesh(geometry);
+        mesh.name = `PECA-${genIdx++}`;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        group.add(mesh);
+      }
+    }
+  }
+
+  return group;
+}
+
+/**
  * Carrega, analisa e gera estrutura idêntica ao IFC para modelos VRML (.wrl / .wrz).
  */
 export async function loadAndAuditWRL(
@@ -122,17 +310,23 @@ export async function loadAndAuditWRL(
   }
 
   if (onProgress) onProgress(30, 'Descomprimindo e analisando formato VRML...');
-  const vrmlText = await decompressGzipIfNeeded(arrayBuffer);
+  const rawVrmlText = await decompressGzipIfNeeded(arrayBuffer);
 
-  if (onProgress) onProgress(50, 'Processando geometria 3D com motor VRML...');
+  if (onProgress) onProgress(45, 'Sanitizando identificadores e sintaxe VRML...');
+  const { sanitized: vrmlText, nameMap } = sanitizeVrmlForLoader(rawVrmlText);
+
+  if (onProgress) onProgress(60, 'Processando geometria 3D com motor VRML...');
   const loader = new VRMLLoader();
-  let vrmlScene: THREE.Scene;
+  let vrmlScene: THREE.Object3D;
+  let isFallback = false;
 
   try {
     vrmlScene = loader.parse(vrmlText, '');
   } catch (parseError: any) {
-    console.error('[WRL Loader] Erro ao analisar VRML:', parseError);
-    throw new Error(`Falha ao decodificar arquivo WRL: ${parseError.message || 'Formato VRML inválido'}`);
+    console.warn('[WRL Loader] VRMLLoader padrão falhou, acionando fallback direto resiliente:', parseError?.message);
+    if (onProgress) onProgress(65, 'Acionando decodificador direto de geometria VRML...');
+    vrmlScene = parseVrmlDirectFallback(rawVrmlText, nameMap);
+    isFallback = true;
   }
 
   if (onProgress) onProgress(75, 'Mapeando peças estruturais e hierarquia...');
@@ -158,15 +352,16 @@ export async function loadAndAuditWRL(
   const resolveMeaningfulNodeName = (mesh: THREE.Mesh): string => {
     let curr: THREE.Object3D | null = mesh;
     while (curr) {
-      if (curr.name && !/^(Scene|Root|Group|Transform|Shape|IndexedFaceSet)$/i.test(curr.name.trim())) {
-        return curr.name.trim();
+      if (curr.name && !/^(Scene|Root|Group|Transform|Shape|IndexedFaceSet|WRL_Direct_Fallback_Root)$/i.test(curr.name.trim())) {
+        const mapped = nameMap.get(curr.name.trim()) || curr.name.trim();
+        return mapped;
       }
       curr = curr.parent;
     }
     return mesh.name || `PECA-${idCounter}`;
   };
 
-  // Percorre todos os nós e malhas gerados pelo VRMLLoader
+  // Percorre todos os nós e malhas gerados
   vrmlScene.traverse((child) => {
     if ((child as THREE.Mesh).isMesh) {
       const mesh = child as THREE.Mesh;
@@ -181,8 +376,8 @@ export async function loadAndAuditWRL(
         mesh.receiveShadow = true;
       }
 
-      const nodeName = resolveMeaningfulNodeName(mesh);
-      const parsed = parseWrlNodeName(nodeName);
+      const rawNodeName = resolveMeaningfulNodeName(mesh);
+      const parsed = parseWrlNodeName(rawNodeName);
 
       const expressID = idCounter++;
       const guid = `wrl-${expressID}-${parsed.cleanMark}`;
@@ -218,7 +413,7 @@ export async function loadAndAuditWRL(
       const pieceInfo: PieceInfo = {
         expressID,
         guid,
-        name: nodeName,
+        name: rawNodeName,
         type: parsed.detectedType,
         pieceMark: parsed.pieceMark,
         cleanMark: parsed.cleanMark,
@@ -238,7 +433,7 @@ export async function loadAndAuditWRL(
         cleanAssemblyMark: parsed.cleanAssemblyMark,
         phase: parsed.phase,
         type: parsed.detectedType,
-        name: nodeName,
+        name: rawNodeName,
         pieceInfo,
         originalMaterial: material,
       };
@@ -277,7 +472,7 @@ export async function loadAndAuditWRL(
     uniqueMarksFound > 0 ? (uniqueMarksFound >= 10 ? 'EXCELENTE' : 'BOM') : 'ATENÇÃO';
 
   const audit: IFCQualityAudit = {
-    schema: 'VRML 2.0 (WRL)',
+    schema: isFallback ? 'VRML Direto (WRL Resiliente)' : 'VRML 2.0 (WRL)',
     viewDefinition: 'Virtual Reality Modeling Language 3D',
     isEM11: false,
     totalAssemblies: marksFound.size,
@@ -293,9 +488,9 @@ export async function loadAndAuditWRL(
     qualityScore,
     qualityMessage:
       uniqueMarksFound > 0
-        ? `Modelo WRL carregado com sucesso. ${totalMeshes} malhas processadas e ${uniqueMarksFound} marcas identificadas para apontamento.`
-        : `Modelo WRL carregado com ${totalMeshes} malhas. Nenhuma marca nominal identificada na geometria.`,
-    fallbackActive: false,
+        ? `Modelo WRL processado com sucesso. ${totalMeshes} malhas renderizadas e ${uniqueMarksFound} marcas identificadas para apontamento.`
+        : `Modelo WRL processado com ${totalMeshes} malhas. Nenhuma marca nominal identificada na geometria.`,
+    fallbackActive: isFallback,
   };
 
   if (onProgress) onProgress(100, 'Modelo WRL pronto para visualização!');

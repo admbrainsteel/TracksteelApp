@@ -256,10 +256,8 @@ export const useMatrizAcessos = () => {
 
         GRUPOS_MODULOS.forEach((g) => {
           g.recursos.forEach((r) => {
-            if (isAdmin) {
-              permissoesMap[r.key] = 'criar';
-            } else if (directPerms[r.key]) {
-              // Prioridade 1: Permissão direta do usuário
+            if (directPerms[r.key]) {
+              // Prioridade 1: Permissão direta do usuário configurada na Matriz
               const perm = directPerms[r.key];
               if (perm === 'can_create_update_delete' || perm === 'can_admin' || perm === 'can_create_only') {
                 permissoesMap[r.key] = 'criar';
@@ -268,6 +266,9 @@ export const useMatrizAcessos = () => {
               } else {
                 permissoesMap[r.key] = 'nenhum';
               }
+            } else if (isAdmin) {
+              // Se for admin e não tiver sobreposição direta, padrão é criar
+              permissoesMap[r.key] = 'criar';
             } else if (recursosSet.has(`${r.key}:edit`) || recursosSet.has(`${r.key}_edit`)) {
               permissoesMap[r.key] = 'criar';
             } else if (recursosSet.has(r.key)) {
@@ -369,29 +370,6 @@ export const useMatrizAcessos = () => {
         throw uipError;
       }
 
-      // 2. Compatibilidade legada com privilégios de grupo (se houver)
-      if (user.privilegeId) {
-        // Remover permissões antigas do recurso
-        await supabase
-          .from('privilege_interface_resources')
-          .delete()
-          .eq('privilege_id', user.privilegeId)
-          .in('resource_key', [resourceKey, `${resourceKey}:edit`]);
-
-        // Gravar novo estado
-        if (novoNivel === 'visualizar') {
-          await supabase.from('privilege_interface_resources').insert({
-            privilege_id: user.privilegeId,
-            resource_key: resourceKey,
-          });
-        } else if (novoNivel === 'criar') {
-          await supabase.from('privilege_interface_resources').insert([
-            { privilege_id: user.privilegeId, resource_key: resourceKey },
-            { privilege_id: user.privilegeId, resource_key: `${resourceKey}:edit` },
-          ]);
-        }
-      }
-
       const desc = {
         nenhum: 'Bloqueado (✕)',
         visualizar: 'Apenas Visualização [V]',
@@ -444,30 +422,6 @@ export const useMatrizAcessos = () => {
       if (batchError) {
         console.error('Erro no batch upsert em user_interface_permissions:', batchError);
         throw batchError;
-      }
-
-      // 2. Compatibilidade legada com privilégios de grupo
-      if (user.privilegeId) {
-        // Limpar recursos atuais do privilégio
-        await supabase
-          .from('privilege_interface_resources')
-          .delete()
-          .eq('privilege_id', user.privilegeId);
-
-        // Inserir os novos recursos do template
-        const records: { privilege_id: string; resource_key: string }[] = [];
-        Object.entries(novoMap).forEach(([resKey, nivel]) => {
-          if (nivel === 'visualizar') {
-            records.push({ privilege_id: user.privilegeId!, resource_key: resKey });
-          } else if (nivel === 'criar') {
-            records.push({ privilege_id: user.privilegeId!, resource_key: resKey });
-            records.push({ privilege_id: user.privilegeId!, resource_key: `${resKey}:edit` });
-          }
-        });
-
-        if (records.length > 0) {
-          await supabase.from('privilege_interface_resources').insert(records);
-        }
       }
 
       toast.success(`Template '${template.nome}' aplicado com sucesso a ${user.fullName}!`);

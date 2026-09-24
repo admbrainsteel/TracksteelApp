@@ -336,6 +336,16 @@ export default function Visualizador3D() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (!selectedOF) {
+      toast({
+        title: 'Selecione uma OF',
+        description: 'Por favor, selecione uma Ordem de Fabricação (OF) antes de carregar o modelo 3D.',
+        variant: 'destructive',
+      });
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     setIsLoadingModel(true);
     setLoadingStep('Iniciando processamento e auditoria...');
     setLoadingPercent(10);
@@ -591,9 +601,20 @@ export default function Visualizador3D() {
           />
 
           <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isLoadingModel}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-cyan-600/20 transition-all disabled:opacity-50 cursor-pointer"
+            onClick={() => {
+              if (!selectedOF) {
+                toast({
+                  title: 'Selecione uma OF',
+                  description: 'Por favor, selecione uma Ordem de Fabricação (OF) antes de carregar o modelo 3D.',
+                  variant: 'destructive',
+                });
+                return;
+              }
+              fileInputRef.current?.click();
+            }}
+            disabled={isLoadingModel || !selectedOF}
+            title={!selectedOF ? 'Selecione uma OF acima para habilitar o carregamento do modelo 3D' : undefined}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-cyan-600/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
             {isLoadingModel ? (
               <>
