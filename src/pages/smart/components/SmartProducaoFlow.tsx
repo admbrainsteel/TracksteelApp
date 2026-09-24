@@ -9,13 +9,13 @@ import {
   Check, 
   Layers, 
   Plus, 
-  Minus,
-  RotateCcw, 
+  Minus, 
   AlertTriangle, 
   ChevronRight,
   Filter,
   Delete,
-  Pencil
+  Pencil,
+  CheckCheck
 } from 'lucide-react';
 import { OFAtiva } from '@/hooks/useOFsAtivas';
 import { useProcessosFabricacao, ProcessoFabricacao } from '@/hooks/useProcessosFabricacao';
@@ -24,6 +24,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { smartAudio } from '@/utils/smartAudio';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { SmartForcarApontamentoModal } from './SmartForcarApontamentoModal';
 
 interface SmartProducaoFlowProps {
   obra: OFAtiva;
@@ -68,13 +69,11 @@ export const calcularSaldoProcessoPeca = (
   const nomeProcAtual = (processoAtual.nome || '').toLowerCase();
 
   const ehSolda = nomeProcAtual.includes('solda');
-  const ehMontagem = nomeProcAtual.includes('montag');
 
   let qtdDisponivelParaEntrar = Number(peca.quantidade) || 0;
   let motivoBloqueio: string | null = null;
 
   // REGRA 1: Peças sem montagem (S/M) não passam por Solda
-  // (Não existe processo "Montagem" de fábrica - a montagem é apenas na obra)
   if (ehSemMontagem && ehSolda) {
     qtdDisponivelParaEntrar = 0;
     motivoBloqueio = 'Peça S/M (Pula Solda - vai direto para Pintura)';
@@ -83,7 +82,7 @@ export const calcularSaldoProcessoPeca = (
     let procAnteriorValido: ProcessoFabricacao | null = null;
     for (let i = indexAtual - 1; i >= 0; i--) {
       const proc = procsOrdenados[i];
-      const nomeP = proc.nome.toLowerCase();
+      const nomeP = (proc.nome || '').toLowerCase();
       // Se a peça for S/M, pula solda na busca do anterior (ex: Corte -> Pintura)
       if (ehSemMontagem && nomeP.includes('solda')) {
         continue;
@@ -112,7 +111,7 @@ export const calcularSaldoProcessoPeca = (
     let procSeguinteValido: ProcessoFabricacao | null = null;
     for (let i = indexAtual + 1; i < procsOrdenados.length; i++) {
       const proc = procsOrdenados[i];
-      const nomeP = proc.nome.toLowerCase();
+      const nomeP = (proc.nome || '').toLowerCase();
       // Se a peça for S/M, pula solda na busca do subsequente
       if (ehSemMontagem && nomeP.includes('solda')) {
         continue;
@@ -142,9 +141,14 @@ export const calcularSaldoProcessoPeca = (
 };
 
 interface ApontamentoItem {
+  id?: string;
   peca_id: string;
   processo_id: string;
   quantidade_produzida: number;
+  is_forcado?: boolean;
+  status_confirmacao?: string;
+  forcado_por_user_nome?: string;
+  usuario_nome?: string;
 }
 
 export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
@@ -166,6 +170,9 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
   const [salvando, setSalvando] = useState<boolean>(false);
   const [modoEdicao, setModoEdicao] = useState<boolean>(false);
 
+  // Modal de Forçar Apontamento
+  const [isForcarModalOpen, setIsForcarModalOpen] = useState<boolean>(false);
+
   // Dados carregados da OF
   const [pecas, setPecas] = useState<PecaData[]>([]);
   const [apontamentosExistentes, setApontamentosExistentes] = useState<ApontamentoItem[]>([]);
@@ -183,7 +190,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
           .eq('of_number', obra.of_number),
         supabase
           .from('apontamentos_producao')
-          .select('peca_id, processo_id, quantidade_produzida')
+          .select('id, peca_id, processo_id, quantidade_produzida, is_forcado, status_confirmacao, forcado_por_user_nome, usuario_nome')
           .eq('of_number', obra.of_number),
       ]);
 
@@ -191,7 +198,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
         setPecas(resPecas.data);
       }
       if (resApontamentos.data) {
-        setApontamentosExistentes(resApontamentos.data);
+        setApontamentosExistentes(resApontamentos.data as any);
       }
     } catch (e) {
       console.error('Erro ao carregar dados da OF:', e);
@@ -228,6 +235,52 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
     return mapa;
   }, [apontamentosExistentes]);
 
+  // Apontamentos forçados que ainda estão pendentes de confirmação de baixa
+  const apontamentosPendentes = useMemo(() => {
+    return apontamentosExistentes.filter(
+      (ap) => ap.is_forcado && ap.status_confirmacao === 'pendente_confirmacao'
+    );
+  }, [apontamentosExistentes]);
+
+  // Contagem de pendências por processo (para alertar no Step 1.1)
+  const contagemPendentesPorProcesso = useMemo(() => {
+    const map = new Map<string, number>();
+    apontamentosPendentes.forEach((ap) => {
+      map.set(ap.processo_id, (map.get(ap.processo_id) || 0) + 1);
+    });
+    return map;
+  }, [apontamentosPendentes]);
+
+  // Contagem de pendências por fase no processo selecionado (para alertar no Step 1.2)
+  const contagemPendentesPorFase = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!processoSelecionado) return map;
+
+    apontamentosPendentes.forEach((ap) => {
+      if (ap.processo_id === processoSelecionado.id) {
+        const peca = pecas.find((p) => p.id === ap.peca_id);
+        const fase = (peca?.etapa_fase || 'Geral').trim();
+        map.set(fase, (map.get(fase) || 0) + 1);
+      }
+    });
+    return map;
+  }, [apontamentosPendentes, processoSelecionado, pecas]);
+
+  // Mapa de pendências por peça no processo selecionado (para alertar no Step 1.3)
+  const pecasPendentesMap = useMemo(() => {
+    const map = new Map<string, ApontamentoItem[]>();
+    if (!processoSelecionado) return map;
+
+    apontamentosPendentes.forEach((ap) => {
+      if (ap.processo_id === processoSelecionado.id) {
+        const lista = map.get(ap.peca_id) || [];
+        lista.push(ap);
+        map.set(ap.peca_id, lista);
+      }
+    });
+    return map;
+  }, [apontamentosPendentes, processoSelecionado]);
+
   // Peças filtradas pela fase selecionada com cálculo estrito de precedência de processos e regra S/M
   const pecasComSaldo = useMemo(() => {
     if (!processoSelecionado) return [];
@@ -235,7 +288,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
     return pecas
       .filter((p) => {
         if (!faseSelecionada || faseSelecionada === 'Geral') return true;
-        return p.etapa_fase?.trim() === faseSelecionada;
+        return (p.etapa_fase || 'Geral').trim() === faseSelecionada;
       })
       .map((p) => {
         const info = calcularSaldoProcessoPeca(p, processoSelecionado, processos, mapaProducao);
@@ -245,16 +298,22 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
         };
       })
       .sort((a, b) => {
-        // Colocar primeiro as que têm saldo pendente disponível > 0
+        // Colocar primeiro as que têm pendência de confirmação de baixa
+        const temPendA = pecasPendentesMap.has(a.id);
+        const temPendB = pecasPendentesMap.has(b.id);
+        if (temPendA && !temPendB) return -1;
+        if (!temPendA && temPendB) return 1;
+
+        // Depois as que têm saldo pendente disponível > 0
         if (a.saldo > 0 && b.saldo === 0) return -1;
         if (a.saldo === 0 && b.saldo > 0) return 1;
         return a.marca.localeCompare(b.marca, undefined, { numeric: true, sensitivity: 'base' });
       });
-  }, [pecas, faseSelecionada, processoSelecionado, mapaProducao, processos]);
+  }, [pecas, faseSelecionada, processoSelecionado, mapaProducao, processos, pecasPendentesMap]);
 
   // Helper de ícone por processo
   const getIconeProcesso = (nome: string) => {
-    const n = nome.toLowerCase();
+    const n = (nome || '').toLowerCase();
     if (n.includes('corte')) return <Scissors className="h-6 w-6" />;
     if (n.includes('dobra') || n.includes('fura')) return <Ruler className="h-6 w-6" />;
     if (n.includes('montag')) return <Puzzle className="h-6 w-6" />;
@@ -285,6 +344,34 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
     setEtapaAtual('quantidade');
   };
 
+  // Confirmar baixa direta de apontamento forçado pendente
+  const handleConfirmarBaixaDireta = async (apontamentoId: string, marca: string) => {
+    try {
+      smartAudio.playClick();
+      const nomeOperador = user?.name || user?.username || user?.email?.split('@')[0] || 'Operador';
+
+      const { error } = await supabase
+        .from('apontamentos_producao' as any)
+        .update({
+          status_confirmacao: 'confirmado',
+          data_confirmacao: new Date().toISOString(),
+          confirmado_por_user_nome: nomeOperador,
+          confirmado_por_user_id: user?.id,
+        })
+        .eq('id', apontamentoId);
+
+      if (error) throw error;
+
+      smartAudio.playSuccess();
+      toast.success(`✅ Baixa confirmada com sucesso: ${marca}`);
+      await carregarDadosOF();
+    } catch (e: any) {
+      smartAudio.playAlert();
+      console.error('Erro ao confirmar baixa:', e);
+      toast.error('Erro ao confirmar baixa: ' + (e?.message || 'Falha de conexão'));
+    }
+  };
+
   // Salvar apontamento no Supabase
   const handleConfirmarApontamento = async () => {
     if (!pecaSelecionada || !processoSelecionado || !user) return;
@@ -311,6 +398,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
     try {
       setSalvando(true);
       const hoje = new Date().toISOString().split('T')[0];
+      const nomeUsuario = user.name || user.username || user.email?.split('@')[0] || 'Operador';
 
       let delta = qtdApontar;
       if (modoEdicao) {
@@ -335,6 +423,9 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
         quantidade_produzida: delta,
         data_apontamento: hoje,
         created_by: user.id,
+        usuario_nome: nomeUsuario,
+        is_forcado: false,
+        status_confirmacao: 'confirmado',
         observacoes: modoEdicao ? 'Ajuste de quantidade via Modo Smart' : 'Apontado via Modo Smart',
       };
 
@@ -357,15 +448,8 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
       onApontamentoRealizado(qtdApontar, pesoTotalKg);
 
       // FAST LOOP / STICKY CONTEXT:
-      // Atualiza o estado local imediatamente e volta para a lista de peças daquela Fase/Processo!
-      setApontamentosExistentes((prev) => [
-        ...prev,
-        {
-          peca_id: pecaSelecionada.id,
-          processo_id: processoSelecionado.id,
-          quantidade_produzida: delta,
-        },
-      ]);
+      // Atualiza os dados imediatamente e volta para a lista de peças daquela Fase/Processo!
+      await carregarDadosOF();
 
       // Permanece na mesma fase para apontar a próxima peça sem voltar tudo!
       setEtapaAtual('pecas');
@@ -387,13 +471,13 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
     return (
       <div className="flex flex-col flex-1 p-4 max-w-xl mx-auto w-full">
         <div className="mb-4 text-center">
-          <span className="text-xs font-black uppercase text-amber-400 tracking-wider">
+          <span className="text-xs font-black uppercase text-amber-500 dark:text-amber-400 tracking-wider">
             ETAPA 1.1 — FABRICAÇÃO
           </span>
-          <h2 className="text-xl font-black text-slate-100 uppercase mt-0.5">
+          <h2 className="text-xl font-black text-slate-900 dark:text-slate-100 uppercase mt-0.5">
             Qual é o seu Processo?
           </h2>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-500 dark:text-slate-400">
             Selecione o posto de trabalho em que você está operando
           </p>
         </div>
@@ -405,56 +489,88 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
               <span>Carregando etapas...</span>
             </div>
           ) : processos.length === 0 ? (
-            // Fallback com processos industriais corretos (ordem real de produção)
+            // Fallback com processos industriais corretos
             [
               { id: '1', nome: 'Corte', ordem: 1 },
               { id: '2', nome: 'Dobra / Furação', ordem: 2 },
               { id: '3', nome: 'Solda', ordem: 3 },
               { id: '4', nome: 'Pintura', ordem: 4 },
               { id: '5', nome: 'Galvanização', ordem: 5 },
-            ].map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => handleEscolherProcesso(p as ProcessoFabricacao)}
-                className="min-h-[72px] p-4 rounded-2xl bg-white hover:bg-amber-50/60 active:bg-amber-100/60 dark:bg-slate-800/90 dark:hover:bg-slate-750 dark:active:bg-slate-700 border-2 border-slate-200 hover:border-amber-400/80 dark:border-slate-700 dark:hover:border-amber-500/80 flex items-center justify-between text-left transition-all active:scale-[0.98] group shadow-sm"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-xl bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-400 flex items-center justify-center shrink-0">
-                    {getIconeProcesso(p.nome)}
-                  </div>
-                  <div>
-                    <div className="text-base font-black text-slate-900 dark:text-slate-100 uppercase tracking-wide">
-                      {p.nome}
+            ].map((p) => {
+              const pendentesCount = contagemPendentesPorProcesso.get(p.id) || 0;
+              const hasPend = pendentesCount > 0;
+
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => handleEscolherProcesso(p as ProcessoFabricacao)}
+                  className={`min-h-[72px] p-4 rounded-2xl border-2 flex items-center justify-between text-left transition-all active:scale-[0.98] group shadow-sm ${
+                    hasPend
+                      ? 'animate-pulse-red-fast bg-red-50/80 dark:bg-red-950/40 border-red-500 shadow-md shadow-red-500/20'
+                      : 'bg-white hover:bg-amber-50/60 active:bg-amber-100/60 dark:bg-slate-800/90 dark:hover:bg-slate-750 dark:active:bg-slate-700 border-slate-200 hover:border-amber-400/80 dark:border-slate-700 dark:hover:border-amber-500/80'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 ${
+                      hasPend ? 'bg-red-500 text-white animate-bounce' : 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-400'
+                    }`}>
+                      {getIconeProcesso(p.nome)}
                     </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Toque para selecionar</div>
+                    <div>
+                      <div className="text-base font-black text-slate-900 dark:text-slate-100 uppercase tracking-wide flex items-center gap-2">
+                        <span>{p.nome}</span>
+                        {hasPend && (
+                          <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-red-600 text-white">
+                            ⚠️ {pendentesCount} {pendentesCount === 1 ? 'pendência' : 'pendências'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Toque para selecionar</div>
+                    </div>
                   </div>
-                </div>
-                <ChevronRight className="h-6 w-6 text-slate-400 group-hover:text-amber-600 dark:text-slate-500 dark:group-hover:text-amber-400" />
-              </button>
-            ))
+                  <ChevronRight className="h-6 w-6 text-slate-400 group-hover:text-amber-600 dark:text-slate-500 dark:group-hover:text-amber-400" />
+                </button>
+              );
+            })
           ) : (
-            processos.map((proc) => (
-              <button
-                key={proc.id}
-                type="button"
-                onClick={() => handleEscolherProcesso(proc)}
-                className="min-h-[72px] p-4 rounded-2xl bg-white hover:bg-amber-50/60 active:bg-amber-100/60 dark:bg-slate-800/90 dark:hover:bg-slate-750 dark:active:bg-slate-700 border-2 border-slate-200 hover:border-amber-400/80 dark:border-slate-700 dark:hover:border-amber-500/80 flex items-center justify-between text-left transition-all active:scale-[0.98] group shadow-sm"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-xl bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-400 flex items-center justify-center shrink-0">
-                    {getIconeProcesso(proc.nome)}
-                  </div>
-                  <div>
-                    <div className="text-base font-black text-slate-900 dark:text-slate-100 uppercase tracking-wide">
-                      {proc.nome}
+            processos.map((proc) => {
+              const pendentesCount = contagemPendentesPorProcesso.get(proc.id) || 0;
+              const hasPend = pendentesCount > 0;
+
+              return (
+                <button
+                  key={proc.id}
+                  type="button"
+                  onClick={() => handleEscolherProcesso(proc)}
+                  className={`min-h-[72px] p-4 rounded-2xl border-2 flex items-center justify-between text-left transition-all active:scale-[0.98] group shadow-sm ${
+                    hasPend
+                      ? 'animate-pulse-red-fast bg-red-50/80 dark:bg-red-950/40 border-red-500 shadow-md shadow-red-500/20'
+                      : 'bg-white hover:bg-amber-50/60 active:bg-amber-100/60 dark:bg-slate-800/90 dark:hover:bg-slate-750 dark:active:bg-slate-700 border-slate-200 hover:border-amber-400/80 dark:border-slate-700 dark:hover:border-amber-500/80'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 ${
+                      hasPend ? 'bg-red-500 text-white animate-bounce' : 'bg-amber-100 text-amber-800 dark:bg-amber-500/15 dark:text-amber-400'
+                    }`}>
+                      {getIconeProcesso(proc.nome)}
                     </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Etapa #{proc.ordem}</div>
+                    <div>
+                      <div className="text-base font-black text-slate-900 dark:text-slate-100 uppercase tracking-wide flex items-center gap-2">
+                        <span>{proc.nome}</span>
+                        {hasPend && (
+                          <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-red-600 text-white">
+                            ⚠️ {pendentesCount} {pendentesCount === 1 ? 'baixa pendente' : 'baixas pendentes'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Etapa #{proc.ordem}</div>
+                    </div>
                   </div>
-                </div>
-                <ChevronRight className="h-6 w-6 text-slate-400 group-hover:text-amber-600 dark:text-slate-500 dark:group-hover:text-amber-400" />
-              </button>
-            ))
+                  <ChevronRight className="h-6 w-6 text-slate-400 group-hover:text-amber-600 dark:text-slate-500 dark:group-hover:text-amber-400" />
+                </button>
+              );
+            })
           )}
         </div>
 
@@ -479,7 +595,6 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
   if (etapaAtual === 'fase') {
     return (
       <div className="flex flex-col flex-1 p-4 max-w-xl mx-auto w-full">
-        {/* Breadcrumb de Processo */}
         {/* Breadcrumb de Processo */}
         <div className="mb-4 flex items-center justify-between p-3 rounded-2xl bg-amber-100 dark:bg-amber-500/15 border border-amber-300 dark:border-amber-500/30 shadow-sm">
           <div className="flex items-center gap-2">
@@ -512,19 +627,35 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
         <div className="flex-1 overflow-y-auto space-y-2.5 pb-4">
           {fasesDisponiveis.map((fase) => {
             const countFase = pecas.filter((p) => (p.etapa_fase || 'Geral').trim() === fase).length;
+            const pendentesFaseCount = contagemPendentesPorFase.get(fase) || 0;
+            const hasPendFase = pendentesFaseCount > 0;
+
             return (
               <button
                 key={fase}
                 type="button"
                 onClick={() => handleEscolherFase(fase)}
-                className="w-full min-h-[68px] p-4 rounded-2xl bg-white hover:bg-amber-50/60 active:bg-amber-100/60 dark:bg-slate-800/90 dark:hover:bg-slate-750 dark:active:bg-slate-700 border-2 border-slate-200 hover:border-amber-400/80 dark:border-slate-700 dark:hover:border-amber-500/80 flex items-center justify-between text-left transition-all active:scale-[0.98] group shadow-sm"
+                className={`w-full min-h-[68px] p-4 rounded-2xl border-2 flex items-center justify-between text-left transition-all active:scale-[0.98] group shadow-sm ${
+                  hasPendFase
+                    ? 'animate-pulse-red-fast bg-red-50/80 dark:bg-red-950/40 border-red-500 shadow-md shadow-red-500/20'
+                    : 'bg-white hover:bg-amber-50/60 active:bg-amber-100/60 dark:bg-slate-800/90 dark:hover:bg-slate-750 dark:active:bg-slate-700 border-slate-200 hover:border-amber-400/80 dark:border-slate-700 dark:hover:border-amber-500/80'
+                }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className="h-11 w-11 rounded-xl bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200 flex items-center justify-center shrink-0">
+                  <div className={`h-11 w-11 rounded-xl flex items-center justify-center shrink-0 ${
+                    hasPendFase ? 'bg-red-500 text-white animate-bounce' : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
+                  }`}>
                     <Layers className="h-5 w-5" />
                   </div>
                   <div>
-                    <div className="text-base font-black text-slate-900 dark:text-slate-100 uppercase">{fase}</div>
+                    <div className="text-base font-black text-slate-900 dark:text-slate-100 uppercase flex items-center gap-2">
+                      <span>{fase}</span>
+                      {hasPendFase && (
+                        <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full bg-red-600 text-white">
+                          ⚠️ {pendentesFaseCount} {pendentesFaseCount === 1 ? 'baixa pendente' : 'baixas pendentes'}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-slate-500 dark:text-slate-400">{countFase} peças cadastradas</div>
                   </div>
                 </div>
@@ -553,10 +684,12 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
   // RENDER: ETAPA 1.3 — LISTA DE PEÇAS (FAST LOOP / STICKY CONTEXT)
   // ─────────────────────────────────────────────────────────────
   if (etapaAtual === 'pecas') {
+    const isPrimeiroProcesso = processoSelecionado && processos.length > 0 && processoSelecionado.id === [...processos].sort((a,b) => a.ordem - b.ordem)[0]?.id;
+
     return (
       <div className="flex flex-col flex-1 p-4 max-w-xl mx-auto w-full">
-        {/* Sticky Context: Breadcrumbs Interativos no Topo */}
-        <div className="mb-3 p-3 rounded-2xl bg-white dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 shadow-sm">
+        {/* Sticky Context: Breadcrumbs Interativos no Topo + Botão de Forçar Apontamento */}
+        <div className="mb-3 p-3 rounded-2xl bg-white dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-2 shadow-sm flex-wrap">
           <div className="flex items-center gap-2 min-w-0">
             <button
               type="button"
@@ -583,9 +716,26 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
             </button>
           </div>
 
-          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0">
-            {pecasComSaldo.length} itens
-          </span>
+          <div className="flex items-center gap-2">
+            {!isPrimeiroProcesso && processoSelecionado && (
+              <button
+                type="button"
+                onClick={() => {
+                  smartAudio.playClick();
+                  setIsForcarModalOpen(true);
+                }}
+                className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 font-black text-xs uppercase flex items-center gap-1 shadow-sm active:scale-95 transition-all"
+                title="Forçar apontamento de peças esquecidas no processo anterior"
+              >
+                <Zap className="w-3.5 h-3.5 fill-current animate-pulse" />
+                <span>Forçar Apontamento</span>
+              </button>
+            )}
+
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 shrink-0">
+              {pecasComSaldo.length} itens
+            </span>
+          </div>
         </div>
 
         {/* Lista de Peças */}
@@ -605,19 +755,24 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
             </div>
           ) : (
             pecasComSaldo.map((item) => {
+              const pendenciasItem = pecasPendentesMap.get(item.id) || [];
+              const temPendencia = pendenciasItem.length > 0;
               const concluida = item.saldo <= 0;
+
               return (
                 <div
                   key={item.id}
                   className={`p-4 rounded-2xl border-2 transition-all shadow-sm ${
-                    concluida
+                    temPendencia
+                      ? 'animate-pulse-red-fast bg-red-50/70 dark:bg-red-950/40 border-red-500 shadow-md shadow-red-500/20'
+                      : concluida
                       ? 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800 opacity-75'
                       : 'bg-white dark:bg-slate-800/95 border-slate-200 dark:border-slate-700/90 hover:border-amber-400 dark:hover:border-amber-500/80'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xl font-black text-amber-700 dark:text-amber-400 tracking-wider">
                           {item.marca}
                         </span>
@@ -700,6 +855,27 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
                     />
                   </div>
 
+                  {/* ALERTA VISUAL: BAIXA FORÇADA PENDENTE DE CONFIRMAÇÃO */}
+                  {temPendencia && (
+                    <div className="mt-3 p-2.5 rounded-xl bg-red-100 dark:bg-red-950/60 border border-red-300 dark:border-red-800 flex items-center justify-between gap-2 flex-wrap">
+                      <div className="text-xs font-bold text-red-800 dark:text-red-300 flex items-center gap-1.5">
+                        <AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400 animate-bounce shrink-0" />
+                        <span>
+                          Baixa forçada ({pendenciasItem.reduce((acc, p) => acc + (p.quantidade_produzida || 0), 0)} un)
+                          {pendenciasItem[0]?.forcado_por_user_nome && ` • Por: ${pendenciasItem[0].forcado_por_user_nome}`}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleConfirmarBaixaDireta(pendenciasItem[0].id!, item.marca)}
+                        className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-black uppercase flex items-center gap-1 shadow-sm active:scale-95 transition-all"
+                      >
+                        <CheckCheck className="w-3.5 h-3.5" />
+                        <span>Confirmar Baixa</span>
+                      </button>
+                    </div>
+                  )}
+
                   {/* Botões de Ação no Card */}
                   <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <Button
@@ -755,6 +931,24 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
         >
           ⬅️ Voltar às Fases
         </Button>
+
+        {/* Modal de Forçar Apontamento */}
+        {processoSelecionado && (
+          <SmartForcarApontamentoModal
+            isOpen={isForcarModalOpen}
+            onClose={() => setIsForcarModalOpen(false)}
+            obra={obra}
+            faseSelecionada={faseSelecionada}
+            processoAtual={processoSelecionado}
+            todosProcessos={processos}
+            pecas={pecas}
+            mapaProducao={mapaProducao}
+            onSucesso={(qtd, peso) => {
+              carregarDadosOF();
+              onApontamentoRealizado(qtd, peso);
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -785,7 +979,6 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
     const handleDigitoTeclado = (digito: number) => {
       smartAudio.playClick();
       setQtdApontar((prev) => {
-        // Se estiver em 0 ou for primeira digitação
         const strAtual = prev <= 0 ? '' : prev.toString();
         const novaStr = strAtual + digito.toString();
         const novoValor = parseInt(novaStr, 10) || 0;
@@ -845,7 +1038,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
               {pecaSelecionada.tem_componentes === false && (
                 <span
                   className="text-[10px] px-2 py-0.5 rounded-md bg-purple-100 text-purple-800 border border-purple-300 dark:bg-purple-950/80 dark:text-purple-300 dark:border-purple-800/50 font-black"
-                  title="Peça Sem Montagem (Pula Solda e Montagem)"
+                  title="Peça Sem Montagem (Pula Solda)"
                 >
                   S/M
                 </span>
@@ -883,7 +1076,7 @@ export const SmartProducaoFlow: React.FC<SmartProducaoFlowProps> = ({
               <Minus className="h-6 w-6" />
             </button>
 
-            {/* Input Numérico Editável Direto (Toque para digitar ou use o teclado da tela) */}
+            {/* Input Numérico Editável Direto */}
             <div className="flex-1 max-w-[180px] h-16 rounded-2xl bg-slate-50 dark:bg-slate-900 border-2 border-amber-500 flex items-center justify-center shadow-inner relative">
               <input
                 type="text"

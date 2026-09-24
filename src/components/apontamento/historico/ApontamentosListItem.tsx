@@ -45,16 +45,30 @@ export const ApontamentosListItem: React.FC<ApontamentosListItemProps> = ({
         )}
         
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="font-medium">
               {getMarcaItem(apontamento)}
             </span>
             <Badge variant="outline">
               {apontamento.of_number || 'N/A'}
             </Badge>
+            {apontamento.is_forcado && (
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
+                apontamento.status_confirmacao === 'pendente_confirmacao'
+                  ? 'bg-red-100 text-red-700 border-red-300 animate-pulse dark:bg-red-950/80 dark:text-red-400 dark:border-red-800'
+                  : 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-950/80 dark:text-amber-400 dark:border-amber-800'
+              }`}>
+                ⚡ FORÇADO {apontamento.status_confirmacao === 'pendente_confirmacao' ? '(Pendente)' : '(Confirmado)'}
+              </span>
+            )}
           </div>
-          <div className="text-sm text-muted-foreground">
-            {apontamento.processo?.nome || 'N/A'} • {formatDate(apontamento.data_apontamento)}
+          <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+            <span>{apontamento.processo?.nome || 'N/A'} • {formatDate(apontamento.data_apontamento)}</span>
+            {(apontamento.usuario_nome || apontamento.forcado_por_user_nome) && (
+              <span className="font-semibold text-slate-700 dark:text-slate-300">
+                • Por: {apontamento.forcado_por_user_nome || apontamento.usuario_nome}
+              </span>
+            )}
           </div>
         </div>
       </div>

@@ -47,6 +47,15 @@ export interface ApontamentoProducao {
   observacoes?: string;
   created_at: string;
   created_by?: string;
+  usuario_nome?: string;
+  is_forcado?: boolean;
+  status_confirmacao?: 'confirmado' | 'pendente_confirmacao' | string;
+  forcado_por_user_nome?: string;
+  forcado_por_user_id?: string;
+  forcado_para_processo_id?: string;
+  data_confirmacao?: string;
+  confirmado_por_user_nome?: string;
+  confirmado_por_user_id?: string;
   peca?: {
     marca: string;
     descricao: string;

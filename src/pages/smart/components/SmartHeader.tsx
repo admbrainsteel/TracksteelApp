@@ -25,7 +25,7 @@ export const SmartHeader: React.FC<SmartHeaderProps> = ({
   const { theme, setTheme } = useTheme();
   const [soundOn, setSoundOn] = useState<boolean>(() => smartAudio.isSoundEnabled());
   const [isNotificationsOpen, setIsNotificationsOpen] = useState<boolean>(false);
-  const { unreadCount, hasNewAlert, clearAlert } = useSmartNotificationsAlert();
+  const { unreadCount, hasNewAlert, hasPendingForced, clearAlert, refetch } = useSmartNotificationsAlert();
 
   // Detecta se está efetivamente em modo escuro
   const isDark =
@@ -140,20 +140,27 @@ export const SmartHeader: React.FC<SmartHeaderProps> = ({
               setIsNotificationsOpen(true);
             }}
             className={`relative h-10 w-8 sm:w-9 rounded-xl flex items-center justify-center border transition-all active:scale-90 ${
-              hasNewAlert
+              hasPendingForced
+                ? 'animate-pulse-red-fast bg-red-100 border-red-500 text-red-700 dark:bg-red-950/80 dark:border-red-500 dark:text-red-400 shadow-md shadow-red-500/30'
+                : hasNewAlert
                 ? 'bg-amber-100 border-amber-300 text-amber-700 dark:bg-amber-950/70 dark:border-amber-600/50 dark:text-amber-400'
                 : 'bg-slate-100 border-slate-200 text-slate-600 dark:bg-slate-800/80 dark:border-slate-700 dark:text-slate-300 hover:bg-slate-200'
             }`}
-            title="Notificações de Apontamentos de Produção"
+            title={hasPendingForced ? '⚠️ Existem apontamentos forçados pendentes de confirmação!' : 'Notificações de Apontamentos de Produção'}
           >
-            <Bell className={`h-4 w-4 ${hasNewAlert ? 'animate-bounce text-amber-600 dark:text-amber-400' : ''}`} />
-            {hasNewAlert && (
+            <Bell className={`h-4 w-4 ${hasPendingForced ? 'animate-bounce text-red-600 dark:text-red-400' : hasNewAlert ? 'animate-bounce text-amber-600 dark:text-amber-400' : ''}`} />
+            {hasPendingForced ? (
+              <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5 pointer-events-none">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-600"></span>
+              </span>
+            ) : hasNewAlert ? (
               <span className="absolute top-1.5 right-1.5 flex h-2 w-2 pointer-events-none">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
               </span>
-            )}
-            {unreadCount > 0 && !hasNewAlert && (
+            ) : null}
+            {unreadCount > 0 && !hasNewAlert && !hasPendingForced && (
               <span className="absolute -top-1 -right-1 px-1 min-w-[15px] h-3.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[8px] font-mono font-bold flex items-center justify-center border border-slate-300 dark:border-slate-600 pointer-events-none">
                 {unreadCount > 99 ? '99+' : unreadCount}
               </span>
@@ -202,6 +209,7 @@ export const SmartHeader: React.FC<SmartHeaderProps> = ({
       <SmartNotificationsModal
         isOpen={isNotificationsOpen}
         onClose={() => setIsNotificationsOpen(false)}
+        onApontamentoConfirmado={refetch}
       />
     </header>
   );

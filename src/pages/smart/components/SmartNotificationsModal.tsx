@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { smartAudio } from '@/utils/smartAudio';
+import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
 import { 
   Bell, 
   X, 
@@ -14,7 +16,9 @@ import {
   Paintbrush,
   Truck,
   Scissors,
-  Box
+  Box,
+  AlertTriangle,
+  CheckCheck
 } from 'lucide-react';
 
 export interface ApontamentoNotificacao {
@@ -29,21 +33,28 @@ export interface ApontamentoNotificacao {
   processo_nome: string;
   processo_cor: string;
   usuario_nome: string;
+  is_forcado?: boolean;
+  status_confirmacao?: 'confirmado' | 'pendente_confirmacao' | string;
+  forcado_por_user_nome?: string;
 }
 
 interface SmartNotificationsModalProps {
   isOpen: boolean;
   onClose: () => void;
   ofFiltrar?: string;
+  onApontamentoConfirmado?: () => void;
 }
 
 export const SmartNotificationsModal: React.FC<SmartNotificationsModalProps> = ({
   isOpen,
   onClose,
   ofFiltrar,
+  onApontamentoConfirmado,
 }) => {
+  const { user } = useAuth();
   const [apontamentos, setApontamentos] = useState<ApontamentoNotificacao[]>([]);
   const [carregando, setCarregando] = useState<boolean>(false);
+  const [confirmandoId, setConfirmandoId] = useState<string | null>(null);
 
   const formatarTempo = (dataIso?: string) => {
     if (!dataIso) return 'Recente';
@@ -76,16 +87,21 @@ export const SmartNotificationsModal: React.FC<SmartNotificationsModalProps> = (
   const carregarNotificacoes = useCallback(async () => {
     setCarregando(true);
     try {
-      // 1. Buscar os últimos 30 apontamentos
+      // Filtrar APENAS apontamentos de HOJE e do DIA ANTERIOR (ONTEM)
+      const dataOntem = new Date(Date.now() - 86400000);
+      const dataOntemIso = dataOntem.toISOString().split('T')[0];
+
       let query = supabase
         .from('apontamentos_producao' as any)
         .select(`
           id, of_number, quantidade_produzida, data_apontamento, created_at, created_by,
+          is_forcado, status_confirmacao, forcado_por_user_nome, usuario_nome,
           peca:pecas!apontamentos_producao_peca_id_fkey(marca, etapa_fase, perfil_principal, descricao),
           processo:processos_fabricacao!apontamentos_producao_processo_id_fkey(nome, cor, ordem)
         `)
+        .gte('data_apontamento', dataOntemIso)
         .order('created_at', { ascending: false })
-        .limit(30);
+        .limit(100);
 
       if (ofFiltrar) {
         query = query.eq('of_number', ofFiltrar);
@@ -94,7 +110,7 @@ export const SmartNotificationsModal: React.FC<SmartNotificationsModalProps> = (
       const { data: apontamentosData, error } = await query;
       if (error) throw error;
 
-      // 2. Buscar nomes dos usuários dos apontamentos
+      // Buscar nomes dos usuários dos apontamentos caso não estejam gravados diretamente
       const userIds = Array.from(new Set((apontamentosData || []).map((ap: any) => ap.created_by).filter(Boolean)));
       const profilesMap = new Map<string, string>();
 
@@ -116,11 +132,11 @@ export const SmartNotificationsModal: React.FC<SmartNotificationsModalProps> = (
         }
       }
 
-      // 3. Montar lista tratada
+      // Montar lista tratada
       const lista: ApontamentoNotificacao[] = (apontamentosData || []).map((ap: any) => {
         const peca = ap.peca || {};
         const processo = ap.processo || {};
-        const userName = (ap.created_by && profilesMap.get(ap.created_by)) || 'Chão de Fábrica';
+        const userName = ap.usuario_nome || (ap.created_by && profilesMap.get(ap.created_by)) || 'Chão de Fábrica';
 
         return {
           id: String(ap.id),
@@ -134,6 +150,9 @@ export const SmartNotificationsModal: React.FC<SmartNotificationsModalProps> = (
           processo_nome: processo.nome || 'Produção',
           processo_cor: processo.cor || '#10b981',
           usuario_nome: userName,
+          is_forcado: Boolean(ap.is_forcado),
+          status_confirmacao: ap.status_confirmacao || 'confirmado',
+          forcado_por_user_nome: ap.forcado_por_user_nome,
         };
       });
 
@@ -145,6 +164,45 @@ export const SmartNotificationsModal: React.FC<SmartNotificationsModalProps> = (
     }
   }, [ofFiltrar]);
 
+  const handleConfirmarBaixaForcada = async (item: ApontamentoNotificacao) => {
+    try {
+      smartAudio.playClick();
+      setConfirmandoId(item.id);
+
+      const nomeOperador = user?.name || user?.email?.split('@')[0] || 'Operador';
+
+      const { error } = await supabase
+        .from('apontamentos_producao' as any)
+        .update({
+          status_confirmacao: 'confirmado',
+          data_confirmacao: new Date().toISOString(),
+          confirmado_por_user_nome: nomeOperador,
+          confirmado_por_user_id: user?.id,
+        })
+        .eq('id', item.id);
+
+      if (error) throw error;
+
+      smartAudio.playSuccess();
+      toast.success(`✅ Baixa confirmada: ${item.marca} (${item.processo_nome})`);
+
+      // Atualiza lista local
+      setApontamentos((prev) =>
+        prev.map((ap) => (ap.id === item.id ? { ...ap, status_confirmacao: 'confirmado' } : ap))
+      );
+
+      if (onApontamentoConfirmado) {
+        onApontamentoConfirmado();
+      }
+    } catch (err: any) {
+      smartAudio.playAlert();
+      console.error('Erro ao confirmar baixa:', err);
+      toast.error('Erro ao confirmar baixa: ' + (err?.message || 'Falha de conexão'));
+    } finally {
+      setConfirmandoId(null);
+    }
+  };
+
   useEffect(() => {
     if (isOpen) {
       carregarNotificacoes();
@@ -152,6 +210,13 @@ export const SmartNotificationsModal: React.FC<SmartNotificationsModalProps> = (
   }, [isOpen, carregarNotificacoes]);
 
   if (!isOpen) return null;
+
+  const pendentesConfirmacao = apontamentos.filter(
+    (ap) => ap.is_forcado && ap.status_confirmacao === 'pendente_confirmacao'
+  );
+  const outrosApontamentos = apontamentos.filter(
+    (ap) => !(ap.is_forcado && ap.status_confirmacao === 'pendente_confirmacao')
+  );
 
   return (
     <div 
@@ -178,7 +243,7 @@ export const SmartNotificationsModal: React.FC<SmartNotificationsModalProps> = (
                 )}
               </h2>
               <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Histórico em tempo real das peças produzidas
+                Mostrando apontamentos de <strong className="text-slate-700 dark:text-slate-300">hoje e ontem</strong>
               </p>
             </div>
           </div>
@@ -210,22 +275,94 @@ export const SmartNotificationsModal: React.FC<SmartNotificationsModalProps> = (
           </div>
         </div>
 
-        {/* Lista de Notificações de Apontamentos */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2.5 custom-scrollbar">
+        {/* Conteúdo com Apontamentos */}
+        <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 custom-scrollbar">
+          {/* Seção 1: Apontamentos Forçados Pendentes de Confirmação */}
+          {pendentesConfirmacao.length > 0 && (
+            <div className="p-3 rounded-2xl bg-red-50/80 dark:bg-red-950/40 border-2 border-red-300 dark:border-red-800/80 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-red-700 dark:text-red-400">
+                  <AlertTriangle className="w-4 h-4 animate-bounce shrink-0" />
+                  <span>Apontamentos Forçados Pendentes ({pendentesConfirmacao.length})</span>
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-200 dark:bg-red-900/60 text-red-800 dark:text-red-300 animate-pulse">
+                  Ação Necessária
+                </span>
+              </div>
+              <p className="text-[11px] text-red-600 dark:text-red-300">
+                Peças foram apontadas no processo posterior e aguardam sua confirmação de baixa:
+              </p>
+
+              <div className="space-y-2">
+                {pendentesConfirmacao.map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-red-200 dark:border-red-800/60 flex items-center justify-between gap-2 shadow-sm"
+                  >
+                    <div className="min-w-0 flex-1 space-y-0.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono font-black text-xs text-red-700 dark:text-red-400">
+                          {item.marca}
+                        </span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                          OF {item.of_number} • F{item.fase}
+                        </span>
+                        <span 
+                          className="text-[10px] font-bold px-1.5 py-0.2 rounded"
+                          style={{
+                            backgroundColor: `${item.processo_cor}20`,
+                            color: item.processo_cor,
+                          }}
+                        >
+                          {item.processo_nome}
+                        </span>
+                      </div>
+
+                      <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-2 flex-wrap">
+                        <span>Qtd: <strong>{item.quantidade} un</strong></span>
+                        {item.forcado_por_user_nome && (
+                          <span className="text-red-600 dark:text-red-400 font-semibold">
+                            Forçado por: {item.forcado_por_user_nome}
+                          </span>
+                        )}
+                        <span>{formatarTempo(item.created_at)}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={confirmandoId === item.id}
+                      onClick={() => handleConfirmarBaixaForcada(item)}
+                      className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-black text-xs flex items-center gap-1 shrink-0 shadow-sm active:scale-95 transition-all"
+                    >
+                      {confirmandoId === item.id ? (
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <CheckCheck className="w-3.5 h-3.5" />
+                      )}
+                      <span>Confirmar Baixa</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Seção 2: Histórico de Apontamentos Recentes (Hoje e Ontem) */}
           {carregando && apontamentos.length === 0 ? (
             <div className="py-12 flex flex-col items-center justify-center text-slate-400 space-y-2">
               <RefreshCw className="w-7 h-7 animate-spin text-amber-500" />
               <span className="text-xs font-medium">Buscando novos apontamentos...</span>
             </div>
-          ) : apontamentos.length === 0 ? (
+          ) : outrosApontamentos.length === 0 && pendentesConfirmacao.length === 0 ? (
             <div className="py-12 flex flex-col items-center justify-center text-center text-slate-400 space-y-2">
               <CheckCircle2 className="w-10 h-10 stroke-[1.2] text-slate-300 dark:text-slate-600" />
               <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                Nenhum apontamento registrado recentemente{ofFiltrar ? ` para a OF ${ofFiltrar}` : ''}.
+                Nenhum apontamento registrado hoje ou ontem{ofFiltrar ? ` para a OF ${ofFiltrar}` : ''}.
               </p>
             </div>
           ) : (
-            apontamentos.map((item) => (
+            outrosApontamentos.map((item) => (
               <div
                 key={item.id}
                 className="p-3 rounded-2xl bg-slate-50/80 dark:bg-slate-950/60 hover:bg-slate-100/90 dark:hover:bg-slate-800/60 border border-slate-200 dark:border-slate-800 transition-all duration-150 flex items-start justify-between gap-3 shadow-sm"
@@ -257,6 +394,11 @@ export const SmartNotificationsModal: React.FC<SmartNotificationsModalProps> = (
                       >
                         {item.processo_nome}
                       </span>
+                      {item.is_forcado && (
+                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-800">
+                          ⚡ Forçado (Confirmado)
+                        </span>
+                      )}
                     </div>
 
                     {item.perfil && (
@@ -291,7 +433,7 @@ export const SmartNotificationsModal: React.FC<SmartNotificationsModalProps> = (
 
         {/* Rodapé */}
         <div className="p-3 bg-slate-50/90 dark:bg-slate-950/80 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
-          <span>{apontamentos.length} apontamentos listados</span>
+          <span>{apontamentos.length} apontamentos listados (hoje e ontem)</span>
           <button
             type="button"
             onClick={() => {
@@ -308,59 +450,66 @@ export const SmartNotificationsModal: React.FC<SmartNotificationsModalProps> = (
   );
 };
 
-// Hook reativo para alertar e contar novos apontamentos no sininho
+// Hook reativo para alertar e contar novos apontamentos no sininho (Hoje e Ontem)
 export const useSmartNotificationsAlert = (ofFiltrar?: string) => {
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [hasNewAlert, setHasNewAlert] = useState<boolean>(false);
+  const [hasPendingForced, setHasPendingForced] = useState<boolean>(false);
+
+  const fetchRecentCount = useCallback(async () => {
+    try {
+      const dataOntem = new Date(Date.now() - 86400000);
+      const dataOntemIso = dataOntem.toISOString().split('T')[0];
+
+      // 1. Contar apontamentos recentes (hoje e ontem)
+      let query = supabase
+        .from('apontamentos_producao' as any)
+        .select('id, is_forcado, status_confirmacao', { count: 'exact' })
+        .gte('data_apontamento', dataOntemIso);
+
+      if (ofFiltrar) {
+        query = query.eq('of_number', ofFiltrar);
+      }
+
+      const { data, count, error } = await query;
+      if (!error && count !== null) {
+        setUnreadCount(count);
+        if (count > 0) setHasNewAlert(true);
+
+        const pending = (data || []).some(
+          (row: any) => row.is_forcado && row.status_confirmacao === 'pendente_confirmacao'
+        );
+        setHasPendingForced(pending);
+      }
+    } catch (err) {
+      console.debug('Erro ao contar apontamentos:', err);
+    }
+  }, [ofFiltrar]);
 
   useEffect(() => {
-    // 1. Busca contagem de apontamentos de hoje / recentes
-    const fetchRecentCount = async () => {
-      try {
-        const hoje = new Date();
-        hoje.setHours(0, 0, 0, 0);
-
-        let query = supabase
-          .from('apontamentos_producao' as any)
-          .select('id', { count: 'exact', head: true })
-          .gte('created_at', hoje.toISOString());
-
-        if (ofFiltrar) {
-          query = query.eq('of_number', ofFiltrar);
-        }
-
-        const { count, error } = await query;
-        if (!error && count !== null) {
-          setUnreadCount(count);
-          if (count > 0) setHasNewAlert(true);
-        }
-      } catch (err) {
-        console.debug('Erro ao contar apontamentos:', err);
-      }
-    };
-
     fetchRecentCount();
 
-    // 2. Realtime listener para alertar quando novos apontamentos forem inseridos
+    // Realtime listener para alertar quando novos apontamentos forem inseridos ou atualizados
     const channelName = `realtime-smart-notifs-${ofFiltrar || 'all'}-${Math.random().toString(36).substring(2, 7)}`;
     const channel = supabase
       .channel(channelName)
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
           table: 'apontamentos_producao',
         },
         (payload) => {
           const newRow = payload.new as any;
           if (!ofFiltrar || newRow?.of_number === ofFiltrar) {
-            setUnreadCount((c) => c + 1);
-            setHasNewAlert(true);
-            try {
-              smartAudio.playSuccess();
-            } catch {
-              // ignore
+            fetchRecentCount();
+            if (payload.eventType === 'INSERT') {
+              try {
+                smartAudio.playSuccess();
+              } catch {
+                // ignore
+              }
             }
           }
         }
@@ -370,12 +519,11 @@ export const useSmartNotificationsAlert = (ofFiltrar?: string) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [ofFiltrar]);
+  }, [ofFiltrar, fetchRecentCount]);
 
   const clearAlert = useCallback(() => {
     setHasNewAlert(false);
   }, []);
 
-  return { unreadCount, hasNewAlert, clearAlert };
+  return { unreadCount, hasNewAlert, hasPendingForced, clearAlert, refetch: fetchRecentCount };
 };
-
