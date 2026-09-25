@@ -27,12 +27,6 @@ export const AppSidebarMenuItem: React.FC<SidebarMenuItemProps> = ({
   onMenuItemClick,
   getIconProps
 }) => {
-  const canAccess = canAccessItem(item.key);
-  
-  if (!canAccess && !isAdmin) {
-    return null; // Don't show item if no access
-  }
-
   // Filtrar subitens permitidos para o usuário logado
   const subItemsPermitidos = (item.subItems || []).filter((subItem) => {
     if (subItem.url === "/admin/theme-customization" && !isAdmin) {
@@ -42,8 +36,16 @@ export const AppSidebarMenuItem: React.FC<SidebarMenuItemProps> = ({
   });
 
   // Se o item for apenas um agrupador de subitens e todos estiverem bloqueados, não renderizar o agrupador
-  if (item.subItems && item.subItems.length > 0 && subItemsPermitidos.length === 0 && !isAdmin) {
-    return null;
+  if (item.subItems && item.subItems.length > 0) {
+    if (!isAdmin && subItemsPermitidos.length === 0) {
+      return null;
+    }
+  } else {
+    // Se for item direto sem subitens
+    const canAccess = canAccessItem(item.key);
+    if (!canAccess && !isAdmin) {
+      return null;
+    }
   }
   
   return (

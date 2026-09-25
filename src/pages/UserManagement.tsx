@@ -6,7 +6,6 @@ import { Users, UserPlus, Shield, Settings, Mail, Activity, LayoutGrid } from 'l
 import { UsersTable } from '@/components/users/UsersTable';
 import { PendingUsersTable } from '@/components/users/PendingUsersTable';
 import { FunctionsManager } from '@/components/users/FunctionsManager';
-import { PrivilegesManager } from '@/components/users/PrivilegesManager';
 import { PasswordResetRequests } from '@/components/users/PasswordResetRequests';
 import { SessionLogsSimple } from '@/components/users/SessionLogsSimple';
 import { UserModal } from '@/components/users/UserModal';
@@ -40,9 +39,6 @@ const UserManagement = () => {
     createFunction,
     updateFunction,
     deleteFunction,
-    createPrivilege: createPrivilegeBase,
-    updatePrivilege: updatePrivilegeBase,
-    deletePrivilege,
     updateUser,
     toggleUserStatus,
     deleteUser,
@@ -66,15 +62,6 @@ const UserManagement = () => {
       </div>
     );
   }
-
-  // Wrapper functions to match expected signatures
-  const createPrivilege = async (data: { name: string; description?: string; permissions: Record<string, boolean> }): Promise<void> => {
-    await createPrivilegeBase(data);
-  };
-
-  const updatePrivilege = async (id: string, data: { name: string; description?: string; permissions: Record<string, boolean> }): Promise<void> => {
-    await updatePrivilegeBase(id, data);
-  };
 
   const handleEditUser = (user: UserProfile) => {
     if (!canEdit()) return;
@@ -158,7 +145,7 @@ const UserManagement = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-7 bg-muted h-auto p-1">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 md:grid-cols-6 bg-muted h-auto p-1">
           <TabsTrigger 
             value="matriz" 
             className="flex items-center gap-1 md:gap-2 text-xs md:text-sm p-2 md:p-3 font-semibold text-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
@@ -207,17 +194,6 @@ const UserManagement = () => {
               <Settings className="h-3 w-3 md:h-4 md:w-4" />
               <span className="hidden sm:inline">Funções</span>
               <span className="sm:hidden">Func</span>
-            </TabsTrigger>
-          )}
-          
-          {canEdit() && (
-            <TabsTrigger 
-              value="privileges" 
-              className="flex items-center gap-1 md:gap-2 text-xs md:text-sm p-2 md:p-3"
-            >
-              <Shield className="h-3 w-3 md:h-4 md:w-4" />
-              <span className="hidden sm:inline">Privilégios</span>
-              <span className="sm:hidden">Priv</span>
             </TabsTrigger>
           )}
           
@@ -305,27 +281,6 @@ const UserManagement = () => {
                   onCreate={canCreate() ? createFunction : undefined}
                   onUpdate={canEdit() ? updateFunction : undefined}
                   onDelete={canDelete() ? deleteFunction : undefined}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-        )}
-
-        {canEdit() && (
-          <TabsContent value="privileges" className="space-y-4 mt-4">
-            <Card className="card-mobile">
-              <CardHeader className="card-header-mobile">
-                <CardTitle className="text-lg md:text-xl flex items-center gap-2">
-                  <Shield className="h-4 w-4 md:h-5 md:w-5" />
-                  Gerenciar Privilégios
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="card-content-mobile">
-                <PrivilegesManager
-                  privileges={privileges as any}
-                  onCreate={canCreate() ? createPrivilege : undefined}
-                  onUpdate={canEdit() ? updatePrivilege : undefined}
-                  onDelete={canDelete() ? deletePrivilege : undefined}
                 />
               </CardContent>
             </Card>

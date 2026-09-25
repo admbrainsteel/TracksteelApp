@@ -3,6 +3,7 @@ import { useMatrizAcessos, UsuarioMatriz } from '@/hooks/useMatrizAcessos';
 import { MatrizGrid } from './MatrizGrid';
 import { MatrizTemplatesModal } from './MatrizTemplatesModal';
 import { MatrizSmartAvancadoModal } from './MatrizSmartAvancadoModal';
+import { MatrizGrupoAvancadoModal } from './MatrizGrupoAvancadoModal';
 import { SimuladorVisaoBar } from './SimuladorVisaoBar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ export const MatrizAcessosPainel: React.FC<MatrizAcessosPainelProps> = ({
   const [busca, setBusca] = useState('');
   const [selectedUserForTemplate, setSelectedUserForTemplate] = useState<UsuarioMatriz | null>(null);
   const [smartAvancadoOpen, setSmartAvancadoOpen] = useState(false);
+  const [grupoAvancadoKey, setGrupoAvancadoKey] = useState<string | null>(null);
 
   // Filtragem por nome, email ou cargo
   const usuariosFiltrados = usuarios.filter((u) => {
@@ -152,6 +154,7 @@ export const MatrizAcessosPainel: React.FC<MatrizAcessosPainelProps> = ({
           onToggleNivel={toggleNivel}
           onOpenTemplates={(user) => setSelectedUserForTemplate(user)}
           onOpenSmartAvancado={() => setSmartAvancadoOpen(true)}
+          onOpenGrupoAvancado={(key) => setGrupoAvancadoKey(key)}
         />
       )}
 
@@ -167,6 +170,13 @@ export const MatrizAcessosPainel: React.FC<MatrizAcessosPainelProps> = ({
       <MatrizSmartAvancadoModal
         isOpen={smartAvancadoOpen}
         onClose={() => setSmartAvancadoOpen(false)}
+      />
+
+      {/* 7. MODAL DE GESTÃO AVANÇADA POR CATEGORIA / GRUPO */}
+      <MatrizGrupoAvancadoModal
+        grupoKey={grupoAvancadoKey}
+        isOpen={Boolean(grupoAvancadoKey)}
+        onClose={() => setGrupoAvancadoKey(null)}
       />
     </div>
   );

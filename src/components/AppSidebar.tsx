@@ -100,46 +100,66 @@ export function AppSidebar() {
       // Admin can always access everything
       if (isAdmin) return true;
 
-      // Mapeamento de chave de menu/submenu da sidebar para resource_key do BD
+      // Mapeamento completo de chave de menu/submenu da sidebar para resource_key do BD
       const itemToResourceMap: Record<string, string> = {
+        // PCP & Produção
         'pcp': 'producao-pcp',
         'dashboard-producao': 'producao-dashboard',
         'apontamento-producao': 'producao-apontamento',
         'diario-producao': 'diario-producao',
         'prioridades-fabricacao': 'prioridades-fabricacao',
         'visao-geral': 'producao-visao',
+        'painel-industrial': 'producao-dashboard',
+        // Engenharia, 3D & OFs
         'visualizador-3d': 'visualizador-3d',
         'ordens-fabricacao': 'ofs-lista',
+        'ofs-concluidas': 'ofs-lista',
         'ficha-tecnica-of': 'cadastro-of',
         'cronograma': 'ofs-cronograma',
         'cadastro-pecas': 'cadastro-pecas',
         'equipamentos': 'equipamentos',
+        // Expedição & Estoque
         'expedicao': 'expedicao',
         'estoque-main': 'estoque',
         'estoque': 'estoque',
         'solicitacao-compras': 'estoque-solicitacao-compras',
+        // Obra & Campo
         'dashboard-obras': 'obra-dashboard',
         'configuracoes-obra': 'obra-configuracoes',
         'obra': 'obra-dashboard',
+        // Tarefas & Ferramentas
+        'tarefas': 'tarefas',
+        'lista-tarefas': 'tarefas',
+        'historico-tarefas': 'tarefas',
+        'ferramentas': 'ferramentas',
+        'conversores': 'ferramentas-inconsistencias',
+        'inconsistencias': 'ferramentas-inconsistencias',
+        // Biblioteca & Sistema
+        'biblioteca': 'sistema',
+        'catalogos': 'sistema',
+        'normas': 'sistema',
+        'referencias': 'sistema',
+        'sistema': 'sistema',
+        'sugestoes': 'sugestoes',
+        'atribuicoes': 'user-management',
+        'mapa-interativo': 'dashboard',
+        'dashboard': 'dashboard',
+        // Administração & Usuários
         'gerenciar-usuarios': 'user-management',
         'user-management': 'user-management',
         'configuracoes-gerais': 'configuracoes-gerais',
-        'inconsistencias': 'ferramentas-inconsistencias',
-        'ferramentas': 'ferramentas',
-        'sistema': 'sistema',
-        'sugestoes': 'sugestoes',
+        'personalizacao-tema': 'admin',
         'admin': 'admin',
-        'dashboard': 'dashboard',
       };
 
       const resKey = itemToResourceMap[itemKey] || itemKey;
 
-      // Se há restrição direta configurada no BD para este recurso
+      // 1. Se há restrição direta configurada no BD para este recurso
       if (resourcePermissions && resourcePermissions[resKey]) {
         return resourcePermissions[resKey] !== 'no_access';
       }
 
-      // Se o usuário tem perfil de "apenas Smart" (tem modo-smart mas não tem esse recurso)
+      // 2. Se o usuário tem perfil de "apenas Smart" (tem modo-smart mas não tem outros recursos)
       const temAcessoSmart =
         resourcePermissions &&
         resourcePermissions['modo-smart'] &&
@@ -156,8 +176,23 @@ export function AppSidebar() {
       if (soTemSmart && !resKey.startsWith('smart') && resKey !== 'modo-smart') {
         return false;
       }
+
+      // 3. Se há permissões individuais salvas na Matriz para este usuário:
+      // Se a matriz foi configurada para o usuário, qualquer tela que não foi concedida (exceto dashboard básico) fica oculta
+      if (permsCadastradas.length > 0) {
+        if (resourcePermissions[resKey] === 'no_access') {
+          return false;
+        }
+        if (resKey !== 'dashboard' && !resKey.startsWith('smart')) {
+          // Se não consta na lista de permissões ativas concedidas
+          const perm = resourcePermissions[resKey];
+          if (!perm || perm === 'no_access') {
+            return false;
+          }
+        }
+      }
       
-      // Se o item requer permissão especial, verificar permissões específicas
+      // 4. Se o item requer permissão especial, verificar permissões específicas
       if (requiresSpecialPermission) {
         if (itemKey === 'ferramentas') {
           return canAccessTools();
@@ -235,12 +270,25 @@ export function AppSidebar() {
         {menuGroups.map(group => {
           // Filter admin groups for non-admin users
           if (!isAdmin && group.name === 'Administração') {
-            logger.debug('Ocultando grupo admin para usuário não-admin');
-            return null;
+            const hasAnyAdminItem = group.items.some(item => canAccessItem(item.key, item.requiresSpecialPermission));
+            if (!hasAnyAdminItem) {
+              return null;
+            }
           }
 
-          // Skip groups with no items
-          if (!group.items || group.items.length === 0) {
+          // Filtrar itens do grupo permitidos para o usuário logado
+          const itemsPermitidos = (group.items || []).filter(item => {
+            if (item.subItems && item.subItems.length > 0) {
+              return isAdmin || item.subItems.some(sub => {
+                if (sub.url === "/admin/theme-customization" && !isAdmin) return false;
+                return canAccessItem(sub.key, sub.requiresSpecialPermission);
+              });
+            }
+            return isAdmin || canAccessItem(item.key, item.requiresSpecialPermission);
+          });
+
+          // Se não houver itens visíveis no grupo, não renderiza o grupo (nem o título)
+          if (itemsPermitidos.length === 0) {
             return null;
           }
 
@@ -254,7 +302,7 @@ export function AppSidebar() {
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {group.items.map((item) => (
+                  {itemsPermitidos.map((item) => (
                     <AppSidebarMenuItem
                       key={item.key || item.title}
                       item={item}

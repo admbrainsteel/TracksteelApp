@@ -12,6 +12,7 @@ interface MatrizGridProps {
   onToggleNivel: (userId: string, resourceKey: string, tipo: 'V' | 'C') => void;
   onOpenTemplates: (user: UsuarioMatriz) => void;
   onOpenSmartAvancado?: () => void;
+  onOpenGrupoAvancado?: (grupoKey: string) => void;
 }
 
 export const MatrizGrid: React.FC<MatrizGridProps> = ({
@@ -20,6 +21,7 @@ export const MatrizGrid: React.FC<MatrizGridProps> = ({
   onToggleNivel,
   onOpenTemplates,
   onOpenSmartAvancado,
+  onOpenGrupoAvancado,
 }) => {
   // Cores de fundo e borda para os grupos
   const corGrupoHeader: Record<string, string> = {
@@ -29,6 +31,15 @@ export const MatrizGrid: React.FC<MatrizGridProps> = ({
     amber: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
     teal: 'bg-teal-500/10 text-teal-400 border-teal-500/30',
     rose: 'bg-rose-500/10 text-rose-400 border-rose-500/30',
+  };
+
+  const corBotaoAvancado: Record<string, string> = {
+    emerald: 'bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40',
+    sky: 'bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40',
+    indigo: 'bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/40',
+    amber: 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40',
+    teal: 'bg-teal-500/20 hover:bg-teal-500/30 text-teal-300 border border-teal-500/40',
+    rose: 'bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40',
   };
 
   return (
@@ -52,7 +63,7 @@ export const MatrizGrid: React.FC<MatrizGridProps> = ({
                 >
                   <div className="flex items-center justify-center gap-2 flex-wrap">
                     <span>{grupo.titulo}</span>
-                    {grupo.key === 'smart' && onOpenSmartAvancado && (
+                    {grupo.key === 'smart' && onOpenSmartAvancado ? (
                       <Button
                         size="sm"
                         variant="secondary"
@@ -63,7 +74,18 @@ export const MatrizGrid: React.FC<MatrizGridProps> = ({
                         <SlidersHorizontal className="h-3 w-3" />
                         Avançado
                       </Button>
-                    )}
+                    ) : onOpenGrupoAvancado ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => onOpenGrupoAvancado(grupo.key)}
+                        className={`h-6 px-2 py-0 text-[10px] ${corBotaoAvancado[grupo.cor] || 'bg-primary/20 text-primary border-primary/40'} rounded-md font-semibold flex items-center gap-1 shadow-sm transition-transform active:scale-95`}
+                        title={`Abrir Regras & Governança Avançada de ${grupo.titulo}`}
+                      >
+                        <SlidersHorizontal className="h-3 w-3" />
+                        Avançado
+                      </Button>
+                    ) : null}
                   </div>
                   <span className="text-[10px] font-normal opacity-80 block truncate">
                     {grupo.descricao}
