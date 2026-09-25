@@ -13,6 +13,8 @@ import { useState, useEffect } from 'react';
 import { useDiarioProducao, type RecursoProducao, type ApontamentoDiarioRecurso, type LoteSoldaDiario } from '@/hooks/useDiarioProducao';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { useFichaTecnica } from '@/hooks/useFichaTecnica';
+import { usePermissions } from '@/hooks/usePermissions';
+import { toast } from 'sonner';
 
 interface DiarioData {
   id?: string;
@@ -28,6 +30,7 @@ interface DiarioData {
 }
 
 const DiarioProducao = () => {
+  const { canRegra } = usePermissions();
   const [activeTab, setActiveTab] = useState('diario');
   const [selectedOF, setSelectedOF] = useState('');
   const [showOFModal, setShowOFModal] = useState(false);
@@ -131,6 +134,12 @@ const DiarioProducao = () => {
 
   const salvarDiarioCompleto = async () => {
     try {
+      const hoje = new Date().toISOString().split('T')[0];
+      if (currentDiario.data < hoje && !canRegra('pcp_retroativo_permitido')) {
+        toast.error('Atenção: Você não possui permissão para apontar produção com data retroativa.');
+        return;
+      }
+
       // 1. Salvar o diário principal
       const diarioSalvo = await salvarDiario.mutateAsync({
         data: currentDiario.data,
@@ -608,17 +617,31 @@ const DiarioProducao = () => {
                               <Button variant="ghost" size="sm">
                                 <Edit className="h-4 w-4" />
                               </Button>
-                              <Button variant="ghost" size="sm">
-                                <Printer className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => diario.id && deletarDiario.mutate(diario.id)}
-                                disabled={deletarDiario.isPending}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
+                              {canRegra('pcp_exportar_relatorios') && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm"
+                                  title="Exportar/Imprimir Diário"
+                                  onClick={() => window.print()}
+                                >
+                                  <Printer className="h-4 w-4" />
+                                </Button>
+                              )}
+                              {canRegra('pcp_excluir_apontamento') && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  title="Excluir Diário"
+                                  onClick={() => {
+                                    if (confirm('Tem certeza que deseja excluir este diário de produção?')) {
+                                      diario.id && deletarDiario.mutate(diario.id);
+                                    }
+                                  }}
+                                  disabled={deletarDiario.isPending}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              )}
                             </div>
                           </td>
                         </tr>

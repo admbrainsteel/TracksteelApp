@@ -27,26 +27,33 @@ import {
   ArrowUpDown,
   Layers,
   AlertTriangle,
-  Gauge,
   Download,
-  DollarSign,
   Network,
   UploadCloud,
   Compass,
-  Scale,
-  Percent,
-  FileSignature,
-  EyeOff,
   Barcode,
   PackageCheck,
   CheckSquare,
-  AlertOctagon,
   Activity,
-  DownloadCloud,
   Settings,
   Crown,
   Wrench,
   Calendar,
+  Trash2,
+  FileSpreadsheet,
+  PlusCircle,
+  PlusSquare,
+  Edit3,
+  FileText,
+  Printer,
+  FileInput,
+  ShoppingCart,
+  CheckCheck,
+  AlertCircle,
+  Settings2,
+  Users,
+  ShieldCheck,
+  KeyRound,
 } from 'lucide-react';
 import { useGrupoAvancadoPermissions } from '@/hooks/useGrupoAvancadoPermissions';
 
@@ -114,40 +121,52 @@ export const MatrizGrupoAvancadoModal: React.FC<MatrizGrupoAvancadoModalProps> =
         return <ArrowUpDown className="h-4 w-4 text-amber-400" />;
       case 'Layers':
         return <Layers className="h-4 w-4 text-indigo-400" />;
-      case 'AlertTriangle':
-        return <AlertTriangle className="h-4 w-4 text-orange-400" />;
-      case 'Gauge':
-        return <Gauge className="h-4 w-4 text-purple-400" />;
-      case 'CheckCircle2':
-        return <CheckCircle2 className="h-4 w-4 text-emerald-400" />;
-      case 'Download':
-        return <Download className="h-4 w-4 text-sky-400" />;
-      case 'DollarSign':
-        return <DollarSign className="h-4 w-4 text-emerald-500" />;
-      case 'Network':
-        return <Network className="h-4 w-4 text-indigo-400" />;
+      case 'Trash2':
+        return <Trash2 className="h-4 w-4 text-rose-400" />;
+      case 'FileSpreadsheet':
+        return <FileSpreadsheet className="h-4 w-4 text-emerald-400" />;
+      case 'PlusCircle':
+        return <PlusCircle className="h-4 w-4 text-emerald-400" />;
+      case 'PlusSquare':
+        return <PlusSquare className="h-4 w-4 text-amber-400" />;
+      case 'Edit3':
+        return <Edit3 className="h-4 w-4 text-sky-400" />;
       case 'UploadCloud':
         return <UploadCloud className="h-4 w-4 text-teal-400" />;
-      case 'Scale':
-        return <Scale className="h-4 w-4 text-amber-400" />;
-      case 'Percent':
-        return <Percent className="h-4 w-4 text-cyan-400" />;
-      case 'FileSignature':
-        return <FileSignature className="h-4 w-4 text-orange-400" />;
-      case 'EyeOff':
-        return <EyeOff className="h-4 w-4 text-rose-400" />;
-      case 'RotateCcw':
-        return <RotateCcw className="h-4 w-4 text-amber-400" />;
+      case 'Network':
+        return <Network className="h-4 w-4 text-indigo-400" />;
+      case 'Download':
+        return <Download className="h-4 w-4 text-sky-400" />;
+      case 'FileText':
+        return <FileText className="h-4 w-4 text-slate-300" />;
       case 'PackageCheck':
         return <PackageCheck className="h-4 w-4 text-teal-400" />;
       case 'CheckSquare':
         return <CheckSquare className="h-4 w-4 text-emerald-400" />;
-      case 'AlertOctagon':
-        return <AlertOctagon className="h-4 w-4 text-rose-400" />;
+      case 'RotateCcw':
+        return <RotateCcw className="h-4 w-4 text-amber-400" />;
+      case 'Printer':
+        return <Printer className="h-4 w-4 text-indigo-400" />;
+      case 'SlidersHorizontal':
+        return <SlidersHorizontal className="h-4 w-4 text-cyan-400" />;
+      case 'FileInput':
+        return <FileInput className="h-4 w-4 text-emerald-400" />;
+      case 'ShoppingCart':
+        return <ShoppingCart className="h-4 w-4 text-orange-400" />;
+      case 'CheckCheck':
+        return <CheckCheck className="h-4 w-4 text-teal-400" />;
+      case 'AlertCircle':
+        return <AlertCircle className="h-4 w-4 text-amber-400" />;
+      case 'Settings2':
+        return <Settings2 className="h-4 w-4 text-indigo-400" />;
+      case 'Users':
+        return <Users className="h-4 w-4 text-sky-400" />;
+      case 'ShieldCheck':
+        return <ShieldCheck className="h-4 w-4 text-emerald-400" />;
+      case 'KeyRound':
+        return <KeyRound className="h-4 w-4 text-amber-400" />;
       case 'Activity':
         return <Activity className="h-4 w-4 text-rose-400" />;
-      case 'DownloadCloud':
-        return <DownloadCloud className="h-4 w-4 text-sky-400" />;
       case 'Settings':
         return <Settings className="h-4 w-4 text-slate-400" />;
       case 'Crown':
@@ -156,6 +175,12 @@ export const MatrizGrupoAvancadoModal: React.FC<MatrizGrupoAvancadoModalProps> =
         return <Shield className="h-3.5 w-3.5 text-sky-400" />;
       case 'Wrench':
         return <Wrench className="h-3.5 w-3.5 text-emerald-400" />;
+      case 'Compass':
+        return <Compass className="h-3.5 w-3.5 text-cyan-400" />;
+      case 'Barcode':
+        return <Barcode className="h-3.5 w-3.5 text-amber-400" />;
+      case 'Box':
+        return <Box className="h-3.5 w-3.5 text-indigo-400" />;
       default:
         return <Sparkles className="h-4 w-4 text-amber-400" />;
     }

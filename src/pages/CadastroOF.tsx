@@ -15,6 +15,7 @@ import { FichaTecnicaPreview } from '@/components/forms/FichaTecnicaPreview';
 import { useThemeConfig } from '@/hooks/useThemeConfig';
 import { useFichaTecnica, FichaTecnicaData } from '@/hooks/useFichaTecnica';
 import { useUserManagement } from '@/hooks/useUserManagement';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface InfoCalculoEstrutural {
   e: boolean;
@@ -179,6 +180,7 @@ const CadastroOF = () => {
   const { themeConfig } = useThemeConfig();
   const { buscarFichaTecnica, salvarFichaTecnica, loading: fichaTecnicaLoading } = useFichaTecnica();
   const { users } = useUserManagement();
+  const { canRegra } = usePermissions();
 
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [isSaving, setIsSaving] = useState(false);
@@ -285,6 +287,16 @@ const CadastroOF = () => {
   const handleSave = async () => {
     if (!formData.of_number) {
       toast.error('Número da OF é obrigatório');
+      return;
+    }
+
+    if (!isEditing && !canRegra('eng_criar_of')) {
+      toast.error('Atenção: Você não possui permissão para cadastrar novas Ordens de Fabricação.');
+      return;
+    }
+
+    if (isEditing && !canRegra('eng_editar_of')) {
+      toast.error('Atenção: Você não possui permissão para alterar dados desta Ordem de Fabricação.');
       return;
     }
 

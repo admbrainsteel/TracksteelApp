@@ -2,6 +2,7 @@
 import { useUserPermissions } from '@/hooks/useUserPermissions';
 import { useUserRole } from '@/hooks/useUserRole';
 import type { ResourceKey, PermissionLevel } from '@/hooks/useUserPermissions/types';
+import { GRUPOS_AVANCADOS_CONFIG } from '@/types/grupoAvancadoTypes';
 
 export function usePermissions() {
   const { isAdmin } = useUserRole();
@@ -68,10 +69,35 @@ export function usePermissions() {
     }
   };
 
+  /**
+   * Verifica se o colaborador logado tem autorização para executar uma regra avançada específica
+   * (ex: 'pcp_fechar_diario', 'eng_criar_of', 'exp_despachar_carga', etc.)
+   */
+  const canRegra = (regraKey: string): boolean => {
+    if (isAdmin) return true;
+
+    // 1. Verificar permissão explícita configurada no banco
+    const perm = getResourcePermission(regraKey);
+    if (perm === 'no_access') return false;
+    if (perm) return true;
+
+    // 2. Fallback: verificar se a regra é ativa por padrão nas configurações
+    for (const grupo of Object.values(GRUPOS_AVANCADOS_CONFIG)) {
+      const regra = grupo.regras.find((r) => r.key === regraKey);
+      if (regra) {
+        return Boolean(regra.padraoAtivo);
+      }
+    }
+
+    return false;
+  };
+
   return {
+    isAdmin,
     checkResourceAccess,
     getPermissionForResource,
     canPerformAction,
-    userPermissions
+    canRegra,
+    userPermissions,
   };
 }

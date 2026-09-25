@@ -29,8 +29,11 @@ import { useOFsAtivas } from '@/hooks/useOFsAtivas';
 import { useMobileResponsive } from '@/hooks/useMobileResponsive';
 import { RomaneioExpedicao } from '@/hooks/useRomaneios';
 import { RelatoriosExpedicao } from '@/components/expedicao/RelatoriosExpedicao';
+import { usePermissions } from '@/hooks/usePermissions';
+import { toast } from 'sonner';
 
 const Expedicao = () => {
+  const { canRegra } = usePermissions();
   const { isMobile } = useMobileResponsive();
   const { data: romaneios, isLoading, refetch } = useRomaneios();
   const { data: ofsAtivas, isLoading: isLoadingOFs } = useOFsAtivas();
@@ -104,6 +107,11 @@ const Expedicao = () => {
   };
 
   const confirmDelete = async () => {
+    if (!canRegra('exp_cancelar_estornar')) {
+      toast.error('Atenção: Você não possui permissão para cancelar ou estornar romaneios de expedição.');
+      return;
+    }
+
     if (romaneioToDelete) {
       try {
         await removerRomaneioMutation.mutateAsync(romaneioToDelete);
@@ -321,10 +329,12 @@ const Expedicao = () => {
             </Sheet>
           )}
 
-          <Button size={isMobile ? "sm" : "default"} onClick={() => setShowRomaneioForm(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Novo Romaneio
-          </Button>
+          {canRegra('exp_criar_romaneio') && (
+            <Button size={isMobile ? "sm" : "default"} onClick={() => setShowRomaneioForm(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Novo Romaneio
+            </Button>
+          )}
         </div>
       </div>
 
