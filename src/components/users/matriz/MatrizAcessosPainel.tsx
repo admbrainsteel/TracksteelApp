@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { useMatrizAcessos, UsuarioMatriz } from '@/hooks/useMatrizAcessos';
 import { MatrizGrid } from './MatrizGrid';
 import { MatrizTemplatesModal } from './MatrizTemplatesModal';
+import { MatrizSmartAvancadoModal } from './MatrizSmartAvancadoModal';
 import { SimuladorVisaoBar } from './SimuladorVisaoBar';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Search, RefreshCw, Users, Shield, Factory, Sparkles } from 'lucide-react';
+import { Search, RefreshCw, Users, Shield, Factory, Sparkles, SlidersHorizontal } from 'lucide-react';
 
 interface MatrizAcessosPainelProps {
   onOpenNovoUsuario?: () => void;
@@ -28,6 +29,7 @@ export const MatrizAcessosPainel: React.FC<MatrizAcessosPainelProps> = ({
 
   const [busca, setBusca] = useState('');
   const [selectedUserForTemplate, setSelectedUserForTemplate] = useState<UsuarioMatriz | null>(null);
+  const [smartAvancadoOpen, setSmartAvancadoOpen] = useState(false);
 
   // Filtragem por nome, email ou cargo
   const usuariosFiltrados = usuarios.filter((u) => {
@@ -108,6 +110,16 @@ export const MatrizAcessosPainel: React.FC<MatrizAcessosPainelProps> = ({
           <Button
             size="sm"
             variant="outline"
+            onClick={() => setSmartAvancadoOpen(true)}
+            className="text-xs h-9 border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 font-semibold"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5 mr-1.5" />
+            Avançado Modo Smart
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
             onClick={recarregar}
             disabled={loading}
             className="text-xs h-9 text-muted-foreground hover:text-foreground"
@@ -139,6 +151,7 @@ export const MatrizAcessosPainel: React.FC<MatrizAcessosPainelProps> = ({
           grupos={gruposModulos}
           onToggleNivel={toggleNivel}
           onOpenTemplates={(user) => setSelectedUserForTemplate(user)}
+          onOpenSmartAvancado={() => setSmartAvancadoOpen(true)}
         />
       )}
 
@@ -148,6 +161,12 @@ export const MatrizAcessosPainel: React.FC<MatrizAcessosPainelProps> = ({
         isOpen={Boolean(selectedUserForTemplate)}
         onClose={() => setSelectedUserForTemplate(null)}
         onSelectTemplate={aplicarTemplate}
+      />
+
+      {/* 6. MODAL DE GESTÃO AVANÇADA MODO SMART */}
+      <MatrizSmartAvancadoModal
+        isOpen={smartAvancadoOpen}
+        onClose={() => setSmartAvancadoOpen(false)}
       />
     </div>
   );

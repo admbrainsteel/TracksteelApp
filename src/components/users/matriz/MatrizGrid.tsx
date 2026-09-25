@@ -3,7 +3,7 @@ import { UsuarioMatriz, GrupoRecurso, NivelAcesso } from '@/hooks/useMatrizAcess
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Sparkles, Eye, Edit3, ShieldAlert } from 'lucide-react';
+import { Sparkles, Eye, Edit3, ShieldAlert, SlidersHorizontal } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface MatrizGridProps {
@@ -11,6 +11,7 @@ interface MatrizGridProps {
   grupos: GrupoRecurso[];
   onToggleNivel: (userId: string, resourceKey: string, tipo: 'V' | 'C') => void;
   onOpenTemplates: (user: UsuarioMatriz) => void;
+  onOpenSmartAvancado?: () => void;
 }
 
 export const MatrizGrid: React.FC<MatrizGridProps> = ({
@@ -18,6 +19,7 @@ export const MatrizGrid: React.FC<MatrizGridProps> = ({
   grupos,
   onToggleNivel,
   onOpenTemplates,
+  onOpenSmartAvancado,
 }) => {
   // Cores de fundo e borda para os grupos
   const corGrupoHeader: Record<string, string> = {
@@ -48,8 +50,20 @@ export const MatrizGrid: React.FC<MatrizGridProps> = ({
                   colSpan={grupo.recursos.length}
                   className={`p-2.5 text-center border-r border-border/40 text-xs font-bold ${corGrupoHeader[grupo.cor]}`}
                 >
-                  <div className="flex items-center justify-center gap-1.5">
+                  <div className="flex items-center justify-center gap-2 flex-wrap">
                     <span>{grupo.titulo}</span>
+                    {grupo.key === 'smart' && onOpenSmartAvancado && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={onOpenSmartAvancado}
+                        className="h-6 px-2 py-0 text-[10px] bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 rounded-md font-semibold flex items-center gap-1 shadow-sm transition-transform active:scale-95"
+                        title="Abrir Gestão Avançada de Privilégios e Notificações do Modo Smart"
+                      >
+                        <SlidersHorizontal className="h-3 w-3" />
+                        Avançado
+                      </Button>
+                    )}
                   </div>
                   <span className="text-[10px] font-normal opacity-80 block truncate">
                     {grupo.descricao}
