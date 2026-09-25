@@ -39,9 +39,13 @@ import {
   Info,
   Sparkles,
   Lock,
+  Plus,
+  BookmarkPlus,
+  X,
 } from 'lucide-react';
 import { useSmartPermissions } from '@/hooks/useSmartPermissions';
-import { SMART_SUBMODULES } from '@/types/smartPermissions';
+import { SMART_SUBMODULES, SmartCustomTemplate } from '@/types/smartPermissions';
+import { CriarSmartTemplateModal } from './CriarSmartTemplateModal';
 
 interface MatrizSmartAvancadoModalProps {
   isOpen: boolean;
@@ -56,17 +60,21 @@ export const MatrizSmartAvancadoModal: React.FC<MatrizSmartAvancadoModalProps> =
     loading,
     saving,
     users,
+    templates,
     selectedUserId,
     setSelectedUserId,
     selectedUser,
     togglePermission,
     updateNotificationConfig,
     salvarConfiguracaoUsuario,
-    aplicarTemplateSmart,
+    aplicarTemplate,
+    criarNovoTemplate,
+    removerTemplateCustom,
     recarregar,
   } = useSmartPermissions();
 
   const [busca, setBusca] = useState('');
+  const [modalCriarTemplateOpen, setModalCriarTemplateOpen] = useState(false);
 
   const usersFiltrados = users.filter((u) => {
     const termo = busca.toLowerCase();
@@ -80,43 +88,49 @@ export const MatrizSmartAvancadoModal: React.FC<MatrizSmartAvancadoModalProps> =
   const getIconComponent = (icone: string) => {
     switch (icone) {
       case 'FileText':
-        return <FileText className="h-4 w-4 text-sky-400" />;
+        return <FileText className="h-4 w-4 text-sky-500 dark:text-sky-400" />;
       case 'Layers':
-        return <Layers className="h-4 w-4 text-indigo-400" />;
+        return <Layers className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />;
       case 'Flame':
-        return <Flame className="h-4 w-4 text-orange-400" />;
+        return <Flame className="h-4 w-4 text-orange-500 dark:text-orange-400" />;
       case 'CheckCircle2':
-        return <CheckCircle2 className="h-4 w-4 text-emerald-400" />;
+        return <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />;
       case 'Zap':
-        return <Zap className="h-4 w-4 text-amber-400" />;
+        return <Zap className="h-4 w-4 text-amber-500 dark:text-amber-400" />;
       case 'Box':
-        return <Box className="h-4 w-4 text-cyan-400" />;
+        return <Box className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />;
       case 'ExternalLink':
-        return <ExternalLink className="h-4 w-4 text-purple-400" />;
+        return <ExternalLink className="h-4 w-4 text-purple-600 dark:text-purple-400" />;
       case 'Truck':
-        return <Truck className="h-4 w-4 text-amber-500" />;
+        return <Truck className="h-4 w-4 text-amber-600 dark:text-amber-500" />;
       case 'Wrench':
-        return <Wrench className="h-4 w-4 text-teal-400" />;
+        return <Wrench className="h-4 w-4 text-teal-600 dark:text-teal-400" />;
       case 'FileSpreadsheet':
-        return <FileSpreadsheet className="h-4 w-4 text-emerald-500" />;
+        return <FileSpreadsheet className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />;
+      case 'Shield':
+        return <Shield className="h-3.5 w-3.5 text-rose-500 dark:text-rose-400" />;
+      case 'Factory':
+        return <Factory className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />;
+      case 'Eye':
+        return <Eye className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />;
       default:
-        return <Factory className="h-4 w-4 text-muted-foreground" />;
+        return <Sparkles className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />;
     }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-6xl w-[96vw] max-h-[92vh] h-[880px] p-0 flex flex-col bg-card border-border shadow-2xl rounded-2xl overflow-hidden">
+      <DialogContent className="max-w-6xl w-[96vw] max-h-[94vh] h-[900px] p-0 flex flex-col bg-card border-border shadow-2xl rounded-2xl overflow-hidden">
         {/* CABEÇALHO DO MODAL */}
         <div className="px-6 py-4 border-b border-border bg-muted/40 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <div className="p-2.5 rounded-xl bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
               <SlidersHorizontal className="h-5 w-5" />
             </div>
             <div>
-              <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+              <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2 text-foreground">
                 Gestão Avançada de Privilégios & Notificações
-                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 text-[10px] uppercase tracking-wider font-semibold">
+                <Badge variant="outline" className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40 text-[10px] uppercase tracking-wider font-bold">
                   Modo Smart
                 </Badge>
               </DialogTitle>
@@ -130,7 +144,7 @@ export const MatrizSmartAvancadoModal: React.FC<MatrizSmartAvancadoModalProps> =
         {/* CORPO PRINCIPAL COM SIDEBAR DE USUÁRIOS E ÁREA DE CONFIGURAÇÃO */}
         <div className="flex-1 flex overflow-hidden">
           {/* SIDEBAR DE USUÁRIOS */}
-          <div className="w-[300px] border-r border-border bg-background/50 flex flex-col">
+          <div className="w-[280px] sm:w-[310px] border-r border-border bg-background/60 flex flex-col shrink-0">
             <div className="p-3 border-b border-border">
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
@@ -138,7 +152,7 @@ export const MatrizSmartAvancadoModal: React.FC<MatrizSmartAvancadoModalProps> =
                   placeholder="Buscar colaborador..."
                   value={busca}
                   onChange={(e) => setBusca(e.target.value)}
-                  className="pl-8 text-xs h-8 bg-card"
+                  className="pl-8 text-xs h-8 bg-card border-slate-300 dark:border-border text-foreground font-medium"
                 />
               </div>
             </div>
@@ -161,8 +175,8 @@ export const MatrizSmartAvancadoModal: React.FC<MatrizSmartAvancadoModalProps> =
                       onClick={() => setSelectedUserId(user.userId)}
                       className={`w-full text-left p-2.5 rounded-xl transition-all flex items-center gap-2.5 ${
                         isSelected
-                          ? 'bg-emerald-500/15 border border-emerald-500/30 text-foreground shadow-sm'
-                          : 'hover:bg-muted/50 text-muted-foreground hover:text-foreground'
+                          ? 'bg-emerald-500/15 border border-emerald-500/40 text-foreground shadow-sm'
+                          : 'hover:bg-muted/60 text-muted-foreground hover:text-foreground'
                       }`}
                     >
                       <Avatar className="h-8 w-8 rounded-lg border border-border">
@@ -172,15 +186,15 @@ export const MatrizSmartAvancadoModal: React.FC<MatrizSmartAvancadoModalProps> =
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
-                        <p className={`text-xs font-bold truncate ${isSelected ? 'text-emerald-400' : 'text-foreground'}`}>
+                        <p className={`text-xs font-bold truncate ${isSelected ? 'text-emerald-700 dark:text-emerald-400 font-extrabold' : 'text-slate-800 dark:text-foreground'}`}>
                           {user.fullName}
                         </p>
-                        <p className="text-[10px] text-muted-foreground truncate">
+                        <p className="text-[10px] text-slate-500 dark:text-muted-foreground truncate">
                           {user.functionName}
                         </p>
                       </div>
                       {user.whatsappNumber && (
-                        <div className="p-1 rounded-md bg-emerald-500/10 text-emerald-400" title={`WhatsApp: ${user.whatsappNumber}`}>
+                        <div className="p-1 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" title={`WhatsApp: ${user.whatsappNumber}`}>
                           <MessageSquare className="h-3 w-3" />
                         </div>
                       )}
@@ -194,9 +208,9 @@ export const MatrizSmartAvancadoModal: React.FC<MatrizSmartAvancadoModalProps> =
           {/* ÁREA DE CONFIGURAÇÃO DO USUÁRIO SELECIONADO */}
           <div className="flex-1 flex flex-col bg-card overflow-y-auto">
             {selectedUser ? (
-              <div className="p-6 space-y-6">
-                {/* CABEÇALHO DO USUÁRIO + AÇÕES RÁPIDAS */}
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-xl border border-border bg-muted/20">
+              <div className="p-5 sm:p-6 space-y-6">
+                {/* CABEÇALHO DO USUÁRIO + PERFIL */}
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl border border-border bg-muted/20">
                   <div className="flex items-center gap-3">
                     <Avatar className="h-12 w-12 rounded-xl border border-border shadow-sm">
                       <AvatarImage src={selectedUser.profileImageUrl || ''} />
@@ -205,82 +219,125 @@ export const MatrizSmartAvancadoModal: React.FC<MatrizSmartAvancadoModalProps> =
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <h3 className="text-base font-bold text-foreground">
+                      <h3 className="text-base font-bold text-slate-900 dark:text-foreground">
                         {selectedUser.fullName}
                       </h3>
                       <p className="text-xs text-muted-foreground flex items-center gap-2">
-                        <span>{selectedUser.email}</span>
+                        <span className="text-slate-600 dark:text-slate-400">{selectedUser.email}</span>
                         <span>•</span>
-                        <span className="text-emerald-400 font-medium">{selectedUser.functionName}</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">{selectedUser.functionName}</span>
                       </p>
                     </div>
                   </div>
 
-                  {/* TEMPLATES E BOTÃO SALVAR */}
-                  <div className="flex flex-wrap items-center gap-2">
+                  {/* BOTÃO PRINCIPAL DE SALVAR ALTERAÇÕES */}
+                  <Button
+                    size="sm"
+                    onClick={() => salvarConfiguracaoUsuario(selectedUser.userId)}
+                    disabled={saving}
+                    className="text-xs h-9 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-sm flex items-center gap-1.5 transition-transform active:scale-95"
+                  >
+                    <Save className={`h-4 w-4 ${saving ? 'animate-spin' : ''}`} />
+                    {saving ? 'Salvando...' : 'Salvar Alterações'}
+                  </Button>
+                </div>
+
+                {/* BARRA DE TEMPLATES RÁPIDOS & CRIAR NOVO TEMPLATE */}
+                <div className="p-3.5 rounded-2xl border border-border bg-background/50 space-y-2.5">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+                      <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                      Templates de Acesso em 1 Clique
+                    </div>
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => aplicarTemplateSmart(selectedUser.userId, 'operador')}
-                      className="text-xs h-8 border-border hover:bg-muted"
-                      title="Restringe para o padrão do chão de fábrica"
+                      onClick={() => setModalCriarTemplateOpen(true)}
+                      className="text-xs h-7 px-2.5 border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-bold flex items-center gap-1 shadow-sm"
                     >
-                      <Factory className="h-3.5 w-3.5 mr-1 text-emerald-400" />
-                      Padrão Operador
+                      <Plus className="h-3.5 w-3.5" />
+                      Criar Novo Template
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => aplicarTemplateSmart(selectedUser.userId, 'admin')}
-                      className="text-xs h-8 border-border hover:bg-muted"
-                      title="Libera todos os 10 submódulos com acesso total"
-                    >
-                      <Shield className="h-3.5 w-3.5 mr-1 text-rose-400" />
-                      Total Admin
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => salvarConfiguracaoUsuario(selectedUser.userId)}
-                      disabled={saving}
-                      className="text-xs h-8 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-sm flex items-center gap-1.5"
-                    >
-                      <Save className={`h-3.5 w-3.5 ${saving ? 'animate-spin' : ''}`} />
-                      {saving ? 'Salvando...' : 'Salvar Alterações'}
-                    </Button>
+                  </div>
+
+                  {/* CHIPS DE TEMPLATES */}
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1 max-w-full">
+                    {templates.map((tpl) => (
+                      <div
+                        key={tpl.id}
+                        className="group relative shrink-0 flex items-center"
+                      >
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => aplicarTemplate(selectedUser.userId, tpl)}
+                          className="text-xs h-8 pl-2.5 pr-2.5 rounded-xl border-slate-300 dark:border-border hover:bg-muted/80 flex items-center gap-1.5 shadow-xs font-medium"
+                          title={tpl.descricao}
+                        >
+                          {getIconComponent(tpl.icone)}
+                          <span className="font-semibold text-slate-800 dark:text-slate-200">
+                            {tpl.nome}
+                          </span>
+                          {tpl.badge && (
+                            <Badge
+                              variant="secondary"
+                              className="ml-1 text-[9px] px-1 py-0 h-4 bg-muted text-muted-foreground"
+                            >
+                              {tpl.badge}
+                            </Badge>
+                          )}
+                        </Button>
+
+                        {/* Botão para deletar template customizado */}
+                        {tpl.isCustom && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removerTemplateCustom(tpl.id);
+                            }}
+                            className="ml-1 p-1 text-muted-foreground hover:text-rose-500 rounded-md transition-colors"
+                            title="Remover este template"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 </div>
 
                 {/* SEÇÃO 1: MATRIZ DE ACESSO AOS SUBMÓDULOS */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <Lock className="h-3.5 w-3.5 text-emerald-400" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <Lock className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                       1. Permissões Granulares nos Submódulos (Modo Smart)
                     </h4>
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-[11px] text-slate-500 dark:text-muted-foreground font-medium">
                       Controle de Visualização, Edição/Apontamento e Exclusão
                     </span>
                   </div>
 
-                  <div className="rounded-xl border border-border bg-background/50 overflow-hidden">
+                  <div className="rounded-2xl border border-border bg-background/50 overflow-hidden shadow-xs">
                     <table className="w-full text-left border-collapse">
                       <thead>
-                        <tr className="border-b border-border/80 bg-muted/40 text-[11px] text-muted-foreground font-semibold">
+                        <tr className="border-b border-border/80 bg-muted/40 text-[11px] text-slate-600 dark:text-muted-foreground font-bold">
                           <th className="p-3">Submódulo / Recurso</th>
                           <th className="p-3 text-center w-[110px]">
-                            <span className="inline-flex items-center gap-1 text-sky-400">
+                            <span className="inline-flex items-center gap-1 text-sky-600 dark:text-sky-400 font-bold">
                               <Eye className="h-3.5 w-3.5" />
                               Visualizar
                             </span>
                           </th>
-                          <th className="p-3 text-center w-[120px]">
-                            <span className="inline-flex items-center gap-1 text-emerald-400">
+                          <th className="p-3 text-center w-[130px]">
+                            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold">
                               <Edit3 className="h-3.5 w-3.5" />
                               Apontar / Editar
                             </span>
                           </th>
                           <th className="p-3 text-center w-[110px]">
-                            <span className="inline-flex items-center gap-1 text-rose-400">
+                            <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400 font-bold">
                               <Trash2 className="h-3.5 w-3.5" />
                               Excluir
                             </span>
@@ -302,14 +359,14 @@ export const MatrizSmartAvancadoModal: React.FC<MatrizSmartAvancadoModalProps> =
                             >
                               <td className="p-3">
                                 <div className="flex items-center gap-2.5">
-                                  <div className="p-1.5 rounded-lg bg-card border border-border/60">
+                                  <div className="p-1.5 rounded-lg bg-card border border-border/60 shadow-xs">
                                     {getIconComponent(sub.icone)}
                                   </div>
                                   <div>
-                                    <p className="font-bold text-foreground text-xs">
+                                    <p className="font-bold text-slate-900 dark:text-foreground text-xs">
                                       {sub.nome}
                                     </p>
-                                    <p className="text-[10px] text-muted-foreground">
+                                    <p className="text-[10px] text-slate-500 dark:text-muted-foreground font-medium">
                                       {sub.descricao}
                                     </p>
                                   </div>
@@ -361,19 +418,19 @@ export const MatrizSmartAvancadoModal: React.FC<MatrizSmartAvancadoModalProps> =
 
                 {/* SEÇÃO 2: NOTIFICAÇÕES & CANAL WHATSAPP VIA ÚNICA */}
                 <div className="space-y-4 pt-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <MessageSquare className="h-3.5 w-3.5 text-emerald-400" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <MessageSquare className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
                     2. Notificações do Usuário (E-mail & WhatsApp BrainSteel)
                   </h4>
 
-                  {/* BANNER INFORMATIVO: REGRA DE VIA ÚNICA */}
-                  <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-200 flex items-start gap-3">
-                    <AlertTriangle className="h-5 w-5 text-amber-400 shrink-0 mt-0.5" />
+                  {/* BANNER INFORMATIVO: ALTO CONTRASTE NO MODO CLARO E ESCURO */}
+                  <div className="p-4 rounded-2xl border border-amber-400/80 dark:border-amber-500/30 bg-amber-100/80 dark:bg-amber-500/10 text-amber-950 dark:text-amber-200 flex items-start gap-3 shadow-xs">
+                    <AlertTriangle className="h-5 w-5 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
                     <div className="text-xs space-y-1">
-                      <p className="font-bold text-amber-300">
+                      <p className="font-extrabold text-amber-900 dark:text-amber-300 text-xs">
                         Comunicação Estritamente Unidirecional (Via Única) no WhatsApp
                       </p>
-                      <p className="text-amber-200/90 leading-relaxed text-[11px]">
+                      <p className="text-amber-950 dark:text-amber-200/90 leading-relaxed text-[11px] font-medium">
                         O número oficial da BrainSteel é configurado para <strong>somente enviar</strong> alertas, relatórios e métricas de produção. Mensagens de resposta enviadas pelo colaborador não serão recebidas nem respondidas pelo sistema.
                       </p>
                     </div>
@@ -382,14 +439,14 @@ export const MatrizSmartAvancadoModal: React.FC<MatrizSmartAvancadoModalProps> =
                   {/* GRID DE CONFIGURAÇÕES DE CANAL */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* CANAL WHATSAPP */}
-                    <div className="p-4 rounded-xl border border-border bg-background/50 space-y-4">
-                      <div className="flex items-center gap-2 text-emerald-400 font-bold text-xs">
+                    <div className="p-4 rounded-2xl border border-border bg-background/50 space-y-4 shadow-xs">
+                      <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-bold text-xs">
                         <Phone className="h-4 w-4" />
                         Canal WhatsApp do Colaborador
                       </div>
 
                       <div className="space-y-1.5">
-                        <Label className="text-[11px] text-muted-foreground">
+                        <Label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
                           Número de WhatsApp com DDD
                         </Label>
                         <Input
@@ -402,9 +459,9 @@ export const MatrizSmartAvancadoModal: React.FC<MatrizSmartAvancadoModalProps> =
                               e.target.value
                             )
                           }
-                          className="h-8 text-xs bg-card"
+                          className="h-8 text-xs bg-background dark:bg-card border-slate-300 dark:border-border text-foreground font-medium placeholder:text-slate-500 dark:placeholder:text-muted-foreground/80"
                         />
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-[10px] text-slate-500 dark:text-muted-foreground font-medium block">
                           Informe o número com DDD para receber avisos automáticos.
                         </span>
                       </div>
@@ -412,10 +469,10 @@ export const MatrizSmartAvancadoModal: React.FC<MatrizSmartAvancadoModalProps> =
                       <div className="pt-2 border-t border-border/40 space-y-3">
                         <div className="flex items-center justify-between">
                           <div className="space-y-0.5">
-                            <Label className="text-xs font-medium text-foreground">
+                            <Label className="text-xs font-semibold text-slate-800 dark:text-foreground">
                               Alertas de Apontamentos
                             </Label>
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className="text-[10px] text-slate-500 dark:text-muted-foreground font-medium">
                               Notificar sobre novos apontamentos ou avanços forçados
                             </p>
                           </div>
@@ -433,10 +490,10 @@ export const MatrizSmartAvancadoModal: React.FC<MatrizSmartAvancadoModalProps> =
 
                         <div className="flex items-center justify-between">
                           <div className="space-y-0.5">
-                            <Label className="text-xs font-medium text-foreground">
+                            <Label className="text-xs font-semibold text-slate-800 dark:text-foreground">
                               Resumo Diário de Métricas
                             </Label>
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className="text-[10px] text-slate-500 dark:text-muted-foreground font-medium">
                               Receber fechamento diário de produção (peso e peças)
                             </p>
                           </div>
@@ -455,8 +512,8 @@ export const MatrizSmartAvancadoModal: React.FC<MatrizSmartAvancadoModalProps> =
                     </div>
 
                     {/* CANAL E-MAIL */}
-                    <div className="p-4 rounded-xl border border-border bg-background/50 space-y-4">
-                      <div className="flex items-center gap-2 text-sky-400 font-bold text-xs">
+                    <div className="p-4 rounded-2xl border border-border bg-background/50 space-y-4 shadow-xs">
+                      <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-bold text-xs">
                         <Mail className="h-4 w-4" />
                         Canal de E-mail ({selectedUser.email})
                       </div>
@@ -464,10 +521,10 @@ export const MatrizSmartAvancadoModal: React.FC<MatrizSmartAvancadoModalProps> =
                       <div className="space-y-3 pt-2">
                         <div className="flex items-center justify-between">
                           <div className="space-y-0.5">
-                            <Label className="text-xs font-medium text-foreground">
+                            <Label className="text-xs font-semibold text-slate-800 dark:text-foreground">
                               Alertas de Apontamentos por E-mail
                             </Label>
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className="text-[10px] text-slate-500 dark:text-muted-foreground font-medium">
                               Receber e-mail informativo a cada lote apontado
                             </p>
                           </div>
@@ -485,10 +542,10 @@ export const MatrizSmartAvancadoModal: React.FC<MatrizSmartAvancadoModalProps> =
 
                         <div className="flex items-center justify-between">
                           <div className="space-y-0.5">
-                            <Label className="text-xs font-medium text-foreground">
+                            <Label className="text-xs font-semibold text-slate-800 dark:text-foreground">
                               Relatórios e Métricas por E-mail
                             </Label>
-                            <p className="text-[10px] text-muted-foreground">
+                            <p className="text-[10px] text-slate-500 dark:text-muted-foreground font-medium">
                               Receber resumos periódicos e PDFs automáticos
                             </p>
                           </div>
@@ -525,12 +582,22 @@ export const MatrizSmartAvancadoModal: React.FC<MatrizSmartAvancadoModalProps> =
             variant="outline"
             size="sm"
             onClick={onClose}
-            className="text-xs h-8"
+            className="text-xs h-8 font-medium"
           >
             Fechar
           </Button>
         </div>
       </DialogContent>
+
+      {/* MODAL PARA SALVAR NOVO TEMPLATE PERSONALIZADO */}
+      {selectedUser && (
+        <CriarSmartTemplateModal
+          isOpen={modalCriarTemplateOpen}
+          onClose={() => setModalCriarTemplateOpen(false)}
+          currentPermissions={selectedUser.permissions}
+          onSalvarTemplate={criarNovoTemplate}
+        />
+      )}
     </Dialog>
   );
 };
