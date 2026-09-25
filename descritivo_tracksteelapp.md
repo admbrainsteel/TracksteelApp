@@ -697,7 +697,8 @@ R: Sim, Supabase fornece PostgREST automático. Pode integrar com qualquer siste
 
 ## 30. Versões e atualizações deste KB
 
-- **v1.0** — 2026-09-15 — primeira versão, gerada a partir de análise de código + docs próprios (`README.md`, `PLANO_MODO_SMART.md`, `migracao_vps_plano.md`)
+- **v1.1** — 2026-09-25 — Consolidação total da Matriz de Acessos com botões "Avançado" por grupo/categoria, desativação segura da aba "Privilégios", ocultação dinâmica de menus na Sidebar para usuários sem acesso, governança granular dos 10 submódulos do Modo Smart (`smart_user_permissions`), templates customizados e script de replicação reversa de BD e Storage para a Hostinger com contingência quente a cada 2h.
+- **v1.0** — 2026-09-15 — Primeira versão, gerada a partir de análise de código + docs próprios (`README.md`, `PLANO_MODO_SMART.md`, `migracao_vps_plano.md`).
 
 ---
 
