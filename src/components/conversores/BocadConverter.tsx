@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import * as XLSX from 'xlsx';
+import { usePecas } from '@/hooks/usePecas';
 
 export interface BocadConvertedPiece {
   of: string;
@@ -39,6 +40,7 @@ export interface BocadConvertedPiece {
   perfilPrincipal: string;
   comprimentoRef: number | string;
   qtdComponentesFilhos: number;
+  components?: RawBocadComponent[];
 }
 
 interface RawBocadComponent {
@@ -66,8 +68,10 @@ interface RawBocadAssembly {
 }
 
 export const BocadConverter: React.FC = () => {
+  const { importPecas } = usePecas();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isDirectImporting, setIsDirectImporting] = useState(false);
   const [tratamentoGlobal, setTratamentoGlobal] = useState<'pintura' | 'galvanizacao'>('pintura');
   const [extractedPieces, setExtractedPieces] = useState<BocadConvertedPiece[]>([]);
   const [headerOf, setHeaderOf] = useState<string>('');
@@ -410,7 +414,8 @@ export const BocadConverter: React.FC = () => {
           material: normalizedMat,
           perfilPrincipal: perfilPrincipal,
           comprimentoRef: compRef,
-          qtdComponentesFilhos: whiteRowsCount
+          qtdComponentesFilhos: whiteRowsCount,
+          components: asm.components
         };
       });
 
@@ -512,6 +517,66 @@ export const BocadConverter: React.FC = () => {
     } catch (err: unknown) {
       console.error('Erro ao exportar planilha:', err);
       toast.error('Erro ao gerar o arquivo Excel para download.');
+    }
+  };
+
+  const handleDirectImport = async () => {
+    if (extractedPieces.length === 0) return;
+    setIsDirectImporting(true);
+    try {
+      const importacaoRows: any[] = [];
+      extractedPieces.forEach((item) => {
+        if (item.compostoPorComponentes === 'SIM' && item.components && item.components.length > 0) {
+          item.components.forEach((comp) => {
+            importacaoRows.push({
+              of_number: item.of,
+              etapa_fase: item.fase,
+              marca: item.marca,
+              descricao: item.descricao,
+              quantidade: Number(item.quantidade),
+              peso_unitario: item.pesoUnitario || 0,
+              peso_total: item.pesoTotal || 0,
+              tratamento_superficial: item.tratamentoSuperficial,
+              material: item.material,
+              perfil_principal: item.perfilPrincipal,
+              tem_componentes: true,
+              marca_componente: comp.marca || '',
+              descricao_componente: comp.perfil || item.descricao,
+              perfil_componente: comp.perfil || item.descricao,
+              peso_unitario_componente: comp.pesoUnit || 0,
+              quantidade_por_peca: Number(comp.quant) || 1
+            });
+          });
+        } else {
+          importacaoRows.push({
+            of_number: item.of,
+            etapa_fase: item.fase,
+            marca: item.marca,
+            descricao: item.descricao,
+            quantidade: Number(item.quantidade),
+            peso_unitario: item.pesoUnitario || 0,
+            peso_total: item.pesoTotal || 0,
+            tratamento_superficial: item.tratamentoSuperficial,
+            material: item.material,
+            perfil_principal: item.perfilPrincipal,
+            tem_componentes: false,
+            marca_componente: '',
+            descricao_componente: '',
+            perfil_componente: '',
+            peso_unitario_componente: 0,
+            quantidade_por_peca: 0
+          });
+        }
+      });
+
+      await importPecas(importacaoRows);
+      toast.success(`${extractedPieces.length} peças foram importadas com sucesso!`);
+      addLog(`✅ Importação concluída: ${extractedPieces.length} peças gravadas no banco.`);
+    } catch (err: any) {
+      console.error('Erro na importação direta:', err);
+      toast.error(`Falha ao importar: ${err?.message || 'Erro no banco'}`);
+    } finally {
+      setIsDirectImporting(false);
     }
   };
 
@@ -689,10 +754,29 @@ export const BocadConverter: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Button
                   onClick={exportToOfficialExcel}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs px-4 h-9 shadow-lg shadow-emerald-950/40"
+                  variant="outline"
+                  className="border-emerald-600/60 text-emerald-400 hover:bg-emerald-600/10 font-semibold text-xs px-3.5 h-9"
                 >
                   <Download className="w-4 h-4 mr-1.5" />
                   Baixar Planilha Padrão (.xlsx)
+                </Button>
+
+                <Button
+                  onClick={handleDirectImport}
+                  disabled={isDirectImporting}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs px-4 h-9 shadow-lg shadow-indigo-950/40"
+                >
+                  {isDirectImporting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-1.5 animate-spin" />
+                      Gravando no Banco...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4 mr-1.5" />
+                      cadastrar peças na OF
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
