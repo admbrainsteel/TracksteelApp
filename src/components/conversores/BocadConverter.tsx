@@ -321,11 +321,10 @@ export const BocadConverter: React.FC = () => {
         }
 
         // Critério de identificação da Peça Principal (Linha com Fundo Cinza):
-        // No formato Bocad:
-        // 1. Linha principal tem 'Marca' preenchida, 'Quant' > 0, 'Perfil' genérico (ex: VIGA)
-        // 2. E o campo 'Qualid' é VAZIO na linha principal (o aço fica nas linhas de componentes)
-        // 3. O Peso Total é a somatória do lote da peça
-        const isMainAssemblyRow = !qualidVal && marcaVal && quantVal > 0 && perfilVal;
+        // Pela regra do Bocad: Marcas < 1000 são as peças principais (linhas cinzas)
+        // Marcas >= 1000 são componentes (linhas brancas) que ficam abaixo da peça principal
+        const marcaNum = parseInt(marcaVal, 10);
+        const isMainAssemblyRow = !isNaN(marcaNum) && marcaNum < 1000 && marcaVal && quantVal > 0;
 
         if (isMainAssemblyRow) {
           // Se já havia um subconjunto sendo processado, salva-o
